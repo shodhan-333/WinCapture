@@ -1,5 +1,41 @@
 @WinCapture_HostAddress = http://localhost:5124
 
+//@WinCapture_HostAddress = https://localhost:7106
+
+### Register a WinWire user
+POST {{WinCapture_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "user@winwire.com",
+  "password": "Password123!"
+}
+
+### Login
+POST {{WinCapture_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@winwire.com",
+  "password": "Password123!"
+}
+
+### Get current user's gallery
+GET {{WinCapture_HostAddress}}/api/files
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Get file metadata
+GET {{WinCapture_HostAddress}}/api/files/1
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Download file
+GET {{WinCapture_HostAddress}}/api/files/1/download
+Authorization: Bearer YOUR_JWT_TOKEN
+
+### Delete file
+DELETE {{WinCapture_HostAddress}}/api/files/1
+Authorization: Bearer YOUR_JWT_TOKEN
 GET {{WinCapture_HostAddress}}/weatherforecast/
 Accept: application/json
 

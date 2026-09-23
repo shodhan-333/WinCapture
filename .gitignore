@@ -20,6 +20,9 @@ appsettings.Development.json
 *.pfx
 *.p12
 
+# Runtime storage / uploaded files
+backend/Storage/
+
 # Logs
 logs/
 *.log
@@ -27,3 +30,4 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+

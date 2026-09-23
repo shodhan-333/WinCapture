@@ -7,13 +7,18 @@ using WinCapture.Validators;
 
 namespace WinCapture.Services;
 
-public sealed class FileService(FileValidator validator,IStorageService storage,IFileRepository files) : IFileService
+public sealed class FileService(
+    FileValidator validator,
+    IStorageService storage,
+    IFileRepository files,
+    ILogger<FileService> logger) : IFileService
 {
     public async Task<FileResponse> UploadAsync(IFormFile file, int userId)
     {
         await validator.ValidateAsync(file);
 
         var storedFileName = await storage.SaveAsync(file);
+
         var metadata = new FileMetadata
         {
             OriginalFileName = Path.GetFileName(file.FileName),
@@ -27,16 +32,21 @@ public sealed class FileService(FileValidator validator,IStorageService storage,
         try
         {
             await files.AddAsync(metadata);
-            return ToResponse(metadata);
         }
         catch
         {
             await TryDeleteStoredFileAsync(storedFileName);
             throw;
         }
+
+        return ToResponse(metadata);
     }
 
-    public async Task<FileResponse> ReplaceAsync(long fileId, IFormFile file, int userId, UserRole userRole)
+    public async Task<FileResponse> ReplaceAsync(
+        long fileId,
+        IFormFile file,
+        int userId,
+        UserRole userRole)
     {
         await validator.ValidateAsync(file);
 
@@ -61,33 +71,59 @@ public sealed class FileService(FileValidator validator,IStorageService storage,
         }
 
         await TryDeleteStoredFileAsync(oldStoredFileName);
+
         return ToResponse(existing);
     }
 
     public async Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId) =>
-        (await files.GetByUserIdAsync(userId)).Select(ToResponse).ToList();
+        (await files.GetByUserIdAsync(userId))
+            .Select(ToResponse)
+            .ToList();
 
-    public async Task<FileResponse> GetAsync(long fileId, int userId, UserRole userRole) =>
+    public async Task<FileResponse> GetAsync(
+        long fileId,
+        int userId,
+        UserRole userRole) =>
         ToResponse(await GetAuthorizedFileAsync(fileId, userId, userRole));
 
-    public async Task<FileDownloadResult> DownloadAsync(long fileId, int userId, UserRole userRole)
+    public async Task<FileDownloadResult> DownloadAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
     {
         var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
         var content = await storage.GetAsync(file.StoredFileName);
-        return new FileDownloadResult(content, file.ContentType, file.OriginalFileName);
+
+        return new FileDownloadResult(
+            content,
+            file.ContentType,
+            file.OriginalFileName);
     }
 
-    public async Task DeleteAsync(long fileId, int userId, UserRole userRole)
+    public async Task DeleteAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
     {
         var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
+
         await files.DeleteAsync(file);
-        await storage.DeleteAsync(file.StoredFileName);
+
+        // SQL is treated as the source of truth for the gallery.
+        // If Blob deletion fails, the database record is already gone.
+        // The cleanup error is logged without changing the successful response.
+        await TryDeleteStoredFileAsync(file.StoredFileName);
     }
 
     public async Task<IReadOnlyList<FileResponse>> GetAllAsync() =>
-        (await files.GetAllAsync()).Select(ToResponse).ToList();
+        (await files.GetAllAsync())
+            .Select(ToResponse)
+            .ToList();
 
-    private async Task<FileMetadata> GetAuthorizedFileAsync(long fileId, int userId, UserRole userRole)
+    private async Task<FileMetadata> GetAuthorizedFileAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
     {
         var file = await files.GetByIdAsync(fileId)
             ?? throw new NotFoundException("The requested file was not found.");
@@ -102,8 +138,17 @@ public sealed class FileService(FileValidator validator,IStorageService storage,
 
     private async Task TryDeleteStoredFileAsync(string storedFileName)
     {
-        await storage.DeleteAsync(storedFileName);
-        
+        try
+        {
+            await storage.DeleteAsync(storedFileName);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Failed to clean up stored file {StoredFileName}.",
+                storedFileName);
+        }
     }
 
     private static FileResponse ToResponse(FileMetadata file) =>
@@ -113,5 +158,6 @@ public sealed class FileService(FileValidator validator,IStorageService storage,
             file.ContentType,
             file.FileSize,
             file.UploadedAt,
-            $"/api/files/{file.Id}");
+            $"/api/files/{file.Id}",
+            $"/api/files/{file.Id}/download");
 }

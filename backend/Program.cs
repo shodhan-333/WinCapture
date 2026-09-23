@@ -13,33 +13,62 @@ using WinCapture.Services;
 using WinCapture.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
+var configuration = builder.Configuration;
 
 builder.Services.AddControllers();
-var configuration = builder.Configuration;
 
 builder.Services.AddDbContext<WinCaptureDbContext>(options =>
     options.UseSqlServer(
         configuration.GetConnectionString("WinCaptureDatabase")
-        ?? throw new InvalidOperationException("WinCaptureDatabase connection string is missing.")));
+        ?? throw new InvalidOperationException(
+            "WinCaptureDatabase connection string is missing.")));
 
 var jwtIssuer = configuration["Jwt:Issuer"]
     ?? throw new InvalidOperationException("Jwt:Issuer is missing.");
+
 var jwtAudience = configuration["Jwt:Audience"]
     ?? throw new InvalidOperationException("Jwt:Audience is missing.");
+
 var jwtSecret = configuration["Jwt:SecretKey"]
-    ?? throw new InvalidOperationException("Jwt:SecretKey is missing.");
+    ?? throw new InvalidOperationException(
+        "Jwt:SecretKey is missing. Store it in User Secrets or an environment variable.");
+
 var jwtExpirationMinutes = configuration.GetValue<int?>("Jwt:ExpirationMinutes")
     ?? throw new InvalidOperationException("Jwt:ExpirationMinutes is missing.");
 
 if (jwtExpirationMinutes <= 0)
 {
-    throw new InvalidOperationException("Jwt:ExpirationMinutes must be greater than zero.");
+    throw new InvalidOperationException(
+        "Jwt:ExpirationMinutes must be greater than zero.");
 }
 
 if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
 {
-    throw new InvalidOperationException("Jwt:SecretKey must contain at least 256 bits.");
+    throw new InvalidOperationException(
+        "Jwt:SecretKey must contain at least 256 bits.");
 }
+
+var allowedOrigins = configuration
+    .GetSection("Cors:AllowedOrigins")
+    .GetChildren()
+    .Select(section => section.Value)
+    .Where(value => !string.IsNullOrWhiteSpace(value))
+    .Select(value => value!)
+    .ToArray();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("WinCaptureClient", policy =>
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy
+                .WithOrigins(allowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+    });
+});
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -55,7 +84,8 @@ builder.Services
             ValidateLifetime = true,
             RequireExpirationTime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSecret)),
             ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
             ClockSkew = TimeSpan.FromMinutes(1),
             NameClaimType = "name",
@@ -63,22 +93,29 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, _, _) =>
     {
         document.Components ??= new OpenApiComponents();
-        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes ??=
+            new Dictionary<string, IOpenApiSecurityScheme>();
 
-        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
-        {
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "JWT",
-            Description = "Enter the JWT bearer token."
-        };
+        document.Components.SecuritySchemes["Bearer"] =
+            new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                Description = "Enter the JWT bearer token."
+            };
 
         return Task.CompletedTask;
     });
@@ -94,7 +131,9 @@ builder.Services.AddOpenApi(options =>
             operation.Security ??= [];
             operation.Security.Add(new OpenApiSecurityRequirement
             {
-                [new OpenApiSecuritySchemeReference("Bearer", context.Document)] = []
+                [new OpenApiSecuritySchemeReference(
+                    "Bearer",
+                    context.Document)] = []
             });
         }
 
@@ -104,6 +143,7 @@ builder.Services.AddOpenApi(options =>
 
 var storageAccountName = configuration["Storage:AccountName"]
     ?? throw new InvalidOperationException("Storage:AccountName is missing.");
+
 var storageContainerName = configuration["Storage:ContainerName"]
     ?? throw new InvalidOperationException("Storage:ContainerName is missing.");
 
@@ -126,7 +166,7 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "WinCapture API v1");
@@ -134,6 +174,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("WinCaptureClient");
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();

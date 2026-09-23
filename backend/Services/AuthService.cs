@@ -1,3 +1,5 @@
+using System.Text;
+using Microsoft.EntityFrameworkCore;
 using WinCapture.DTOs.Auth;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -5,8 +7,14 @@ using WinCapture.Repositories;
 
 namespace WinCapture.Services;
 
-public sealed class AuthService(IUserRepository userRepository, TokenService tokenService) : IAuthService
+public sealed class AuthService(
+    IUserRepository userRepository,
+    TokenService tokenService) : IAuthService
 {
+    private const string AllowedEmailDomain = "@winwire.com";
+    private const int MinimumPasswordLength = 8;
+    private const int MaximumPasswordBytes = 72;
+
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -40,24 +48,30 @@ public sealed class AuthService(IUserRepository userRepository, TokenService tok
             throw new BadRequestException("A valid email address is required.");
         }
 
+        if (!email.EndsWith(AllowedEmailDomain, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BadRequestException("Only WinWire email addresses are allowed.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Password))
         {
             throw new BadRequestException("Password is required.");
         }
 
-        if (request.Password.Length < 8)
+        if (request.Password.Length < MinimumPasswordLength)
         {
-            throw new BadRequestException("Password must be at least 8 characters.");
+            throw new BadRequestException(
+                $"Password must be at least {MinimumPasswordLength} characters.");
         }
 
-        if (request.Password.Length > 128)
+        if (Encoding.UTF8.GetByteCount(request.Password) > MaximumPasswordBytes)
         {
-            throw new BadRequestException("Password cannot exceed 128 characters.");
+            throw new BadRequestException("Password is too long.");
         }
 
         if (await userRepository.ExistsByEmailAsync(email))
         {
-            throw new BadRequestException("A user with this email already exists.");
+            throw new ConflictException("A user with this email already exists.");
         }
 
         var user = new User
@@ -69,22 +83,35 @@ public sealed class AuthService(IUserRepository userRepository, TokenService tok
             CreatedAt = DateTime.UtcNow
         };
 
-        await userRepository.AddAsync(user);
+        try
+        {
+            await userRepository.AddAsync(user);
+        }
+        catch (DbUpdateException exception) when (IsDuplicateEmailException(exception))
+        {
+            throw new ConflictException("A user with this email already exists.");
+        }
 
-        return new RegisterResponse(user.Id, user.Name, user.Email, user.Role.ToString());
+        return new RegisterResponse(
+            user.Id,
+            user.Name,
+            user.Email,
+            user.Role.ToString());
     }
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        if (string.IsNullOrWhiteSpace(request.Email) ||
+            string.IsNullOrWhiteSpace(request.Password))
         {
             return null;
         }
 
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await userRepository.GetByEmailAsync(email);
+
         if (user is null)
         {
             return null;
@@ -95,7 +122,12 @@ public sealed class AuthService(IUserRepository userRepository, TokenService tok
             return null;
         }
 
-        return new LoginResponse(tokenService.CreateToken(user),user.Id,user.Name,user.Email,user.Role.ToString());
+        return new LoginResponse(
+            tokenService.CreateToken(user),
+            user.Id,
+            user.Name,
+            user.Email,
+            user.Role.ToString());
     }
 
     private static bool IsValidEmail(string email)
@@ -103,11 +135,20 @@ public sealed class AuthService(IUserRepository userRepository, TokenService tok
         try
         {
             var address = new System.Net.Mail.MailAddress(email);
-            return string.Equals(address.Address, email, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(
+                address.Address,
+                email,
+                StringComparison.OrdinalIgnoreCase);
         }
         catch (FormatException)
         {
             return false;
         }
+    }
+
+    private static bool IsDuplicateEmailException(DbUpdateException exception)
+    {
+        return exception.InnerException is Microsoft.Data.SqlClient.SqlException sqlException &&
+               (sqlException.Number == 2601 || sqlException.Number == 2627);
     }
 }

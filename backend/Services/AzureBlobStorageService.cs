@@ -11,22 +11,30 @@ public sealed class AzureBlobStorageService(
 {
     public async Task<string> SaveAsync(IFormFile file)
     {
-        ArgumentNullException.ThrowIfNull(file);
+        if (file is null)
+        {
+            throw new StorageException(
+                "The file could not be stored in Azure Blob Storage.",
+                new ArgumentNullException(nameof(file)));
+        }
 
-        var storedFileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
+        var extension = Path.GetExtension(file.FileName);
+        var storedFileName = $"{Guid.NewGuid():N}{extension}";
         var blobClient = containerClient.GetBlobClient(storedFileName);
 
         try
         {
             await using var stream = file.OpenReadStream();
 
-            await blobClient.UploadAsync(stream, new BlobUploadOptions
-            {
-                HttpHeaders = new BlobHttpHeaders
+            await blobClient.UploadAsync(
+                stream,
+                new BlobUploadOptions
                 {
-                    ContentType = file.ContentType
-                }
-            });
+                    HttpHeaders = new BlobHttpHeaders
+                    {
+                        ContentType = file.ContentType
+                    }
+                });
 
             return storedFileName;
         }
@@ -77,13 +85,10 @@ public sealed class AzureBlobStorageService(
         {
             logger.LogError(
                 exception,
-                "File not found in Azure Blob Storage. StoredFileName: {StoredFileName}",
+                "Metadata points to a missing Blob. StoredFileName: {StoredFileName}",
                 storedFileName);
 
-            throw new FileNotFoundException(
-                "The requested file was not found.",
-                storedFileName,
-                exception);
+            throw new NotFoundException("The requested file was not found in storage.");
         }
         catch (RequestFailedException exception)
         {

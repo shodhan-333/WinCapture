@@ -1,10 +1,10 @@
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WinCapture.DTOs.Auth;
 using WinCapture.Services;
 
 namespace WinCapture.Controllers;
-
 [ApiController]
 [Route("api/auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
@@ -13,10 +13,11 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("register")]
     [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest request)
     {
         var response = await authService.RegisterAsync(request);
-        return Created($"/api/auth/users/{response.UserId}", response);
+        return StatusCode(StatusCodes.Status201Created, response);
     }
 
     [AllowAnonymous]
@@ -32,6 +33,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         {
             return Unauthorized();
         }
+
         return Ok(response);
     }
 }

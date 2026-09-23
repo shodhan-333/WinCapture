@@ -1,3 +1,4 @@
+
 # WinCapture API
 
 Base path:
@@ -5,6 +6,32 @@ Base path:
 `/api`
 
 ## Authentication
+
+### POST /api/auth/register
+
+Authentication:
+
+Anonymous
+
+Only `@winwire.com` email addresses are allowed.
+
+Request:
+
+```json
+{
+  "name": "User",
+  "email": "user@winwire.com",
+  "password": "Password123!"
+}
+```
+
+Success:
+
+`201 Created`
+
+Duplicate email:
+
+`409 Conflict`
 
 ### POST /api/auth/login
 
@@ -16,8 +43,8 @@ Request:
 
 ```json
 {
-    "email": "user@example.com",
-    "password": "password"
+  "email": "user@winwire.com",
+  "password": "Password123!"
 }
 ```
 
@@ -25,15 +52,19 @@ Success:
 
 `200 OK`
 
+Invalid credentials:
+
+`401 Unauthorized`
+
 Response:
 
 ```json
 {
-    "token": "jwt-token",
-    "userId": 1,
-    "name": "User",
-    "email": "user@example.com",
-    "role": "User"
+  "token": "jwt-token",
+  "userId": 1,
+  "name": "User",
+  "email": "user@winwire.com",
+  "role": "User"
 }
 ```
 
@@ -43,11 +74,29 @@ Response:
 
 Authentication:
 
-USER / ADMIN
+USER only
 
 Content-Type:
 
 `multipart/form-data`
+
+Field name:
+
+`file`
+
+Maximum file size:
+
+`10 MB`
+
+Supported file types:
+
+- JPG
+- JPEG
+- PNG
+- GIF
+- PDF
+
+The API checks both the declared content type and the actual file signature.
 
 Success:
 
@@ -59,6 +108,8 @@ Authentication:
 
 USER / ADMIN
 
+Returns the authenticated user's uploaded files.
+
 Success:
 
 `200 OK`
@@ -68,6 +119,9 @@ Success:
 Authentication:
 
 USER / ADMIN
+
+A normal user can access only their own file.
+An Admin can access any file.
 
 Success:
 
@@ -79,6 +133,9 @@ Authentication:
 
 USER / ADMIN
 
+A normal user can replace only their own file.
+An Admin can replace any file.
+
 Content-Type:
 
 `multipart/form-data`
@@ -88,8 +145,13 @@ Success:
 `200 OK`
 
 ### GET /api/files/{id}/download
+
 Authentication:
+
 USER / ADMIN
+
+A normal user can download only their own file.
+An Admin can download any file.
 
 Success:
 
@@ -98,7 +160,11 @@ Success:
 ### DELETE /api/files/{id}
 
 Authentication:
+
 USER / ADMIN
+
+A normal user can delete only their own file.
+An Admin can delete any file.
 
 Success:
 
@@ -107,41 +173,16 @@ Success:
 ### GET /api/admin/files
 
 Authentication:
+
 ADMIN
+
+Returns all files.
 
 Success:
 
 `200 OK`
 
 ## API Status Codes
-
-The API may use:
-
-- `200 OK`
-- `201 Created`
-- `204 No Content`
-- `400 Bad Request`
-- `401 Unauthorized`
-- `403 Forbidden`
-- `404 Not Found`
-- `413 Payload Too Large`
-- `500 Internal Server Error`
-
-## API Endpoint Catalog
-
-| Method | Endpoint | Authentication | Purpose |
-|---|---|---|---|
-| POST | `/api/auth/login` | Anonymous | Login and obtain JWT |
-| POST | `/api/files` | USER / ADMIN | Upload file |
-| GET | `/api/files` | USER / ADMIN | Get user's files |
-| GET | `/api/files/{id}` | USER / ADMIN | Get file representation |
-| PUT | `/api/files/{id}` | USER / ADMIN | Replace an existing file |
-| GET | `/api/files/{id}/download` | USER / ADMIN | Open/download file |
-| DELETE | `/api/files/{id}` | USER / ADMIN | Delete file |
-| GET | `/api/admin/files` | ADMIN | Get all files |
-
-
-## HTTP Status Codes
 
 | Status Code | Meaning |
 |---|---|
@@ -152,5 +193,26 @@ The API may use:
 | 401 Unauthorized | Authentication is required or invalid |
 | 403 Forbidden | User is authenticated but not permitted |
 | 404 Not Found | Requested resource does not exist |
+| 409 Conflict | Resource already exists |
 | 413 Payload Too Large | Uploaded file exceeds the allowed size |
-| 500 Internal Server Error | Unexpected server error |
+| 500 Internal Server Error | Unexpected server or storage error |
+
+## API Endpoint Catalog
+
+| Method | Endpoint | Authentication | Purpose |
+|---|---|---|---|
+| POST | `/api/auth/register` | Anonymous | Register a WinWire user |
+| POST | `/api/auth/login` | Anonymous | Login and obtain JWT |
+| POST | `/api/files` | USER | Upload file |
+| GET | `/api/files` | USER / ADMIN | Get user's files |
+| GET | `/api/files/{id}` | USER / ADMIN | Get file metadata |
+| PUT | `/api/files/{id}` | USER / ADMIN | Replace an existing file |
+| GET | `/api/files/{id}/download` | USER / ADMIN | Download file |
+| DELETE | `/api/files/{id}` | USER / ADMIN | Delete file |
+| GET | `/api/admin/files` | ADMIN | Get all files |
+
+## File response URLs
+
+`url` points to the file metadata endpoint.
+
+`downloadUrl` points to the authenticated file download endpoint.
