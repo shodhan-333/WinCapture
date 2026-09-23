@@ -1,0 +1,6 @@
+@WinCapture_HostAddress = http://localhost:5124
+
+GET {{WinCapture_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

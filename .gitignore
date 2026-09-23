@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# User-specific files
+*.userosscache
+*.sln.docstates
+
+# Environment / secrets
+.env
+appsettings.Local.json
+appsettings.Development.json
+
+# Azure / credentials
+*.pfx
+*.p12
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
