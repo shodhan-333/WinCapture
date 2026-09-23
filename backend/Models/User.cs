@@ -15,4 +15,8 @@ public sealed class User
     public DateTime CreatedAt { get; set; }
 
     public ICollection<FileMetadata> Files { get; set; } = [];
+
+    public ICollection<Album> Albums { get; set; } = [];
+
+    public ICollection<AlbumAccess> AlbumAccess { get; set; } = [];
 }
