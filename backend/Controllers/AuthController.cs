@@ -1,39 +1,58 @@
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WinCapture.DTOs.Auth;
-using WinCapture.Services;
+using WinCapture.Exceptions;
 
 namespace WinCapture.Controllers;
+
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IAuthService authService) : ControllerBase
+public sealed class AuthController : ControllerBase
 {
-    [AllowAnonymous]
-    [HttpPost("register")]
-    [ProducesResponseType<RegisterResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<RegisterResponse>> Register(RegisterRequest request)
-    {
-        var response = await authService.RegisterAsync(request);
-        return StatusCode(StatusCodes.Status201Created, response);
-    }
-
-    [AllowAnonymous]
-    [HttpPost("login")]
-    [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<LoginResponse>> Login(LoginRequest request)
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public ActionResult<CurrentUserResponse> Me()
     {
-        var response = await authService.LoginAsync(request);
+        var userId =
+            User.FindFirst("wincapture_user_id")?.Value;
 
-        if (response is null)
+        if (!int.TryParse(
+                userId,
+                out var parsedUserId) ||
+            parsedUserId <= 0)
         {
-            return Unauthorized();
+            throw new UnauthorizedException(
+                "The authenticated WinCapture user ID is missing or invalid.");
         }
 
-        return Ok(response);
+        var name =
+            User.FindFirst("name")?.Value ??
+            string.Empty;
+
+        var email =
+            User.FindFirst("email")?.Value ??
+            User.FindFirst("preferred_username")?.Value ??
+            string.Empty;
+
+        var role =
+            User.FindFirst("role")?.Value;
+
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            throw new ForbiddenException(
+                "The Microsoft account is authenticated but is not assigned to a WinCapture role.");
+        }
+
+        return Ok(
+            new CurrentUserResponse(
+                parsedUserId,
+                name,
+                email,
+                role,
+                User.FindFirst("authentication_type")?.Value
+                    ?? "Microsoft Entra ID"));
     }
 }
