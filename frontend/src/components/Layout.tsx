@@ -1,42 +1,78 @@
-import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
-import Header from "./Header";
-import Sidebar from "./Sidebar";
+import { useAuth } from "../context/AuthContext";
+
+const navigation = [
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/albums", label: "Albums" },
+  { to: "/files", label: "Files" },
+];
 
 export default function Layout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0b1329] text-slate-100">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-cyan-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950 focus:shadow-lg"
-      >
-        Skip to main content
-      </a>
+    <div className="app-shell">
+      <div className="app-container py-0">
+        <header className="app-header">
+          <div className="app-header-inner">
+            <div className="app-brand flex items-center">
+              <img
+                src="/winwire-logo.png"
+                alt="WinWire logo"
+                className="h-12 w-20 object-contain drop-shadow-[0_2px_8px_rgba(14,165,233,0.2)]"
+              />
+            </div>
 
-      <Header
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={() =>
-          setIsSidebarOpen((previous) => !previous)
-        }
-      />
+            <nav className="app-nav">
+              {navigation.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `app-nav-link ${isActive ? "is-active" : ""}`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-        />
+              {user?.role === "Admin" && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `app-nav-link ${isActive ? "is-active" : ""}`
+                  }
+                >
+                  Admin
+                </NavLink>
+              )}
+            </nav>
 
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6"
-        >
-          <div className="mx-auto max-w-7xl">
-            <Outlet />
+            <div className="app-user-actions">
+              <NavLink
+                to="/profile"
+                className="profile-link flex items-center gap-2 px-3 py-2 text-sm font-medium transition"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-500 text-xs font-semibold text-white">
+                  {user?.name?.charAt(0).toUpperCase() ?? "U"}
+                </span>
+                {user?.name ?? "Profile"}
+              </NavLink>
+
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="quiet-button px-3 py-2 text-sm font-medium transition"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
+        </header>
+
+        <main className="pb-8">
+          <Outlet />
         </main>
       </div>
     </div>

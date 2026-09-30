@@ -20,41 +20,14 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 
 function showStartupError(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
 
   root.render(
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        background: "#020617",
-        color: "#e2e8f0",
-        padding: "24px",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <section
-        style={{
-          width: "100%",
-          maxWidth: "680px",
-          border: "1px solid #7f1d1d",
-          borderRadius: "16px",
-          padding: "24px",
-          background: "#0f172a",
-        }}
-      >
-        <h1>WinCapture could not start</h1>
-
-        <p
-          style={{
-            color: "#fca5a5",
-            wordBreak: "break-word",
-          }}
-        >
-          {message}
-        </p>
+    <main className="grid min-h-screen place-items-center bg-[#020617] px-6 text-slate-100">
+      <section className="w-full max-w-xl rounded-3xl border border-red-500/40 bg-slate-900 p-8 shadow-2xl shadow-red-950/20">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-red-300">WinCapture</p>
+        <h1 className="mt-3 text-2xl font-semibold">Could not start the app</h1>
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm text-red-200">{message}</p>
       </section>
     </main>,
   );
@@ -65,13 +38,10 @@ async function startApp() {
     const missingEnvironment = validateEnvironment();
 
     if (missingEnvironment.length > 0) {
-      throw new Error(
-        `Missing environment variables: ${missingEnvironment.join(", ")}`,
-      );
+      throw new Error(`Missing environment variables: ${missingEnvironment.join(", ")}`);
     }
 
     const msalInstance = new PublicClientApplication(msalConfig);
-
     await msalInstance.initialize();
 
     root.render(
