@@ -1,44 +1,27 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 
-import {
-  PublicClientApplication,
-} from "@azure/msal-browser";
-
-import {
-  MsalProvider,
-} from "@azure/msal-react";
+import { PublicClientApplication } from "@azure/msal-browser";
+import { MsalProvider } from "@azure/msal-react";
 
 import App from "./App";
-
-import {
-  AuthProvider,
-} from "./context/AuthContext";
-
-import {
-  msalConfig,
-  validateEnvironment,
-} from "./authConfig";
+import { AuthProvider } from "./context/AuthContext";
+import { msalConfig, validateEnvironment } from "./authConfig";
 
 import "./index.css";
 
-const rootElement =
-  document.getElementById("root");
+const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error(
-    "Could not find the root element.",
-  );
+  throw new Error("Could not find the root element.");
 }
 
-const root =
-  ReactDOM.createRoot(rootElement);
+const root = ReactDOM.createRoot(rootElement);
 
 function showStartupError(error: unknown) {
   const message =
-    error instanceof Error
-      ? error.message
-      : String(error);
+    error instanceof Error ? error.message : String(error);
 
   root.render(
     <main
@@ -79,33 +62,27 @@ function showStartupError(error: unknown) {
 
 async function startApp() {
   try {
-    const missingEnvironment =
-      validateEnvironment();
+    const missingEnvironment = validateEnvironment();
 
     if (missingEnvironment.length > 0) {
       throw new Error(
-        `Missing environment variables: ${missingEnvironment.join(
-          ", ",
-        )}`,
+        `Missing environment variables: ${missingEnvironment.join(", ")}`,
       );
     }
 
-    const msalInstance =
-      new PublicClientApplication(
-        msalConfig,
-      );
+    const msalInstance = new PublicClientApplication(msalConfig);
 
     await msalInstance.initialize();
 
     root.render(
       <React.StrictMode>
-        <MsalProvider
-          instance={msalInstance}
-        >
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </MsalProvider>
+        <BrowserRouter>
+          <MsalProvider instance={msalInstance}>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </MsalProvider>
+        </BrowserRouter>
       </React.StrictMode>,
     );
   } catch (error) {
