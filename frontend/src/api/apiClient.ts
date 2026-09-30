@@ -304,6 +304,19 @@ export async function downloadAlbumFile(
   triggerBrowserDownload(blob, fileName);
 }
 
+export async function getFilePreviewUrl(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+  albumId?: number,
+): Promise<string> {
+  const path = albumId
+    ? `/api/albums/${albumId}/files/${fileId}/download`
+    : `/api/files/${fileId}/download`;
+  const response = await callApi(instance, account, path);
+  return URL.createObjectURL(await response.blob());
+}
+
 export async function deleteAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,

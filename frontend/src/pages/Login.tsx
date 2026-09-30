@@ -10,23 +10,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Brand Card */}
         <section className="glass-panel rounded-2xl p-8 shadow-2xl">
-          {/* Logo & App Name */}
-          <div className="flex items-center gap-3.5">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 font-bold text-white shadow-lg shadow-cyan-500/20">
-              W
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold tracking-tight text-white">
-                  WinCapture
-                </span>
-                <span className="rounded-md border border-cyan-800/50 bg-cyan-950 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-cyan-300">
-                  ENTERPRISE
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">WinWire Media Platform</p>
-            </div>
-          </div>
+          <img src="/winwire-logo.png" alt="WinCapture" className="h-auto w-44" />
 
           {/* Heading & Description */}
           <div className="mt-6">

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useMsal } from "@azure/msal-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   getAlbum,
@@ -24,11 +25,6 @@ import ErrorMessage from "../components/ErrorMessage";
 import EmptyState from "../components/EmptyState";
 import ConfirmDialog from "../components/ConfirmDialog";
 
-interface AlbumDetailsProps {
-  albumId: number;
-  onBack: () => void;
-}
-
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -49,14 +45,20 @@ function formatDate(dateString: string): string {
   }
 }
 
-export default function AlbumDetails({ albumId, onBack }: AlbumDetailsProps) {
+export default function AlbumDetails() {
+  const { albumId: albumIdParam } = useParams();
+  const albumId = Number(albumIdParam);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { instance } = useMsal();
   const { account, user } = useAuth();
 
   const [album, setAlbum] = useState<AlbumResponse | null>(null);
   const [files, setFiles] = useState<FileResponse[]>([]);
   const [members, setMembers] = useState<AlbumMemberResponse[]>([]);
-  const [activeTab, setActiveTab] = useState<"photos" | "members">("photos");
+  const [activeTab, setActiveTab] = useState<"photos" | "members">(() =>
+    searchParams.get("tab") === "members" ? "members" : "photos",
+  );
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +95,11 @@ export default function AlbumDetails({ albumId, onBack }: AlbumDetailsProps) {
   const canManage = isOwner || isAdmin;
 
   const loadData = useCallback(async () => {
-    if (!account) return;
+    if (!account || !Number.isInteger(albumId) || albumId < 1) {
+      setError("Album not found.");
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -278,7 +284,7 @@ export default function AlbumDetails({ albumId, onBack }: AlbumDetailsProps) {
       <div className="space-y-4 py-8">
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => navigate("/albums")}
           className="inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300"
         >
           <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -301,7 +307,7 @@ export default function AlbumDetails({ albumId, onBack }: AlbumDetailsProps) {
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={onBack}
+          onClick={() => navigate("/albums")}
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-white"
         >
           <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -415,9 +421,11 @@ export default function AlbumDetails({ albumId, onBack }: AlbumDetailsProps) {
                     className="card-hover glass-panel flex flex-col justify-between overflow-hidden rounded-2xl"
                   >
                     {/* Media Thumbnail / Preview area */}
-                    <div
+                    <button
+                      type="button"
                       onClick={() => setPreviewFile(file)}
-                      className="group relative flex h-44 cursor-pointer items-center justify-center bg-slate-950/70 overflow-hidden"
+                      aria-label={`View details for ${file.originalFileName}`}
+                      className="group relative flex h-44 w-full items-center justify-center overflow-hidden bg-slate-950/70"
                     >
                       {isPdf ? (
                         <div className="flex flex-col items-center justify-center text-rose-400">
@@ -431,10 +439,10 @@ export default function AlbumDetails({ albumId, onBack }: AlbumDetailsProps) {
                           <svg className="size-12 transition group-hover:scale-105" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a2.25 2.25 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                           </svg>
-                          <span className="mt-2 text-xs text-slate-400 group-hover:text-cyan-300">Click to view details</span>
+                          <span className="mt-2 text-xs text-slate-400 group-hover:text-cyan-300">View file details</span>
                         </div>
                       )}
-                    </div>
+                    </button>
 
                     {/* Metadata Card Footer */}
                     <div className="p-4">

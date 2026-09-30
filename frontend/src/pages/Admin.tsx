@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useMsal } from "@azure/msal-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import {
   getAdminFiles,
   getAdminAlbums,
@@ -14,10 +16,6 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorMessage from "../components/ErrorMessage";
 import EmptyState from "../components/EmptyState";
 import ConfirmDialog from "../components/ConfirmDialog";
-
-interface AdminProps {
-  onSelectAlbum: (albumId: number) => void;
-}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -39,9 +37,10 @@ function formatDate(dateString: string): string {
   }
 }
 
-export default function Admin({ onSelectAlbum }: AdminProps) {
+export default function Admin() {
+  const navigate = useNavigate();
   const { instance } = useMsal();
-  const account = instance.getActiveAccount();
+  const { account } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"files" | "albums">("files");
 
@@ -345,7 +344,7 @@ export default function Admin({ onSelectAlbum }: AdminProps) {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() => onSelectAlbum(album.id)}
+                              onClick={() => navigate(`/albums/${album.id}`)}
                               className="rounded-lg p-1.5 text-cyan-400 hover:bg-slate-800 hover:text-cyan-300"
                               title="Open album"
                             >

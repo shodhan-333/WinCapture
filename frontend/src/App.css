@@ -1,22 +1,179 @@
-/* Enterprise WinCapture application layout & transitions */
-
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(71, 85, 105, 0.42);
 }
 
 .card-hover {
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .card-hover:hover {
-  transform: translateY(-2px);
-  border-color: rgba(56, 189, 248, 0.4);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  border-color: rgba(56, 189, 248, 0.48);
 }
 
 .modal-backdrop {
-  background: rgba(2, 6, 23, 0.8);
+  background: rgba(2, 6, 23, 0.84);
   backdrop-filter: blur(4px);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.workspace-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(100, 116, 139, 0.38);
+  border-radius: 0.75rem;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.82), rgba(15, 23, 42, 0.86));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.photo-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.25;
+  overflow: hidden;
+  border: 1px solid rgba(100, 116, 139, 0.45);
+  border-radius: 0.65rem;
+  background: #17243a;
+  text-align: left;
+}
+
+.photo-tile-image,
+.photo-tile-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 180ms ease;
+}
+
+.photo-tile-placeholder {
+  display: grid;
+  place-items: center;
+  color: #7dd3fc;
+  font-size: 2.5rem;
+  background: radial-gradient(circle at 25% 22%, rgba(14, 165, 233, 0.25), transparent 45%), #17243a;
+}
+
+.photo-tile:hover .photo-tile-image {
+  transform: scale(1.04);
+}
+
+.photo-tile-caption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  padding: 1.5rem 0.65rem 0.55rem;
+  background: linear-gradient(transparent, rgba(2, 6, 23, 0.88));
+  color: #f8fafc;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.album-tile {
+  display: block;
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid rgba(100, 116, 139, 0.36);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 42, 0.42);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.album-tile:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(30, 41, 59, 0.72);
+}
+
+.album-tile-image {
+  display: grid;
+  aspect-ratio: 1.35;
+  width: 100%;
+  overflow: hidden;
+  place-items: stretch;
+  border-radius: 0.4rem;
+  background: #17243a;
+}
+
+.album-tile-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-tile-fallback {
+  display: grid;
+  place-items: center;
+  border: 1px solid;
+  font-size: 2rem;
+}
+
+.album-list-item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid;
+  border-radius: 0.6rem;
+  padding: 0.45rem;
+  text-align: left;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+.album-list-item:hover {
+  filter: brightness(1.18);
+  transform: translateX(2px);
+}
+
+.quick-action {
+  display: flex;
+  min-height: 6.25rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-radius: 0.6rem;
+  padding: 0.7rem;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: left;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+.quick-action:hover,
+.shortcut-button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.shortcut-button {
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 0.55rem;
+  color: white;
+  font-size: 1.3rem;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+
+@media (min-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) 255px;
+  }
 }

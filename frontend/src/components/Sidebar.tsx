@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -115,6 +115,14 @@ function AdminIcon({ active }: { active: boolean }) {
   );
 }
 
+function DownloadIcon({ active }: { active: boolean }) {
+  return (
+    <svg className={`size-5 ${active ? "text-rose-400" : "text-rose-300/75"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4.5 17.25v1.5A2.25 2.25 0 0 0 6.75 21h10.5a2.25 2.25 0 0 0 2.25-2.25v-1.5" />
+    </svg>
+  );
+}
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -124,13 +132,15 @@ export default function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
+  const location = useLocation();
   const { user } = useAuth();
 
   const isAdmin = user?.role === "Admin";
+  const isSharedFilter = new URLSearchParams(location.search).get("filter") === "shared";
 
   const navigationItems: NavigationItem[] = [
     {
-      label: "Dashboard",
+      label: "Photos",
       path: "/dashboard",
       icon: (active) => <DashboardIcon active={active} />,
     },
@@ -140,14 +150,14 @@ export default function Sidebar({
       icon: (active) => <AlbumsIcon active={active} />,
     },
     {
-      label: "My Files",
-      path: "/files",
-      icon: (active) => <FilesIcon active={active} />,
+      label: "Shared",
+      path: "/albums?filter=shared",
+      icon: (active) => <AlbumsIcon active={active} />,
     },
     {
-      label: "My Profile",
-      path: "/profile",
-      icon: (active) => <ProfileIcon active={active} />,
+      label: "Downloads",
+      path: "/files",
+      icon: (active) => <DownloadIcon active={active} />,
     },
     {
       label: "Admin Portal",
@@ -172,7 +182,7 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-800 bg-slate-900/95 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-48 shrink-0 flex-col border-r border-slate-800 bg-slate-900/95 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Main navigation"
@@ -205,42 +215,51 @@ export default function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1.5 p-4">
+        <nav className="flex-1 space-y-1.5 p-3">
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-            Workspace
+            Library
           </p>
 
-          {visibleItems.map((item) => (
+          {visibleItems.filter((item) => !item.adminOnly).map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  "flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition",
-                  isActive
-                    ? item.adminOnly
-                      ? "border border-amber-500/30 bg-amber-950/40 text-amber-200 shadow-sm"
-                      : "border border-cyan-500/30 bg-cyan-950/40 text-cyan-200 shadow-sm"
-                    : "border border-transparent text-slate-300 hover:bg-slate-800/80 hover:text-white",
-                ].join(" ")
-              }
+              className={({ isActive }) => {
+                const active = item.path === "/albums?filter=shared"
+                  ? isSharedFilter
+                  : isActive && !(item.path === "/albums" && isSharedFilter);
+                return [
+                  "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition",
+                  active
+                    ? "border-sky-500/30 bg-sky-950/50 text-sky-200"
+                    : "border-transparent text-slate-300 hover:bg-slate-800/80 hover:text-white",
+                ].join(" ");
+              }}
             >
-              {({ isActive }) => (
-                <>
-                  {item.icon(isActive)}
-
-                  <span>{item.label}</span>
-
-                  {item.adminOnly && (
-                    <span className="ml-auto rounded bg-amber-900/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300">
-                      Admin
-                    </span>
-                  )}
-                </>
-              )}
+              {({ isActive }) => <>{item.icon(isActive)}<span>{item.label}</span></>}
             </NavLink>
           ))}
+          {isAdmin && (
+            <>
+              <p className="px-3 pb-1 pt-6 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Admin</p>
+              {visibleItems.filter((item) => item.adminOnly).map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={onClose}
+                  className={({ isActive }) => [
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+                    isActive
+                      ? "border border-amber-500/30 bg-amber-950/40 text-amber-200"
+                      : "border border-transparent text-slate-300 hover:bg-slate-800/80 hover:text-white",
+                  ].join(" ")}
+                >
+                  {({ isActive }) => <>{item.icon(isActive)}<span>{item.label}</span></>}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="border-t border-slate-800/80 p-4">

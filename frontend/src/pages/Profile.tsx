@@ -134,11 +134,10 @@ export default function Profile() {
         </div>
       </section>
 
-      {/* Enterprise Architecture Card */}
       <section className="glass-panel rounded-2xl p-6 sm:p-8">
-        <h3 className="text-base font-bold text-white">Microsoft Entra Integration Settings</h3>
+        <h3 className="text-base font-bold text-white">Microsoft Entra Settings</h3>
         <p className="mt-1 text-xs text-slate-400">
-          Configuration parameters active for this single-tenant enterprise session.
+          Configuration parameters active for this WinCapture session.
         </p>
 
         <div className="mt-6 space-y-3">

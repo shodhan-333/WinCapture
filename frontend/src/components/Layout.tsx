@@ -32,7 +32,7 @@ export default function Layout() {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8"
+          className="flex-1 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6"
         >
           <div className="mx-auto max-w-7xl">
             <Outlet />

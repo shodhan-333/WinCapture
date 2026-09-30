@@ -327,9 +327,11 @@ export default function Files() {
                 className="card-hover glass-panel flex flex-col justify-between overflow-hidden rounded-2xl"
               >
                 {/* Media Preview Box */}
-                <div
+                <button
+                  type="button"
                   onClick={() => setSelectedFile(file)}
-                  className="group relative flex h-48 cursor-pointer items-center justify-center bg-slate-950/70 overflow-hidden"
+                  aria-label={`View details for ${file.originalFileName}`}
+                  className="group relative flex h-48 w-full items-center justify-center overflow-hidden bg-slate-950/70"
                 >
                   {isPdf ? (
                     <div className="flex flex-col items-center justify-center text-rose-400">
@@ -343,10 +345,10 @@ export default function Files() {
                       <svg className="size-12 transition group-hover:scale-105" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a2.25 2.25 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                       </svg>
-                      <span className="mt-2 text-xs text-slate-400 group-hover:text-cyan-300">Click to preview</span>
+                      <span className="mt-2 text-xs text-slate-400 group-hover:text-cyan-300">View file details</span>
                     </div>
                   )}
-                </div>
+                </button>
 
                 {/* Card Info & Actions */}
                 <div className="p-4">
@@ -426,15 +428,17 @@ export default function Files() {
                   return (
                     <tr key={file.id} className="hover:bg-slate-800/30">
                       <td className="px-6 py-4 font-medium text-white">
-                        <div
+                        <button
+                          type="button"
                           onClick={() => setSelectedFile(file)}
-                          className="flex cursor-pointer items-center gap-2.5 hover:text-cyan-400"
+                          aria-label={`View details for ${file.originalFileName}`}
+                          className="flex items-center gap-2.5 text-left hover:text-cyan-400"
                         >
                           <svg className="size-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                           </svg>
                           <span className="truncate max-w-xs">{file.originalFileName}</span>
-                        </div>
+                        </button>
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-slate-400">
                         {file.contentType}
