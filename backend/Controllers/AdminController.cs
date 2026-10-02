@@ -8,13 +8,16 @@ namespace WinCapture.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "WinCapture.Admin")]
 public sealed class AdminController(
     IFileService fileService,
     IAlbumService albumService) : ControllerBase
 {
     [HttpGet("files")]
-    public async Task<ActionResult<IReadOnlyList<FileResponse>>>
+    [ProducesResponseType<IReadOnlyList<FileResponse>>(
+        StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
         GetFiles()
     {
         return Ok(
@@ -22,7 +25,10 @@ public sealed class AdminController(
     }
 
     [HttpGet("albums")]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>>
+    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(
+        StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<AlbumResponse>>>
         GetAlbums()
     {
         return Ok(

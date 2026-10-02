@@ -25,15 +25,18 @@ public sealed class AlbumFileService(
             currentUser,
             role);
 
-        await validator.ValidateAsync(file);
+        await validator.ValidateAsync(
+            file);
 
         var storedFileName =
-            await storage.SaveAsync(file);
+            await storage.SaveAsync(
+                file);
 
         var metadata = new FileMetadata
         {
             OriginalFileName =
-                Path.GetFileName(file.FileName),
+                Path.GetFileName(
+                    file.FileName),
 
             StoredFileName =
                 storedFileName,
@@ -56,7 +59,8 @@ public sealed class AlbumFileService(
 
         try
         {
-            await files.AddAsync(metadata);
+            await files.AddAsync(
+                metadata);
         }
         catch
         {
@@ -82,11 +86,16 @@ public sealed class AlbumFileService(
             currentUser,
             role);
 
-        return (await files.GetAllAsync())
-            .Where(file =>
-                file.AlbumId == albumId)
-            .Select(file =>
-                ToResponse(file, albumId))
+        var albumFiles =
+            await files.GetByAlbumIdAsync(
+                albumId);
+
+        return albumFiles
+            .Select(
+                file =>
+                    ToResponse(
+                        file,
+                        albumId))
             .ToList();
     }
 
@@ -102,7 +111,8 @@ public sealed class AlbumFileService(
             role);
 
         var file =
-            await files.GetByIdAsync(fileId)
+            await files.GetByIdAsync(
+                fileId)
             ?? throw new NotFoundException(
                 "The requested file was not found.");
 
@@ -134,7 +144,8 @@ public sealed class AlbumFileService(
         }
 
         var file =
-            await files.GetByIdAsync(fileId)
+            await files.GetByIdAsync(
+                fileId)
             ?? throw new NotFoundException(
                 "The requested file was not found.");
 
@@ -166,7 +177,8 @@ public sealed class AlbumFileService(
             role);
 
         var file =
-            await files.GetByIdAsync(fileId)
+            await files.GetByIdAsync(
+                fileId)
             ?? throw new NotFoundException(
                 "The requested file was not found.");
 
@@ -176,7 +188,8 @@ public sealed class AlbumFileService(
                 "The requested file was not found in this album.");
         }
 
-        await files.DeleteAsync(file);
+        await files.DeleteAsync(
+            file);
 
         await TryDeleteStoredFileAsync(
             file.StoredFileName);

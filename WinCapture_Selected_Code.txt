@@ -1,0 +1,6132 @@
+﻿
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Controllers\AdminController.cs
+============================================================
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using WinCapture.DTOs.Albums;
+using WinCapture.DTOs.Files;
+using WinCapture.Services;
+
+namespace WinCapture.Controllers;
+
+[ApiController]
+[Route("api/admin")]
+[Authorize(Roles = "WinCapture.Admin")]
+public sealed class AdminController(
+    IFileService fileService,
+    IAlbumService albumService) : ControllerBase
+{
+    [HttpGet("files")]
+    [ProducesResponseType<IReadOnlyList<FileResponse>>(
+        StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
+        GetFiles()
+    {
+        return Ok(
+            await fileService.GetAllAsync());
+    }
+
+    [HttpGet("albums")]
+    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(
+        StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<AlbumResponse>>>
+        GetAlbums()
+    {
+        return Ok(
+            await albumService.GetAllForAdminAsync());
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Controllers\AlbumsController.cs
+============================================================
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using WinCapture.DTOs.Albums;
+using WinCapture.DTOs.Files;
+using WinCapture.Exceptions;
+using WinCapture.Models;
+using WinCapture.Services;
+using WinCapture.Validators;
+
+namespace WinCapture.Controllers;
+
+[ApiController]
+[Route("api/albums")]
+[Authorize]
+public sealed class AlbumsController(
+    IAlbumService albumService,
+    IAlbumFileService albumFileService) : ControllerBase
+{
+    private const long RequestOverhead =
+        1024L * 1024L;
+
+    private const long MaximumRequestSize =
+        FileValidator.MaximumFileSize +
+        RequestOverhead;
+
+    private int UserId
+    {
+        get
+        {
+            var value =
+                User.FindFirst("wincapture_user_id")?.Value;
+
+            if (!int.TryParse(
+                    value,
+                    out var userId) ||
+                userId <= 0)
+            {
+                throw new UnauthorizedException(
+                    "The authenticated user ID is missing or invalid.");
+            }
+
+            return userId;
+        }
+    }
+
+    private UserRole CurrentUserRole
+    {
+        get
+        {
+            if (User.IsInRole("WinCapture.Admin"))
+            {
+                return UserRole.Admin;
+            }
+
+            if (User.IsInRole("WinCapture.User"))
+            {
+                return UserRole.User;
+            }
+
+            throw new ForbiddenException(
+                "The authenticated user role is missing or invalid.");
+        }
+    }
+
+    private User CurrentUser =>
+        new()
+        {
+            Id = UserId,
+
+            Name =
+                User.FindFirst("name")?.Value
+                ?? string.Empty,
+
+            Email =
+                User.FindFirst("email")?.Value
+                ?? User.FindFirst("preferred_username")?.Value
+                ?? string.Empty,
+
+            Role = CurrentUserRole
+        };
+
+    [HttpPost]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<AlbumResponse>> Create(
+        CreateAlbumRequest request)
+    {
+        var user = CurrentUser;
+
+        var response =
+            await albumService.CreateAsync(
+                request,
+                user);
+
+        return Created(
+            $"/api/albums/{response.Id}",
+            response);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<
+        IReadOnlyList<AlbumResponse>>>
+        GetAll()
+    {
+        var user = CurrentUser;
+
+        return Ok(
+            await albumService.GetAccessibleAsync(
+                user,
+                CurrentUserRole));
+    }
+
+    [HttpGet("{id:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<AlbumResponse>> Get(
+        long id)
+    {
+        var user = CurrentUser;
+
+        return Ok(
+            await albumService.GetAsync(
+                id,
+                user,
+                CurrentUserRole));
+    }
+
+    [HttpPut("{id:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<AlbumResponse>> Update(
+        long id,
+        UpdateAlbumRequest request)
+    {
+        var user = CurrentUser;
+
+        return Ok(
+            await albumService.UpdateAsync(
+                id,
+                request,
+                user,
+                CurrentUserRole));
+    }
+
+    [HttpDelete("{id:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> Delete(
+        long id)
+    {
+        var user = CurrentUser;
+
+        await albumService.DeleteAsync(
+            id,
+            user,
+            CurrentUserRole);
+
+        return NoContent();
+    }
+
+    [HttpPost("{id:long}/files")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaximumRequestSize)]
+    [RequestFormLimits(
+        MultipartBodyLengthLimit = MaximumRequestSize)]
+    public async Task<ActionResult<FileResponse>> UploadFile(
+        long id,
+        IFormFile file)
+    {
+        var user = CurrentUser;
+
+        var response =
+            await albumFileService.UploadAsync(
+                id,
+                file,
+                user,
+                CurrentUserRole);
+
+        return Created(
+            response.Url,
+            response);
+    }
+
+    [HttpGet("{id:long}/files")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
+        GetFiles(long id)
+    {
+        var user = CurrentUser;
+
+        return Ok(
+            await albumFileService.GetAsync(
+                id,
+                user,
+                CurrentUserRole));
+    }
+
+    [HttpGet("{id:long}/files/{fileId:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<FileResponse>> GetFile(
+        long id,
+        long fileId)
+    {
+        var user = CurrentUser;
+
+        return Ok(
+            await albumFileService.GetOneAsync(
+                id,
+                fileId,
+                user,
+                CurrentUserRole));
+    }
+
+    [HttpGet(
+        "{id:long}/files/{fileId:long}/download")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> DownloadFile(
+        long id,
+        long fileId)
+    {
+        var user = CurrentUser;
+
+        var result =
+            await albumFileService.DownloadAsync(
+                id,
+                fileId,
+                user,
+                CurrentUserRole);
+
+        return File(
+            result.Content,
+            result.ContentType,
+            result.DownloadName);
+    }
+
+    [HttpDelete("{id:long}/files/{fileId:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> DeleteFile(
+        long id,
+        long fileId)
+    {
+        var user = CurrentUser;
+
+        await albumFileService.DeleteAsync(
+            id,
+            fileId,
+            user,
+            CurrentUserRole);
+
+        return NoContent();
+    }
+
+    [HttpGet("{id:long}/members")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<
+        IReadOnlyList<AlbumMemberResponse>>>
+        GetMembers(long id)
+    {
+        var user = CurrentUser;
+
+        return Ok(
+            await albumService.GetMembersAsync(
+                id,
+                user,
+                CurrentUserRole));
+    }
+
+    [HttpPost("{id:long}/members")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> AddMember(
+        long id,
+        AddAlbumMemberRequest request)
+    {
+        var user = CurrentUser;
+
+        await albumService.AddMemberAsync(
+            id,
+            request,
+            user,
+            CurrentUserRole);
+
+        return NoContent();
+    }
+
+    [HttpPut("{id:long}/members/{userId:int}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> UpdateMember(
+        long id,
+        int userId,
+        UpdateAlbumMemberRequest request)
+    {
+        var user = CurrentUser;
+
+        await albumService.UpdateMemberAsync(
+            id,
+            userId,
+            request,
+            user,
+            CurrentUserRole);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id:long}/members/{userId:int}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> RemoveMember(
+        long id,
+        int userId)
+    {
+        var user = CurrentUser;
+
+        await albumService.RemoveMemberAsync(
+            id,
+            userId,
+            user,
+            CurrentUserRole);
+
+        return NoContent();
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Controllers\AuthController.cs
+============================================================
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using WinCapture.DTOs.Auth;
+using WinCapture.Exceptions;
+
+namespace WinCapture.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+public sealed class AuthController : ControllerBase
+{
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType<CurrentUserResponse>(
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    public ActionResult<CurrentUserResponse> Me()
+    {
+        var userId =
+            User.FindFirst(
+                "wincapture_user_id")?.Value;
+
+        if (!int.TryParse(
+                userId,
+                out var parsedUserId) ||
+            parsedUserId <= 0)
+        {
+            throw new UnauthorizedException(
+                "The authenticated WinCapture user ID is missing or invalid.");
+        }
+
+        var role =
+            GetWinCaptureRole();
+
+        if (role is null)
+        {
+            throw new ForbiddenException(
+                "The Microsoft account is authenticated but is not assigned to a WinCapture role.");
+        }
+
+        var name =
+            User.FindFirst("name")?.Value
+            ?? string.Empty;
+
+        var email =
+            User.FindFirst(
+                "preferred_username")?.Value
+            ?? User.FindFirst(
+                "email")?.Value
+            ?? User.FindFirst(
+                "upn")?.Value
+            ?? string.Empty;
+
+        return Ok(
+            new CurrentUserResponse(
+                parsedUserId,
+                name,
+                email,
+                role,
+                "Microsoft Entra ID"));
+    }
+
+    private string? GetWinCaptureRole()
+    {
+        if (User.IsInRole(
+                "WinCapture.Admin"))
+        {
+            return "Admin";
+        }
+
+        if (User.IsInRole(
+                "WinCapture.User"))
+        {
+            return "User";
+        }
+
+        return null;
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Controllers\FilesController.cs
+============================================================
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using WinCapture.DTOs.Files;
+using WinCapture.Exceptions;
+using WinCapture.Models;
+using WinCapture.Services;
+using WinCapture.Validators;
+
+namespace WinCapture.Controllers;
+
+[ApiController]
+[Route("api/files")]
+[Authorize]
+public sealed class FilesController(
+    IFileService fileService) : ControllerBase
+{
+    private const long RequestOverhead =
+        1024L * 1024L;
+
+    private const long MaximumRequestSize =
+        FileValidator.MaximumFileSize +
+        RequestOverhead;
+
+    private int UserId
+    {
+        get
+        {
+            var value =
+                User.FindFirst(
+                    "wincapture_user_id")
+                ?.Value;
+
+            if (!int.TryParse(
+                    value,
+                    out var userId) ||
+                userId <= 0)
+            {
+                throw new UnauthorizedException(
+                    "The authenticated user ID is missing or invalid.");
+            }
+
+            return userId;
+        }
+    }
+
+    private UserRole UserRole
+    {
+        get
+        {
+            if (User.IsInRole(
+                    "WinCapture.Admin"))
+            {
+                return UserRole.Admin;
+            }
+
+            if (User.IsInRole(
+                    "WinCapture.User"))
+            {
+                return UserRole.User;
+            }
+
+            throw new ForbiddenException(
+                "The authenticated user role is missing or invalid.");
+        }
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "WinCapture.User")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaximumRequestSize)]
+    [RequestFormLimits(
+        MultipartBodyLengthLimit =
+            MaximumRequestSize)]
+    [ProducesResponseType<FileResponse>(
+        StatusCodes.Status201Created)]
+    [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<FileResponse>> Upload(
+        IFormFile file)
+    {
+        var response =
+            await fileService.UploadAsync(
+                file,
+                UserId);
+
+        return Created(
+            $"/api/files/{response.Id}",
+            response);
+    }
+
+    [HttpGet]
+    [ProducesResponseType<
+        IReadOnlyList<FileResponse>>(
+            StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
+        GetGallery()
+    {
+        return Ok(
+            await fileService.GetGalleryAsync(
+                UserId));
+    }
+
+    [HttpGet("{id:long}")]
+    [ProducesResponseType<FileResponse>(
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FileResponse>> Get(
+        long id)
+    {
+        return Ok(
+            await fileService.GetAsync(
+                id,
+                UserId,
+                UserRole));
+    }
+
+    [HttpPut("{id:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaximumRequestSize)]
+    [RequestFormLimits(
+        MultipartBodyLengthLimit =
+            MaximumRequestSize)]
+    [ProducesResponseType<FileResponse>(
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    [ProducesResponseType(
+        StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<FileResponse>> Replace(
+        long id,
+        IFormFile file)
+    {
+        var response =
+            await fileService.ReplaceAsync(
+                id,
+                file,
+                UserId,
+                UserRole);
+
+        return Ok(response);
+    }
+
+    [HttpGet("{id:long}/download")]
+    [ProducesResponseType(
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Download(
+        long id)
+    {
+        var result =
+            await fileService.DownloadAsync(
+                id,
+                UserId,
+                UserRole);
+
+        return File(
+            result.Content,
+            result.ContentType,
+            result.DownloadName);
+    }
+
+    [HttpDelete("{id:long}")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(
+        long id)
+    {
+        await fileService.DeleteAsync(
+            id,
+            UserId,
+            UserRole);
+
+        return NoContent();
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Data\WinCaptureDbContext.cs
+============================================================
+
+using Microsoft.EntityFrameworkCore;
+using WinCapture.Models;
+
+namespace WinCapture.Data;
+
+public sealed class WinCaptureDbContext(
+    DbContextOptions<WinCaptureDbContext> options)
+    : DbContext(options)
+{
+    public DbSet<User> Users =>
+        Set<User>();
+
+    public DbSet<FileMetadata> Files =>
+        Set<FileMetadata>();
+
+    public DbSet<Album> Albums =>
+        Set<Album>();
+
+    public DbSet<AlbumAccess> AlbumAccess =>
+        Set<AlbumAccess>();
+
+    public DbSet<Favorite> Favorites =>
+        Set<Favorite>();
+
+    protected override void OnModelCreating(
+        ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("Users");
+
+            entity.HasKey(user => user.Id);
+
+            entity.Property(user => user.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(user => user.Name)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(user => user.Email)
+                .HasMaxLength(320)
+                .IsRequired();
+
+            entity.HasIndex(user => user.Email)
+                .IsUnique();
+
+            entity.Property(user => user.EntraObjectId)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.HasIndex(user => user.EntraObjectId)
+                .IsUnique();
+
+            entity.Property(user => user.Role)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(user => user.CreatedAt)
+                .HasColumnType("datetime2")
+                .IsRequired();
+        });
+
+        modelBuilder.Entity<FileMetadata>(entity =>
+        {
+            entity.ToTable("Files");
+
+            entity.HasKey(file => file.Id);
+
+            entity.Property(file => file.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(file => file.OriginalFileName)
+                .HasMaxLength(260)
+                .IsRequired();
+
+            entity.Property(file => file.StoredFileName)
+                .HasMaxLength(260)
+                .IsRequired();
+
+            entity.HasIndex(file => file.StoredFileName)
+                .IsUnique();
+
+            entity.Property(file => file.ContentType)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(file => file.FileSize)
+                .IsRequired();
+
+            entity.Property(file => file.UploadedBy)
+                .IsRequired();
+
+            entity.Property(file => file.AlbumId);
+
+            entity.Property(file => file.UploadedAt)
+                .HasColumnType("datetime2")
+                .IsRequired();
+
+            entity.HasIndex(file => file.UploadedBy);
+
+            entity.HasIndex(file => file.AlbumId);
+
+            entity.HasIndex(file => file.UploadedAt);
+
+            entity.HasOne(file => file.User)
+                .WithMany(user => user.Files)
+                .HasForeignKey(file => file.UploadedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(file => file.Album)
+                .WithMany(album => album.Files)
+                .HasForeignKey(file => file.AlbumId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Album>(entity =>
+        {
+            entity.ToTable("Albums");
+
+            entity.HasKey(album => album.Id);
+
+            entity.Property(album => album.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(album => album.AlbumName)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(album => album.CreatedAt)
+                .HasColumnType("datetime2")
+                .IsRequired();
+
+            entity.Property(album => album.UpdatedAt)
+                .HasColumnType("datetime2");
+
+            entity.HasIndex(album => album.CreatedBy);
+
+            entity.HasOne(album => album.Owner)
+                .WithMany(user => user.Albums)
+                .HasForeignKey(album => album.CreatedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(album => album.UpdatedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AlbumAccess>(entity =>
+        {
+            entity.ToTable("AlbumAccess");
+
+            entity.HasKey(access => access.Id);
+
+            entity.Property(access => access.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(access => access.GrantedAt)
+                .HasColumnType("datetime2")
+                .IsRequired();
+
+            entity.HasIndex(
+                access => new
+                {
+                    access.AlbumId,
+                    access.UserId
+                })
+                .IsUnique();
+
+            entity.HasIndex(access => access.UserId);
+
+            entity.HasOne(access => access.Album)
+                .WithMany(album => album.Access)
+                .HasForeignKey(access => access.AlbumId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(access => access.User)
+                .WithMany(user => user.AlbumAccess)
+                .HasForeignKey(access => access.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(access => access.GrantedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Favorite>(entity =>
+        {
+            entity.ToTable("Favorites");
+
+            entity.HasKey(favorite =>
+                new
+                {
+                    favorite.UserId,
+                    favorite.FileId
+                });
+
+            entity.Property(favorite => favorite.FavoritedAt)
+                .HasColumnType("datetime2")
+                .IsRequired();
+
+            entity.HasIndex(favorite => favorite.FileId);
+
+            entity.HasOne(favorite => favorite.User)
+                .WithMany(user => user.Favorites)
+                .HasForeignKey(favorite => favorite.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(favorite => favorite.File)
+                .WithMany(file => file.Favorites)
+                .HasForeignKey(favorite => favorite.FileId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\AddAlbumMemberRequest.cs
+============================================================
+
+namespace WinCapture.DTOs.Albums;
+
+public sealed record AddAlbumMemberRequest(
+    string Email,
+    bool CanView,
+    bool CanDownload);
+    
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\AlbumMemberResponse.cs
+============================================================
+
+namespace WinCapture.DTOs.Albums;
+
+public sealed record AlbumMemberResponse(
+    int UserId,
+    string Name,
+    string Email,
+    bool CanView,
+    bool CanDownload,
+    DateTime GrantedAt);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\AlbumResponse.cs
+============================================================
+
+namespace WinCapture.DTOs.Albums;
+
+public sealed record AlbumResponse(
+    long Id,
+    string AlbumName,
+    int OwnerId,
+    string OwnerName,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\CreateAlbumRequest.cs
+============================================================
+
+namespace WinCapture.DTOs.Albums;
+
+public sealed record CreateAlbumRequest(string AlbumName);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\UpdateAlbumMemberRequest.cs
+============================================================
+
+namespace WinCapture.DTOs.Albums;
+
+public sealed record UpdateAlbumMemberRequest(
+    bool CanView,
+    bool CanDownload);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\UpdateAlbumRequest.cs
+============================================================
+
+namespace WinCapture.DTOs.Albums;
+
+public sealed record UpdateAlbumRequest(string AlbumName);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Auth\CurrentUserResponse.cs
+============================================================
+
+namespace WinCapture.DTOs.Auth;
+
+public sealed record CurrentUserResponse(
+    int UserId,
+    string Name,
+    string Email,
+    string Role,
+    string AuthenticationType);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Common\ErrorResponse.cs
+============================================================
+
+namespace WinCapture.DTOs.Common;
+
+public sealed record ErrorResponse(int Status, string Message);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Files\FileDownloadResult.cs
+============================================================
+
+namespace WinCapture.DTOs.Files;
+
+public sealed record FileDownloadResult(Stream Content, string ContentType, string DownloadName);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Files\FileResponse.cs
+============================================================
+
+namespace WinCapture.DTOs.Files;
+
+public sealed record FileResponse(
+    long Id,
+    string OriginalFileName,
+    string ContentType,
+    long FileSize,
+    DateTime UploadedAt,
+    string Url,
+    string DownloadUrl);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\BadRequestException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class BadRequestException(string message) : Exception(message);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\ConflictException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class ConflictException(string message) : Exception(message);
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\ForbiddenException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class ForbiddenException(string message) : Exception(message);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\NotFoundException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class NotFoundException(string message) : Exception(message);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\PayloadTooLargeException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class PayloadTooLargeException(string message) : Exception(message);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\StorageException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class StorageException(string message, Exception innerException)
+    : Exception(message, innerException);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\UnauthorizedException.cs
+============================================================
+
+namespace WinCapture.Exceptions;
+
+public sealed class UnauthorizedException(string message) : Exception(message);
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Middleware\ExceptionMiddleware.cs
+============================================================
+
+using System.Text.Json;
+using WinCapture.DTOs.Common;
+using WinCapture.Exceptions;
+
+namespace WinCapture.Middleware;
+
+public sealed class ExceptionMiddleware(
+    RequestDelegate next,
+    ILogger<ExceptionMiddleware> logger)
+{
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await next(context);
+        }
+        catch (Exception exception)
+        {
+            await HandleExceptionAsync(context, exception);
+        }
+    }
+
+    private async Task HandleExceptionAsync(
+        HttpContext context,
+        Exception exception)
+    {
+        var statusCode = exception switch
+        {
+            BadRequestException => StatusCodes.Status400BadRequest,
+            ConflictException => StatusCodes.Status409Conflict,
+            UnauthorizedException => StatusCodes.Status401Unauthorized,
+            PayloadTooLargeException => StatusCodes.Status413PayloadTooLarge,
+            ForbiddenException => StatusCodes.Status403Forbidden,
+            NotFoundException => StatusCodes.Status404NotFound,
+            StorageException => StatusCodes.Status500InternalServerError,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        if (statusCode >= StatusCodes.Status500InternalServerError)
+        {
+            logger.LogError(
+                exception,
+                "Unhandled exception for {Method} {Path}. RequestId: {RequestId}",
+                context.Request.Method,
+                context.Request.Path,
+                context.TraceIdentifier);
+        }
+
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
+
+        var message = statusCode == StatusCodes.Status500InternalServerError
+            ? "An unexpected error occurred."
+            : exception.Message;
+
+        var response = new ErrorResponse(statusCode, message);
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Migrations\20261001084829_InitialCreate.cs
+============================================================
+
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace WinCapture.Migrations
+{
+    /// <inheritdoc />
+    public partial class InitialCreate : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(320)", maxLength: 320, nullable: false),
+                    EntraObjectId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Albums",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AlbumName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    CreatedBy = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedBy = table.Column<int>(type: "int", nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Albums", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Albums_Users_CreatedBy",
+                        column: x => x.CreatedBy,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Albums_Users_UpdatedBy",
+                        column: x => x.UpdatedBy,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AlbumAccess",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AlbumId = table.Column<long>(type: "bigint", nullable: false),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CanView = table.Column<bool>(type: "bit", nullable: false),
+                    CanDownload = table.Column<bool>(type: "bit", nullable: false),
+                    GrantedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    GrantedBy = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AlbumAccess", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AlbumAccess_Albums_AlbumId",
+                        column: x => x.AlbumId,
+                        principalTable: "Albums",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AlbumAccess_Users_GrantedBy",
+                        column: x => x.GrantedBy,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AlbumAccess_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Files",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    OriginalFileName = table.Column<string>(type: "nvarchar(260)", maxLength: 260, nullable: false),
+                    StoredFileName = table.Column<string>(type: "nvarchar(260)", maxLength: 260, nullable: false),
+                    ContentType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    FileSize = table.Column<long>(type: "bigint", nullable: false),
+                    UploadedBy = table.Column<int>(type: "int", nullable: false),
+                    AlbumId = table.Column<long>(type: "bigint", nullable: true),
+                    UploadedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Files", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Files_Albums_AlbumId",
+                        column: x => x.AlbumId,
+                        principalTable: "Albums",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Files_Users_UploadedBy",
+                        column: x => x.UploadedBy,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Favorites",
+                columns: table => new
+                {
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    FileId = table.Column<long>(type: "bigint", nullable: false),
+                    FavoritedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Favorites", x => new { x.UserId, x.FileId });
+                    table.ForeignKey(
+                        name: "FK_Favorites_Files_FileId",
+                        column: x => x.FileId,
+                        principalTable: "Files",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Favorites_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AlbumAccess_AlbumId_UserId",
+                table: "AlbumAccess",
+                columns: new[] { "AlbumId", "UserId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AlbumAccess_GrantedBy",
+                table: "AlbumAccess",
+                column: "GrantedBy");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AlbumAccess_UserId",
+                table: "AlbumAccess",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Albums_CreatedBy",
+                table: "Albums",
+                column: "CreatedBy");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Albums_UpdatedBy",
+                table: "Albums",
+                column: "UpdatedBy");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Favorites_FileId",
+                table: "Favorites",
+                column: "FileId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Files_AlbumId",
+                table: "Files",
+                column: "AlbumId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Files_StoredFileName",
+                table: "Files",
+                column: "StoredFileName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Files_UploadedAt",
+                table: "Files",
+                column: "UploadedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Files_UploadedBy",
+                table: "Files",
+                column: "UploadedBy");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_EntraObjectId",
+                table: "Users",
+                column: "EntraObjectId",
+                unique: true);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "AlbumAccess");
+
+            migrationBuilder.DropTable(
+                name: "Favorites");
+
+            migrationBuilder.DropTable(
+                name: "Files");
+
+            migrationBuilder.DropTable(
+                name: "Albums");
+
+            migrationBuilder.DropTable(
+                name: "Users");
+        }
+    }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Migrations\20261001084829_InitialCreate.Designer.cs
+============================================================
+
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using WinCapture.Data;
+
+#nullable disable
+
+namespace WinCapture.Migrations
+{
+    [DbContext(typeof(WinCaptureDbContext))]
+    [Migration("20261001084829_InitialCreate")]
+    partial class InitialCreate
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("WinCapture.Models.Album", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AlbumName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("Albums", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.AlbumAccess", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AlbumId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("CanDownload")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanView")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GrantedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantedBy");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("AlbumId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("AlbumAccess", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Favorite", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("FileId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("FavoritedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId", "FileId");
+
+                    b.HasIndex("FileId");
+
+                    b.ToTable("Favorites", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.FileMetadata", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("AlbumId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlbumId");
+
+                    b.HasIndex("StoredFileName")
+                        .IsUnique();
+
+                    b.HasIndex("UploadedAt");
+
+                    b.HasIndex("UploadedBy");
+
+                    b.ToTable("Files", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<string>("EntraObjectId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("EntraObjectId")
+                        .IsUnique();
+
+                    b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Album", b =>
+                {
+                    b.HasOne("WinCapture.Models.User", "Owner")
+                        .WithMany("Albums")
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.AlbumAccess", b =>
+                {
+                    b.HasOne("WinCapture.Models.Album", "Album")
+                        .WithMany("Access")
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("GrantedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", "User")
+                        .WithMany("AlbumAccess")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Album");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Favorite", b =>
+                {
+                    b.HasOne("WinCapture.Models.FileMetadata", "File")
+                        .WithMany("Favorites")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", "User")
+                        .WithMany("Favorites")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.FileMetadata", b =>
+                {
+                    b.HasOne("WinCapture.Models.Album", "Album")
+                        .WithMany("Files")
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("WinCapture.Models.User", "User")
+                        .WithMany("Files")
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Album");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Album", b =>
+                {
+                    b.Navigation("Access");
+
+                    b.Navigation("Files");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.FileMetadata", b =>
+                {
+                    b.Navigation("Favorites");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.User", b =>
+                {
+                    b.Navigation("AlbumAccess");
+
+                    b.Navigation("Albums");
+
+                    b.Navigation("Favorites");
+
+                    b.Navigation("Files");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Migrations\WinCaptureDbContextModelSnapshot.cs
+============================================================
+
+// <auto-generated />
+using System;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using WinCapture.Data;
+
+#nullable disable
+
+namespace WinCapture.Migrations
+{
+    [DbContext(typeof(WinCaptureDbContext))]
+    partial class WinCaptureDbContextModelSnapshot : ModelSnapshot
+    {
+        protected override void BuildModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("WinCapture.Models.Album", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AlbumName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("Albums", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.AlbumAccess", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("AlbumId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("CanDownload")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("CanView")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GrantedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantedBy");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("AlbumId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("AlbumAccess", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Favorite", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("FileId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("FavoritedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("UserId", "FileId");
+
+                    b.HasIndex("FileId");
+
+                    b.ToTable("Favorites", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.FileMetadata", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long?>("AlbumId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UploadedBy")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlbumId");
+
+                    b.HasIndex("StoredFileName")
+                        .IsUnique();
+
+                    b.HasIndex("UploadedAt");
+
+                    b.HasIndex("UploadedBy");
+
+                    b.ToTable("Files", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<string>("EntraObjectId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("EntraObjectId")
+                        .IsUnique();
+
+                    b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Album", b =>
+                {
+                    b.HasOne("WinCapture.Models.User", "Owner")
+                        .WithMany("Albums")
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.AlbumAccess", b =>
+                {
+                    b.HasOne("WinCapture.Models.Album", "Album")
+                        .WithMany("Access")
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("GrantedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", "User")
+                        .WithMany("AlbumAccess")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Album");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Favorite", b =>
+                {
+                    b.HasOne("WinCapture.Models.FileMetadata", "File")
+                        .WithMany("Favorites")
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WinCapture.Models.User", "User")
+                        .WithMany("Favorites")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("File");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.FileMetadata", b =>
+                {
+                    b.HasOne("WinCapture.Models.Album", "Album")
+                        .WithMany("Files")
+                        .HasForeignKey("AlbumId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("WinCapture.Models.User", "User")
+                        .WithMany("Files")
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Album");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.Album", b =>
+                {
+                    b.Navigation("Access");
+
+                    b.Navigation("Files");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.FileMetadata", b =>
+                {
+                    b.Navigation("Favorites");
+                });
+
+            modelBuilder.Entity("WinCapture.Models.User", b =>
+                {
+                    b.Navigation("AlbumAccess");
+
+                    b.Navigation("Albums");
+
+                    b.Navigation("Favorites");
+
+                    b.Navigation("Files");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\Album.cs
+============================================================
+
+namespace WinCapture.Models;
+
+public sealed class Album
+{
+    public long Id { get; set; }
+
+    public string AlbumName { get; set; } = string.Empty;
+
+    public int CreatedBy { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public int? UpdatedBy { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public User Owner { get; set; } = null!;
+
+    public ICollection<FileMetadata> Files { get; set; } = [];
+
+    public ICollection<AlbumAccess> Access { get; set; } = [];
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\AlbumAccess.cs
+============================================================
+
+namespace WinCapture.Models;
+
+public sealed class AlbumAccess
+{
+    public long Id { get; set; }
+
+    public long AlbumId { get; set; }
+
+    public int UserId { get; set; }
+
+    public bool CanView { get; set; }
+
+    public bool CanDownload { get; set; }
+
+    public DateTime GrantedAt { get; set; }
+
+    public int GrantedBy { get; set; }
+
+    public Album Album { get; set; } = null!;
+
+    public User User { get; set; } = null!;
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\Favorite.cs
+============================================================
+
+namespace WinCapture.Models;
+
+public sealed class Favorite
+{
+    public int UserId { get; set; }
+
+    public long FileId { get; set; }
+
+    public DateTime FavoritedAt { get; set; }
+
+    public User User { get; set; } = null!;
+
+    public FileMetadata File { get; set; } = null!;
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\FileMetadata.cs
+============================================================
+
+namespace WinCapture.Models;
+
+public sealed class FileMetadata
+{
+    public long Id { get; set; }
+
+    public string OriginalFileName { get; set; } = string.Empty;
+
+    public string StoredFileName { get; set; } = string.Empty;
+
+    public string ContentType { get; set; } = string.Empty;
+
+    public long FileSize { get; set; }
+
+    public int UploadedBy { get; set; }
+
+    public long? AlbumId { get; set; }
+
+    public DateTime UploadedAt { get; set; }
+
+    public User User { get; set; } = null!;
+
+    public Album? Album { get; set; }
+
+    public ICollection<Favorite> Favorites { get; set; } = [];
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\User.cs
+============================================================
+
+namespace WinCapture.Models;
+
+public sealed class User
+{
+    public int Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public string Email { get; set; } = string.Empty;
+
+    public string EntraObjectId { get; set; } = string.Empty;
+
+    public UserRole Role { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public ICollection<FileMetadata> Files { get; set; } = [];
+
+    public ICollection<Album> Albums { get; set; } = [];
+
+    public ICollection<AlbumAccess> AlbumAccess { get; set; } = [];
+
+    public ICollection<Favorite> Favorites { get; set; } = [];
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\UserRole.cs
+============================================================
+
+namespace WinCapture.Models;
+
+public enum UserRole
+{
+    User,
+    Admin
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Properties\launchSettings.json
+============================================================
+
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5124",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7106;http://localhost:5124",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\AlbumRepository.cs
+============================================================
+
+using Microsoft.EntityFrameworkCore;
+using WinCapture.Data;
+using WinCapture.Models;
+
+namespace WinCapture.Repositories;
+
+public sealed class AlbumRepository(
+    WinCaptureDbContext db) : IAlbumRepository
+{
+    public async Task AddAsync(Album album)
+    {
+        db.Albums.Add(album);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<Album?> GetByIdAsync(long albumId) =>
+        await db.Albums
+            .Include(album => album.Owner)
+            .SingleOrDefaultAsync(
+                album => album.Id == albumId);
+
+    public async Task<IReadOnlyList<Album>>
+        GetAccessibleByUserIdAsync(int userId) =>
+        await db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner)
+            .Where(album =>
+                album.CreatedBy == userId ||
+                album.Access.Any(access =>
+                    access.UserId == userId &&
+                    access.CanView))
+            .OrderByDescending(
+                album => album.CreatedAt)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<Album>>
+        GetAllAsync() =>
+        await db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner)
+            .OrderByDescending(
+                album => album.CreatedAt)
+            .ToListAsync();
+
+    public async Task UpdateAsync(Album album)
+    {
+        db.Albums.Update(album);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Album album)
+    {
+        db.Albums.Remove(album);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<AlbumAccess?> GetAccessAsync(
+        long albumId,
+        int userId) =>
+        await db.AlbumAccess
+            .SingleOrDefaultAsync(access =>
+                access.AlbumId == albumId &&
+                access.UserId == userId);
+
+    public async Task<IReadOnlyList<AlbumAccess>>
+        GetAccessListAsync(long albumId) =>
+        await db.AlbumAccess
+            .AsNoTracking()
+            .Include(access => access.User)
+            .Where(access =>
+                access.AlbumId == albumId)
+            .OrderBy(access => access.User.Name)
+            .ToListAsync();
+
+    public async Task AddAccessAsync(AlbumAccess access)
+    {
+        db.AlbumAccess.Add(access);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task UpdateAccessAsync(AlbumAccess access)
+    {
+        db.AlbumAccess.Update(access);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAccessAsync(AlbumAccess access)
+    {
+        db.AlbumAccess.Remove(access);
+        await db.SaveChangesAsync();
+    }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\FileRepository.cs
+============================================================
+
+using Microsoft.EntityFrameworkCore;
+using WinCapture.Data;
+using WinCapture.Models;
+
+namespace WinCapture.Repositories;
+
+public sealed class FileRepository(
+    WinCaptureDbContext db) : IFileRepository
+{
+    public async Task AddAsync(
+        FileMetadata file)
+    {
+        db.Files.Add(file);
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<FileMetadata?> GetByIdAsync(
+        long fileId) =>
+        await db.Files
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                file => file.Id == fileId);
+
+    public async Task<IReadOnlyList<FileMetadata>>
+        GetByUserIdAsync(
+            int userId) =>
+        await db.Files
+            .AsNoTracking()
+            .Where(
+                file =>
+                    file.UploadedBy == userId)
+            .OrderByDescending(
+                file => file.UploadedAt)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<FileMetadata>>
+        GetByAlbumIdAsync(
+            long albumId) =>
+        await db.Files
+            .AsNoTracking()
+            .Where(
+                file =>
+                    file.AlbumId == albumId)
+            .OrderByDescending(
+                file => file.UploadedAt)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<FileMetadata>>
+        GetAllAsync() =>
+        await db.Files
+            .AsNoTracking()
+            .OrderByDescending(
+                file => file.UploadedAt)
+            .ToListAsync();
+
+    public async Task UpdateAsync(
+        FileMetadata file)
+    {
+        db.Files.Update(file);
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(
+        FileMetadata file)
+    {
+        db.Files.Remove(file);
+
+        await db.SaveChangesAsync();
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IAlbumRepository.cs
+============================================================
+
+using WinCapture.Models;
+
+namespace WinCapture.Repositories;
+
+public interface IAlbumRepository
+{
+    Task AddAsync(Album album);
+
+    Task<Album?> GetByIdAsync(long albumId);
+
+    Task<IReadOnlyList<Album>> GetAccessibleByUserIdAsync(int userId);
+
+    Task<IReadOnlyList<Album>> GetAllAsync();
+
+    Task UpdateAsync(Album album);
+
+    Task DeleteAsync(Album album);
+
+    Task<AlbumAccess?> GetAccessAsync(
+        long albumId,
+        int userId);
+
+    Task<IReadOnlyList<AlbumAccess>> GetAccessListAsync(
+        long albumId);
+
+    Task AddAccessAsync(AlbumAccess access);
+
+    Task UpdateAccessAsync(AlbumAccess access);
+
+    Task DeleteAccessAsync(AlbumAccess access);
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IFileRepository.cs
+============================================================
+
+using WinCapture.Models;
+
+namespace WinCapture.Repositories;
+
+public interface IFileRepository
+{
+    Task AddAsync(FileMetadata file);
+
+    Task<FileMetadata?> GetByIdAsync(
+        long fileId);
+
+    Task<IReadOnlyList<FileMetadata>>
+        GetByUserIdAsync(
+            int userId);
+
+    Task<IReadOnlyList<FileMetadata>>
+        GetByAlbumIdAsync(
+            long albumId);
+
+    Task<IReadOnlyList<FileMetadata>>
+        GetAllAsync();
+
+    Task UpdateAsync(
+        FileMetadata file);
+
+    Task DeleteAsync(
+        FileMetadata file);
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IUserRepository.cs
+============================================================
+
+using WinCapture.Models;
+
+namespace WinCapture.Repositories;
+
+public interface IUserRepository
+{
+    Task<User?> GetByEmailAsync(string email);
+
+    Task<User?> GetByEntraObjectIdAsync(
+        string entraObjectId);
+
+    Task AddAsync(User user);
+
+    Task UpdateAsync(User user);
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\UserRepository.cs
+============================================================
+
+using Microsoft.EntityFrameworkCore;
+using WinCapture.Data;
+using WinCapture.Models;
+
+namespace WinCapture.Repositories;
+
+public sealed class UserRepository(
+    WinCaptureDbContext db) : IUserRepository
+{
+    public async Task<User?> GetByEmailAsync(
+        string email) =>
+        await db.Users
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                user => user.Email == email);
+
+    public async Task<User?> GetByEntraObjectIdAsync(
+        string entraObjectId) =>
+        await db.Users
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                user =>
+                    user.EntraObjectId ==
+                    entraObjectId);
+
+    public async Task AddAsync(User user)
+    {
+        db.Users.Add(user);
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(User user)
+    {
+        db.Users.Update(user);
+
+        await db.SaveChangesAsync();
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AlbumFileService.cs
+============================================================
+
+using Microsoft.AspNetCore.Http;
+using WinCapture.DTOs.Files;
+using WinCapture.Exceptions;
+using WinCapture.Models;
+using WinCapture.Repositories;
+using WinCapture.Validators;
+
+namespace WinCapture.Services;
+
+public sealed class AlbumFileService(
+    FileValidator validator,
+    IStorageService storage,
+    IFileRepository files,
+    IAlbumService albumService,
+    ILogger<AlbumFileService> logger) : IAlbumFileService
+{
+    public async Task<FileResponse> UploadAsync(
+        long albumId,
+        IFormFile file,
+        User currentUser,
+        UserRole role)
+    {
+        await albumService.GetForUploadAsync(
+            albumId,
+            currentUser,
+            role);
+
+        await validator.ValidateAsync(
+            file);
+
+        var storedFileName =
+            await storage.SaveAsync(
+                file);
+
+        var metadata = new FileMetadata
+        {
+            OriginalFileName =
+                Path.GetFileName(
+                    file.FileName),
+
+            StoredFileName =
+                storedFileName,
+
+            ContentType =
+                file.ContentType,
+
+            FileSize =
+                file.Length,
+
+            UploadedBy =
+                currentUser.Id,
+
+            AlbumId =
+                albumId,
+
+            UploadedAt =
+                DateTime.UtcNow
+        };
+
+        try
+        {
+            await files.AddAsync(
+                metadata);
+        }
+        catch
+        {
+            await TryDeleteStoredFileAsync(
+                storedFileName);
+
+            throw;
+        }
+
+        return ToResponse(
+            metadata,
+            albumId);
+    }
+
+    public async Task<IReadOnlyList<FileResponse>>
+        GetAsync(
+            long albumId,
+            User currentUser,
+            UserRole role)
+    {
+        await albumService.GetAsync(
+            albumId,
+            currentUser,
+            role);
+
+        var albumFiles =
+            await files.GetByAlbumIdAsync(
+                albumId);
+
+        return albumFiles
+            .Select(
+                file =>
+                    ToResponse(
+                        file,
+                        albumId))
+            .ToList();
+    }
+
+    public async Task<FileResponse> GetOneAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role)
+    {
+        await albumService.GetAsync(
+            albumId,
+            currentUser,
+            role);
+
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
+
+        if (file.AlbumId != albumId)
+        {
+            throw new NotFoundException(
+                "The requested file was not found in this album.");
+        }
+
+        return ToResponse(
+            file,
+            albumId);
+    }
+
+    public async Task<FileDownloadResult>
+        DownloadAsync(
+            long albumId,
+            long fileId,
+            User currentUser,
+            UserRole role)
+    {
+        if (!await albumService.CanDownloadAsync(
+                albumId,
+                currentUser,
+                role))
+        {
+            throw new ForbiddenException(
+                "You are not allowed to download files from this album.");
+        }
+
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
+
+        if (file.AlbumId != albumId)
+        {
+            throw new NotFoundException(
+                "The requested file was not found in this album.");
+        }
+
+        var content =
+            await storage.GetAsync(
+                file.StoredFileName);
+
+        return new FileDownloadResult(
+            content,
+            file.ContentType,
+            file.OriginalFileName);
+    }
+
+    public async Task DeleteAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role)
+    {
+        await albumService.GetForUploadAsync(
+            albumId,
+            currentUser,
+            role);
+
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
+
+        if (file.AlbumId != albumId)
+        {
+            throw new NotFoundException(
+                "The requested file was not found in this album.");
+        }
+
+        await files.DeleteAsync(
+            file);
+
+        await TryDeleteStoredFileAsync(
+            file.StoredFileName);
+    }
+
+    private async Task TryDeleteStoredFileAsync(
+        string storedFileName)
+    {
+        try
+        {
+            await storage.DeleteAsync(
+                storedFileName);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Failed to clean up stored file {StoredFileName}.",
+                storedFileName);
+        }
+    }
+
+    private static FileResponse ToResponse(
+        FileMetadata file,
+        long albumId) =>
+        new(
+            file.Id,
+            file.OriginalFileName,
+            file.ContentType,
+            file.FileSize,
+            file.UploadedAt,
+            $"/api/albums/{albumId}/files/{file.Id}",
+            $"/api/albums/{albumId}/files/{file.Id}/download");
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AlbumService.cs
+============================================================
+
+using WinCapture.DTOs.Albums;
+using WinCapture.Exceptions;
+using WinCapture.Models;
+using WinCapture.Repositories;
+
+namespace WinCapture.Services;
+
+public sealed class AlbumService(
+    IAlbumRepository albums,
+    IUserRepository users,
+    IFileRepository files,
+    IStorageService storage,
+    ILogger<AlbumService> logger) : IAlbumService
+{
+    public async Task<AlbumResponse> CreateAsync(
+        CreateAlbumRequest request,
+        User currentUser)
+    {
+        ValidateAlbumName(
+            request.AlbumName);
+
+        var album = new Album
+        {
+            AlbumName =
+                request.AlbumName.Trim(),
+
+            CreatedBy =
+                currentUser.Id,
+
+            CreatedAt =
+                DateTime.UtcNow
+        };
+
+        await albums.AddAsync(
+            album);
+
+        album.Owner =
+            currentUser;
+
+        return ToResponse(
+            album);
+    }
+
+    public async Task<IReadOnlyList<AlbumResponse>>
+        GetAccessibleAsync(
+            User currentUser,
+            UserRole role)
+    {
+        var result =
+            role == UserRole.Admin
+                ? await albums.GetAllAsync()
+                : await albums.GetAccessibleByUserIdAsync(
+                    currentUser.Id);
+
+        return result
+            .Select(
+                ToResponse)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<AlbumResponse>>
+        GetAllForAdminAsync()
+    {
+        var result =
+            await albums.GetAllAsync();
+
+        return result
+            .Select(
+                ToResponse)
+            .ToList();
+    }
+
+    public async Task<AlbumResponse> GetAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
+    {
+        var album =
+            await GetAuthorizedAlbumAsync(
+                albumId,
+                currentUser,
+                role,
+                true);
+
+        return ToResponse(
+            album);
+    }
+
+    public async Task<AlbumResponse> UpdateAsync(
+        long albumId,
+        UpdateAlbumRequest request,
+        User currentUser,
+        UserRole role)
+    {
+        ValidateAlbumName(
+            request.AlbumName);
+
+        var album =
+            await GetAuthorizedAlbumAsync(
+                albumId,
+                currentUser,
+                role,
+                false);
+
+        album.AlbumName =
+            request.AlbumName.Trim();
+
+        album.UpdatedBy =
+            currentUser.Id;
+
+        album.UpdatedAt =
+            DateTime.UtcNow;
+
+        await albums.UpdateAsync(
+            album);
+
+        return ToResponse(
+            album);
+    }
+
+    public async Task DeleteAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
+    {
+        var album =
+            await GetAuthorizedAlbumAsync(
+                albumId,
+                currentUser,
+                role,
+                false);
+
+        var allFiles =
+            await files.GetAllAsync();
+
+        var albumFiles =
+            allFiles
+                .Where(
+                    file =>
+                        file.AlbumId == albumId)
+                .ToList();
+
+        await albums.DeleteAsync(
+            album);
+
+        foreach (var file in albumFiles)
+        {
+            try
+            {
+                await storage.DeleteAsync(
+                    file.StoredFileName);
+            }
+            catch (Exception exception)
+            {
+                logger.LogError(
+                    exception,
+                    "Album deleted but file cleanup failed. AlbumId: {AlbumId}, FileId: {FileId}, StoredFileName: {StoredFileName}",
+                    albumId,
+                    file.Id,
+                    file.StoredFileName);
+            }
+        }
+    }
+
+    public async Task<IReadOnlyList<AlbumMemberResponse>>
+        GetMembersAsync(
+            long albumId,
+            User currentUser,
+            UserRole role)
+    {
+        await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
+
+        var access =
+            await albums.GetAccessListAsync(
+                albumId);
+
+        return access
+            .Select(
+                item =>
+                    new AlbumMemberResponse(
+                        item.UserId,
+                        item.User.Name,
+                        item.User.Email,
+                        item.CanView,
+                        item.CanDownload,
+                        item.GrantedAt))
+            .ToList();
+    }
+
+    public async Task AddMemberAsync(
+        long albumId,
+        AddAlbumMemberRequest request,
+        User currentUser,
+        UserRole role)
+    {
+        await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
+
+        var email =
+            request.Email.Trim()
+                .ToLowerInvariant();
+
+        if (!request.CanView &&
+            request.CanDownload)
+        {
+            throw new BadRequestException(
+                "CanDownload cannot be true when CanView is false.");
+        }
+
+        var user =
+            await users.GetByEmailAsync(
+                email)
+            ?? throw new NotFoundException(
+                "The user must register in WinCapture before they can be added to an album.");
+
+        if (user.Id == currentUser.Id)
+        {
+            throw new BadRequestException(
+                "The album owner already has full access.");
+        }
+
+        var existing =
+            await albums.GetAccessAsync(
+                albumId,
+                user.Id);
+
+        if (existing is not null)
+        {
+            throw new BadRequestException(
+                "This user already has access to the album.");
+        }
+
+        await albums.AddAccessAsync(
+            new AlbumAccess
+            {
+                AlbumId =
+                    albumId,
+
+                UserId =
+                    user.Id,
+
+                CanView =
+                    request.CanView,
+
+                CanDownload =
+                    request.CanView &&
+                    request.CanDownload,
+
+                GrantedAt =
+                    DateTime.UtcNow,
+
+                GrantedBy =
+                    currentUser.Id
+            });
+    }
+
+    public async Task UpdateMemberAsync(
+        long albumId,
+        int userId,
+        UpdateAlbumMemberRequest request,
+        User currentUser,
+        UserRole role)
+    {
+        await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
+
+        if (!request.CanView &&
+            request.CanDownload)
+        {
+            throw new BadRequestException(
+                "CanDownload cannot be true when CanView is false.");
+        }
+
+        var access =
+            await albums.GetAccessAsync(
+                albumId,
+                userId)
+            ?? throw new NotFoundException(
+                "Album access was not found.");
+
+        access.CanView =
+            request.CanView;
+
+        access.CanDownload =
+            request.CanView &&
+            request.CanDownload;
+
+        await albums.UpdateAccessAsync(
+            access);
+    }
+
+    public async Task RemoveMemberAsync(
+        long albumId,
+        int userId,
+        User currentUser,
+        UserRole role)
+    {
+        await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
+
+        var access =
+            await albums.GetAccessAsync(
+                albumId,
+                userId)
+            ?? throw new NotFoundException(
+                "Album access was not found.");
+
+        await albums.DeleteAccessAsync(
+            access);
+    }
+
+    public async Task<Album> GetForUploadAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
+    {
+        return await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
+    }
+
+    public async Task<bool> CanDownloadAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
+    {
+        var album =
+            await albums.GetByIdAsync(
+                albumId)
+            ?? throw new NotFoundException(
+                "The requested album was not found.");
+
+        if (role == UserRole.Admin ||
+            album.CreatedBy == currentUser.Id)
+        {
+            return true;
+        }
+
+        var access =
+            await albums.GetAccessAsync(
+                albumId,
+                currentUser.Id);
+
+        return access is not null &&
+               access.CanDownload;
+    }
+
+    private async Task<Album>
+        GetAuthorizedAlbumAsync(
+            long albumId,
+            User currentUser,
+            UserRole role,
+            bool canView)
+    {
+        var album =
+            await albums.GetByIdAsync(
+                albumId)
+            ?? throw new NotFoundException(
+                "The requested album was not found.");
+
+        if (role == UserRole.Admin ||
+            album.CreatedBy == currentUser.Id)
+        {
+            return album;
+        }
+
+        var access =
+            await albums.GetAccessAsync(
+                albumId,
+                currentUser.Id);
+
+        if (access is null ||
+            (canView && !access.CanView))
+        {
+            throw new ForbiddenException(
+                "You are not allowed to access this album.");
+        }
+
+        if (!canView)
+        {
+            throw new ForbiddenException(
+                "Only the album owner or an Admin can manage this album.");
+        }
+
+        return album;
+    }
+
+    private static void ValidateAlbumName(
+        string name)
+    {
+        if (string.IsNullOrWhiteSpace(
+                name))
+        {
+            throw new BadRequestException(
+                "Album name is required.");
+        }
+
+        if (name.Trim().Length > 200)
+        {
+            throw new BadRequestException(
+                "Album name cannot exceed 200 characters.");
+        }
+    }
+
+    private static AlbumResponse ToResponse(
+        Album album)
+    {
+        return new AlbumResponse(
+            album.Id,
+            album.AlbumName,
+            album.CreatedBy,
+            album.Owner.Name,
+            album.CreatedAt,
+            album.UpdatedAt);
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AzureBlobStorageService.cs
+============================================================
+
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using WinCapture.Exceptions;
+
+namespace WinCapture.Services;
+
+public sealed class AzureBlobStorageService(
+    BlobContainerClient containerClient,
+    ILogger<AzureBlobStorageService> logger) : IStorageService
+{
+    public async Task<string> SaveAsync(IFormFile file)
+    {
+        if (file is null)
+        {
+            throw new StorageException(
+                "The file could not be stored in Azure Blob Storage.",
+                new ArgumentNullException(nameof(file)));
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        var storedFileName = $"{Guid.NewGuid():N}{extension}";
+        var blobClient = containerClient.GetBlobClient(storedFileName);
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+
+            await blobClient.UploadAsync(
+                stream,
+                new BlobUploadOptions
+                {
+                    HttpHeaders = new BlobHttpHeaders
+                    {
+                        ContentType = file.ContentType
+                    }
+                });
+
+            return storedFileName;
+        }
+        catch (RequestFailedException exception)
+        {
+            logger.LogError(
+                exception,
+                "Failed to store file in Azure Blob Storage. StoredFileName: {StoredFileName}",
+                storedFileName);
+
+            throw new StorageException(
+                "The file could not be stored in Azure Blob Storage.",
+                exception);
+        }
+    }
+
+    public async Task DeleteAsync(string storedFileName)
+    {
+        try
+        {
+            await containerClient.DeleteBlobIfExistsAsync(storedFileName);
+        }
+        catch (RequestFailedException exception)
+        {
+            logger.LogError(
+                exception,
+                "Failed to delete file from Azure Blob Storage. StoredFileName: {StoredFileName}",
+                storedFileName);
+
+            throw new StorageException(
+                "The file could not be deleted from Azure Blob Storage.",
+                exception);
+        }
+    }
+
+    public async Task<Stream> GetAsync(string storedFileName)
+    {
+        try
+        {
+            var response = await containerClient
+                .GetBlobClient(storedFileName)
+                .DownloadStreamingAsync();
+
+            return response.Value.Content;
+        }
+        catch (RequestFailedException exception)
+            when (exception.Status == StatusCodes.Status404NotFound)
+        {
+            logger.LogError(
+                exception,
+                "Metadata points to a missing Blob. StoredFileName: {StoredFileName}",
+                storedFileName);
+
+            throw new NotFoundException("The requested file was not found in storage.");
+        }
+        catch (RequestFailedException exception)
+        {
+            logger.LogError(
+                exception,
+                "Failed to read file from Azure Blob Storage. StoredFileName: {StoredFileName}",
+                storedFileName);
+
+            throw new StorageException(
+                "The file could not be read from Azure Blob Storage.",
+                exception);
+        }
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\FileService.cs
+============================================================
+
+using Microsoft.AspNetCore.Http;
+using WinCapture.DTOs.Files;
+using WinCapture.Exceptions;
+using WinCapture.Models;
+using WinCapture.Repositories;
+using WinCapture.Validators;
+
+namespace WinCapture.Services;
+
+public sealed class FileService(
+    FileValidator validator,
+    IStorageService storage,
+    IFileRepository files,
+    ILogger<FileService> logger) : IFileService
+{
+    public async Task<FileResponse> UploadAsync(IFormFile file, int userId)
+    {
+        await validator.ValidateAsync(file);
+
+        var storedFileName = await storage.SaveAsync(file);
+
+        var metadata = new FileMetadata
+        {
+            OriginalFileName = Path.GetFileName(file.FileName),
+            StoredFileName = storedFileName,
+            ContentType = file.ContentType,
+            FileSize = file.Length,
+            UploadedBy = userId,
+            UploadedAt = DateTime.UtcNow
+        };
+
+        try
+        {
+            await files.AddAsync(metadata);
+        }
+        catch
+        {
+            await TryDeleteStoredFileAsync(storedFileName);
+            throw;
+        }
+
+        return ToResponse(metadata);
+    }
+
+    public async Task<FileResponse> ReplaceAsync(
+        long fileId,
+        IFormFile file,
+        int userId,
+        UserRole userRole)
+    {
+        await validator.ValidateAsync(file);
+
+        var existing = await GetAuthorizedFileAsync(fileId, userId, userRole);
+        var oldStoredFileName = existing.StoredFileName;
+        var newStoredFileName = await storage.SaveAsync(file);
+
+        existing.OriginalFileName = Path.GetFileName(file.FileName);
+        existing.StoredFileName = newStoredFileName;
+        existing.ContentType = file.ContentType;
+        existing.FileSize = file.Length;
+        existing.UploadedAt = DateTime.UtcNow;
+
+        try
+        {
+            await files.UpdateAsync(existing);
+        }
+        catch
+        {
+            await TryDeleteStoredFileAsync(newStoredFileName);
+            throw;
+        }
+
+        await TryDeleteStoredFileAsync(oldStoredFileName);
+
+        return ToResponse(existing);
+    }
+
+    public async Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId) =>
+        (await files.GetByUserIdAsync(userId))
+            .Select(ToResponse)
+            .ToList();
+
+    public async Task<FileResponse> GetAsync(
+        long fileId,
+        int userId,
+        UserRole userRole) =>
+        ToResponse(await GetAuthorizedFileAsync(fileId, userId, userRole));
+
+    public async Task<FileDownloadResult> DownloadAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
+    {
+        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
+        var content = await storage.GetAsync(file.StoredFileName);
+
+        return new FileDownloadResult(
+            content,
+            file.ContentType,
+            file.OriginalFileName);
+    }
+
+    public async Task DeleteAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
+    {
+        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
+
+        await files.DeleteAsync(file);
+
+        // SQL is treated as the source of truth for the gallery.
+        // If Blob deletion fails, the database record is already gone.
+        // The cleanup error is logged without changing the successful response.
+        await TryDeleteStoredFileAsync(file.StoredFileName);
+    }
+
+    public async Task<IReadOnlyList<FileResponse>> GetAllAsync() =>
+        (await files.GetAllAsync())
+            .Select(ToResponse)
+            .ToList();
+
+    private async Task<FileMetadata> GetAuthorizedFileAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
+    {
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
+
+        if (userRole != UserRole.Admin && file.UploadedBy != userId)
+        {
+            throw new ForbiddenException("You are not allowed to access this file.");
+        }
+
+        return file;
+    }
+
+    private async Task TryDeleteStoredFileAsync(string storedFileName)
+    {
+        try
+        {
+            await storage.DeleteAsync(storedFileName);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Failed to clean up stored file {StoredFileName}.",
+                storedFileName);
+        }
+    }
+
+    private static FileResponse ToResponse(FileMetadata file) =>
+        new(
+            file.Id,
+            file.OriginalFileName,
+            file.ContentType,
+            file.FileSize,
+            file.UploadedAt,
+            $"/api/files/{file.Id}",
+            $"/api/files/{file.Id}/download");
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IAlbumFileService.cs
+============================================================
+
+using Microsoft.AspNetCore.Http;
+using WinCapture.DTOs.Files;
+using WinCapture.Models;
+
+namespace WinCapture.Services;
+
+public interface IAlbumFileService
+{
+    Task<FileResponse> UploadAsync(
+        long albumId,
+        IFormFile file,
+        User currentUser,
+        UserRole role);
+
+    Task<IReadOnlyList<FileResponse>> GetAsync(
+        long albumId,
+        User currentUser,
+        UserRole role);
+
+    Task<FileResponse> GetOneAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role);
+
+    Task<FileDownloadResult> DownloadAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role);
+
+    Task DeleteAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role);
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IAlbumService.cs
+============================================================
+
+using WinCapture.DTOs.Albums;
+using WinCapture.Models;
+
+namespace WinCapture.Services;
+
+public interface IAlbumService
+{
+    Task<AlbumResponse> CreateAsync(
+        CreateAlbumRequest request,
+        User currentUser);
+
+    Task<IReadOnlyList<AlbumResponse>> GetAccessibleAsync(
+        User currentUser,
+        UserRole role);
+
+    Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync();
+
+    Task<AlbumResponse> GetAsync(
+        long albumId,
+        User currentUser,
+        UserRole role);
+
+    Task<AlbumResponse> UpdateAsync(
+        long albumId,
+        UpdateAlbumRequest request,
+        User currentUser,
+        UserRole role);
+
+    Task DeleteAsync(
+        long albumId,
+        User currentUser,
+        UserRole role);
+
+    Task<IReadOnlyList<AlbumMemberResponse>> GetMembersAsync(
+        long albumId,
+        User currentUser,
+        UserRole role);
+
+    Task AddMemberAsync(
+        long albumId,
+        AddAlbumMemberRequest request,
+        User currentUser,
+        UserRole role);
+
+    Task UpdateMemberAsync(
+        long albumId,
+        int userId,
+        UpdateAlbumMemberRequest request,
+        User currentUser,
+        UserRole role);
+
+    Task RemoveMemberAsync(
+        long albumId,
+        int userId,
+        User currentUser,
+        UserRole role);
+
+    Task<Album> GetForUploadAsync(
+        long albumId,
+        User currentUser,
+        UserRole role);
+
+    Task<bool> CanDownloadAsync(
+        long albumId,
+        User currentUser,
+        UserRole role);
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IFileService.cs
+============================================================
+
+using Microsoft.AspNetCore.Http;
+using WinCapture.DTOs.Files;
+using WinCapture.Models;
+
+namespace WinCapture.Services;
+
+public interface IFileService
+{
+    Task<FileResponse> UploadAsync(IFormFile file, int userId);
+    Task<FileResponse> ReplaceAsync(long fileId, IFormFile file, int userId, UserRole userRole);
+    Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId);
+    Task<FileResponse> GetAsync(long fileId, int userId, UserRole userRole);
+    Task<FileDownloadResult> DownloadAsync(long fileId, int userId, UserRole userRole);
+    Task DeleteAsync(long fileId, int userId, UserRole userRole);
+    Task<IReadOnlyList<FileResponse>> GetAllAsync();
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IStorageService.cs
+============================================================
+
+using Microsoft.AspNetCore.Http;
+
+namespace WinCapture.Services;
+
+public interface IStorageService
+{
+    Task<string> SaveAsync(IFormFile file);
+    Task DeleteAsync(string storedFileName);
+    Task<Stream> GetAsync(string storedFileName);
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\MicrosoftIdentityClaimsTransformation.cs
+============================================================
+
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using WinCapture.Models;
+
+namespace WinCapture.Services;
+
+public sealed class MicrosoftIdentityClaimsTransformation(
+    MicrosoftUserService microsoftUserService) : IClaimsTransformation
+{
+    public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
+    {
+        if(!principal.Identity?.IsAuthenticated ?? true)
+        {
+            return principal;
+        }
+
+        var identity=principal.Identities.FirstOrDefault(identity=>identity.IsAuthenticated);
+
+        if(identity is null)
+        {
+            return principal;
+        }
+
+        var objectId=principal.FindFirst("oid")?.Value;
+        var email=principal.FindFirst("preferred_username")?.Value
+            ?? principal.FindFirst("email")?.Value
+            ?? principal.FindFirst("upn")?.Value;
+
+        if(string.IsNullOrWhiteSpace(objectId)||string.IsNullOrWhiteSpace(email))
+        {
+            return principal;
+        }
+
+        var role=GetRole(principal);
+
+        if(role is null)
+        {
+            return principal;
+        }
+
+        var name=principal.FindFirst("name")?.Value
+            ?? principal.FindFirst("given_name")?.Value
+            ?? email.Split('@')[0];
+
+        var user=await microsoftUserService.GetOrCreateAsync(
+            name,
+            email,
+            objectId,
+            role.Value);
+
+        RemoveClaim(identity,"wincapture_user_id");
+        RemoveClaim(identity,"authentication_type");
+
+        identity.AddClaim(new Claim("wincapture_user_id",user.Id.ToString()));
+        identity.AddClaim(new Claim("authentication_type","Microsoft Entra ID"));
+
+        return principal;
+    }
+
+    private static UserRole? GetRole(ClaimsPrincipal principal)
+    {
+        if(principal.IsInRole("WinCapture.Admin"))
+        {
+            return UserRole.Admin;
+        }
+
+        if(principal.IsInRole("WinCapture.User"))
+        {
+            return UserRole.User;
+        }
+
+        return null;
+    }
+
+    private static void RemoveClaim(ClaimsIdentity identity,string claimType)
+    {
+        foreach(var claim in identity.FindAll(claimType).ToList())
+        {
+            identity.RemoveClaim(claim);
+        }
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\MicrosoftUserService.cs
+============================================================
+
+using Microsoft.EntityFrameworkCore;
+using WinCapture.Exceptions;
+using WinCapture.Models;
+using WinCapture.Repositories;
+
+namespace WinCapture.Services;
+
+public sealed class MicrosoftUserService(
+    IUserRepository userRepository)
+{
+    public async Task<User> GetOrCreateAsync(
+        string name,
+        string email,
+        string entraObjectId,
+        UserRole role)
+    {
+        var normalizedEmail =
+            email.Trim()
+                .ToLowerInvariant();
+
+        var normalizedObjectId =
+            entraObjectId.Trim();
+
+        if (!IsValidEmail(normalizedEmail))
+        {
+            throw new UnauthorizedException(
+                "The Microsoft account email address is invalid.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                normalizedObjectId))
+        {
+            throw new UnauthorizedException(
+                "The Microsoft account object ID is missing.");
+        }
+
+        var normalizedName =
+            string.IsNullOrWhiteSpace(name)
+                ? normalizedEmail.Split('@')[0]
+                : name.Trim();
+
+        if (normalizedName.Length > 200)
+        {
+            normalizedName =
+                normalizedName[..200];
+        }
+
+        // ========================================================
+        // First identify the user by Microsoft Entra object ID.
+        // This is the authoritative identity binding.
+        // ========================================================
+
+        var user =
+            await userRepository.GetByEntraObjectIdAsync(
+                normalizedObjectId);
+
+        // ========================================================
+        // Legacy/email fallback.
+        // This allows an existing WinCapture record to be linked
+        // to its Microsoft Entra object ID.
+        // ========================================================
+
+        if (user is null)
+        {
+            user =
+                await userRepository.GetByEmailAsync(
+                    normalizedEmail);
+        }
+
+        // ========================================================
+        // Create new user
+        // ========================================================
+
+        if (user is null)
+        {
+            user = new User
+            {
+                Name = normalizedName,
+                Email = normalizedEmail,
+                EntraObjectId = normalizedObjectId,
+                Role = role,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            try
+            {
+                await userRepository.AddAsync(user);
+            }
+            catch (DbUpdateException exception)
+                when (IsDuplicateKeyException(exception))
+            {
+                user =
+                    await userRepository.GetByEntraObjectIdAsync(
+                        normalizedObjectId)
+                    ?? await userRepository.GetByEmailAsync(
+                        normalizedEmail)
+                    ?? throw new UnauthorizedException(
+                        "The Microsoft user could not be created or loaded.");
+            }
+
+            return user;
+        }
+
+        // ========================================================
+        // Sync Microsoft identity information
+        // ========================================================
+
+        var changed = false;
+
+        if (!string.Equals(
+                user.EntraObjectId,
+                normalizedObjectId,
+                StringComparison.Ordinal))
+        {
+            user.EntraObjectId =
+                normalizedObjectId;
+
+            changed = true;
+        }
+
+        if (!string.Equals(
+                user.Email,
+                normalizedEmail,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            user.Email =
+                normalizedEmail;
+
+            changed = true;
+        }
+
+        if (!string.Equals(
+                user.Name,
+                normalizedName,
+                StringComparison.Ordinal))
+        {
+            user.Name =
+                normalizedName;
+
+            changed = true;
+        }
+
+        // The Entra application role is authoritative.
+        if (user.Role != role)
+        {
+            user.Role =
+                role;
+
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await userRepository.UpdateAsync(user);
+        }
+
+        return user;
+    }
+
+    private static bool IsValidEmail(
+        string email)
+    {
+        try
+        {
+            var address =
+                new System.Net.Mail.MailAddress(
+                    email);
+
+            return string.Equals(
+                address.Address,
+                email,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsDuplicateKeyException(
+        DbUpdateException exception)
+    {
+        return exception.InnerException is
+                   Microsoft.Data.SqlClient.SqlException sqlException &&
+               (sqlException.Number == 2601 ||
+                sqlException.Number == 2627);
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Validators\FileValidator.cs
+============================================================
+
+using Microsoft.AspNetCore.Http;
+using WinCapture.Exceptions;
+
+namespace WinCapture.Validators;
+
+public sealed class FileValidator
+{
+    public const long MaximumFileSize =
+        10L * 1024L * 1024L;
+
+    private static readonly Dictionary<string, string>
+        AllowedContentTypes =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                [".jpg"] = "image/jpeg",
+                [".jpeg"] = "image/jpeg",
+                [".png"] = "image/png",
+                [".gif"] = "image/gif",
+                [".pdf"] = "application/pdf"
+            };
+
+    public Task ValidateAsync(IFormFile file)
+    {
+        if (file is null)
+        {
+            throw new BadRequestException(
+                "A file is required.");
+        }
+
+        if (file.Length == 0)
+        {
+            throw new BadRequestException(
+                "The uploaded file cannot be empty.");
+        }
+
+        if (file.Length > MaximumFileSize)
+        {
+            throw new PayloadTooLargeException(
+                "The uploaded file exceeds the maximum allowed size of 10 MB.");
+        }
+
+        var extension =
+            Path.GetExtension(
+                file.FileName);
+
+        if (!AllowedContentTypes.TryGetValue(
+                extension,
+                out var expectedContentType))
+        {
+            throw new BadRequestException(
+                "The uploaded file must be a supported JPG, PNG, GIF, or PDF file.");
+        }
+
+        if (!string.Equals(
+                file.ContentType,
+                expectedContentType,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BadRequestException(
+                "The uploaded file content type is invalid.");
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\public\redirect.html
+============================================================
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WinCapture Redirect</title>
+  </head>
+  <body>
+    <p>Returning to WinCapture...</p>
+
+    <script>
+      window.location.replace(
+        "/" + window.location.search + window.location.hash
+      );
+    </script>
+  </body>
+</html>
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\api\apiClient.ts
+============================================================
+
+import {
+  InteractionRequiredAuthError,
+  type AccountInfo,
+  type IPublicClientApplication,
+} from "@azure/msal-browser";
+
+import { apiBaseUrl, apiScope } from "../authConfig";
+import { ApiError } from "../types/api";
+import type { CurrentUser } from "../types/auth";
+import type {
+  AlbumResponse,
+  CreateAlbumRequest,
+  UpdateAlbumRequest,
+  AlbumMemberResponse,
+  AddAlbumMemberRequest,
+  UpdateAlbumMemberRequest,
+} from "../types/album";
+import type { FileResponse } from "../types/file";
+
+export { ApiError };
+export type { CurrentUser };
+
+async function acquireAccessToken(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<string> {
+  try {
+    const result = await instance.acquireTokenSilent({
+      account,
+      scopes: [apiScope],
+    });
+
+    if (!result.accessToken) {
+      throw new ApiError(
+        "Microsoft Entra did not return an access token for the WinCapture API.",
+        401,
+      );
+    }
+
+    return result.accessToken;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    if (error instanceof InteractionRequiredAuthError) {
+      throw new ApiError(
+        "Microsoft sign-in is required again before a WinCapture API access token can be acquired.",
+        401,
+      );
+    }
+
+    throw new ApiError(
+      "Unable to acquire the Microsoft access token for the WinCapture API.",
+      401,
+    );
+  }
+}
+
+async function extractErrorMessage(response: Response): Promise<string> {
+  try {
+    const data = (await response.json()) as {
+      message?: string;
+      error?: string;
+      status?: number;
+    };
+
+    return data.message || data.error || `Backend returned HTTP ${response.status}.`;
+  } catch {
+    return `Backend returned HTTP ${response.status}.`;
+  }
+}
+
+export async function callApi(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  const accessToken = await acquireAccessToken(instance, account);
+
+  const headers = new Headers(options.headers);
+  headers.set("Authorization", `Bearer ${accessToken}`);
+
+  if (options.body && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    throw new ApiError(
+      "The WinCapture API could not be reached. Ensure the backend is running and reachable.",
+      0,
+    );
+  }
+
+  if (!response.ok) {
+    const serverMessage = await extractErrorMessage(response);
+    let message = serverMessage;
+
+    if (response.status === 400) {
+      message = `Validation failed: ${serverMessage}`;
+    } else if (response.status === 401) {
+      message = `Authentication expired or invalid: ${serverMessage}`;
+    } else if (response.status === 403) {
+      message = `Access denied: ${serverMessage}`;
+    } else if (response.status === 404) {
+      message = `Resource not found: ${serverMessage}`;
+    } else if (response.status === 409) {
+      message = `Conflict: ${serverMessage}`;
+    } else if (response.status === 413) {
+      message = `File too large: ${serverMessage}`;
+    } else if (response.status >= 500) {
+      message = "An unexpected server error occurred. Please try again later.";
+    }
+
+    throw new ApiError(message, response.status);
+  }
+
+  return response;
+}
+
+// ==========================================
+// Authentication API
+// ==========================================
+
+export async function getCurrentUser(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<CurrentUser> {
+  const response = await callApi(instance, account, "/api/auth/me");
+  return (await response.json()) as CurrentUser;
+}
+
+// ==========================================
+// Albums API
+// ==========================================
+
+export async function getAlbums(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<AlbumResponse[]> {
+  const response = await callApi(instance, account, "/api/albums");
+  return (await response.json()) as AlbumResponse[];
+}
+
+export async function getAlbum(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+): Promise<AlbumResponse> {
+  const response = await callApi(instance, account, `/api/albums/${albumId}`);
+  return (await response.json()) as AlbumResponse;
+}
+
+export async function createAlbum(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  request: CreateAlbumRequest,
+): Promise<AlbumResponse> {
+  const response = await callApi(instance, account, "/api/albums", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+  return (await response.json()) as AlbumResponse;
+}
+
+export async function updateAlbum(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  request: UpdateAlbumRequest,
+): Promise<AlbumResponse> {
+  const response = await callApi(instance, account, `/api/albums/${albumId}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+  return (await response.json()) as AlbumResponse;
+}
+
+export async function deleteAlbum(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+): Promise<void> {
+  await callApi(instance, account, `/api/albums/${albumId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getAlbumMembers(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+): Promise<AlbumMemberResponse[]> {
+  const response = await callApi(instance, account, `/api/albums/${albumId}/members`);
+  return (await response.json()) as AlbumMemberResponse[];
+}
+
+export async function addAlbumMember(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  request: AddAlbumMemberRequest,
+): Promise<void> {
+  await callApi(instance, account, `/api/albums/${albumId}/members`, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function updateAlbumMember(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  userId: number,
+  request: UpdateAlbumMemberRequest,
+): Promise<void> {
+  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function removeAlbumMember(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  userId: number,
+): Promise<void> {
+  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+// ==========================================
+// Album Files API
+// ==========================================
+
+export async function getAlbumFiles(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+): Promise<FileResponse[]> {
+  const response = await callApi(instance, account, `/api/albums/${albumId}/files`);
+  return (await response.json()) as FileResponse[];
+}
+
+export async function getAlbumFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  fileId: number,
+): Promise<FileResponse> {
+  const response = await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}`,
+  );
+  return (await response.json()) as FileResponse;
+}
+
+export async function uploadAlbumFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  file: File,
+): Promise<FileResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+  return (await response.json()) as FileResponse;
+}
+
+export async function downloadAlbumFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  fileId: number,
+  fallbackFileName: string,
+): Promise<void> {
+  const response = await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}/download`,
+  );
+  const blob = await response.blob();
+  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
+  triggerBrowserDownload(blob, fileName);
+}
+
+export async function getFilePreviewUrl(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+  albumId?: number,
+): Promise<string> {
+  const path = albumId
+    ? `/api/albums/${albumId}/files/${fileId}/download`
+    : `/api/files/${fileId}/download`;
+  const response = await callApi(instance, account, path);
+  return URL.createObjectURL(await response.blob());
+}
+
+export async function deleteAlbumFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  fileId: number,
+): Promise<void> {
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+// ==========================================
+// Personal Files API
+// ==========================================
+
+export async function getFiles(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<FileResponse[]> {
+  const response = await callApi(instance, account, "/api/files");
+  return (await response.json()) as FileResponse[];
+}
+
+export async function getFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<FileResponse> {
+  const response = await callApi(instance, account, `/api/files/${fileId}`);
+  return (await response.json()) as FileResponse;
+}
+
+export async function uploadFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  file: File,
+): Promise<FileResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await callApi(instance, account, "/api/files", {
+    method: "POST",
+    body: formData,
+  });
+  return (await response.json()) as FileResponse;
+}
+
+export async function replaceFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+  file: File,
+): Promise<FileResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await callApi(instance, account, `/api/files/${fileId}`, {
+    method: "PUT",
+    body: formData,
+  });
+  return (await response.json()) as FileResponse;
+}
+
+export async function downloadFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+  fallbackFileName: string,
+): Promise<void> {
+  const response = await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}/download`,
+  );
+  const blob = await response.blob();
+  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
+  triggerBrowserDownload(blob, fileName);
+}
+
+export async function deleteFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<void> {
+  await callApi(instance, account, `/api/files/${fileId}`, {
+    method: "DELETE",
+  });
+}
+
+// ==========================================
+// Admin API
+// ==========================================
+
+export async function getAdminFiles(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<FileResponse[]> {
+  const response = await callApi(instance, account, "/api/admin/files");
+  return (await response.json()) as FileResponse[];
+}
+
+export async function getAdminAlbums(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<AlbumResponse[]> {
+  const response = await callApi(instance, account, "/api/admin/albums");
+  return (await response.json()) as AlbumResponse[];
+}
+
+// ==========================================
+// Binary Download Utilities
+// ==========================================
+
+export async function getApiBlob(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+): Promise<Blob> {
+  const response = await callApi(instance, account, path);
+  return response.blob();
+}
+
+function extractFileNameFromHeaders(
+  response: Response,
+  fallback: string,
+): string {
+  const disposition = response.headers.get("content-disposition");
+  if (!disposition) return fallback;
+
+  const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+  return match?.[1] ? decodeURIComponent(match[1]) : fallback;
+}
+
+export function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(url);
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\components\FileCard.tsx
+============================================================
+
+import { FileText, MoreHorizontal, Replace, Trash2, Download } from "lucide-react";
+
+import type { FileResponse } from "../types/file";
+
+interface FileCardProps {
+  file: FileResponse;
+  previewUrl?: string;
+  canManage?: boolean;
+  onReplace: () => void;
+  onDownload: () => void;
+  onDelete: () => void;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+
+  return `${bytes} B`;
+}
+
+function formatFileType(contentType: string): string {
+  const [type, subtype] = contentType.split("/");
+  return subtype ? subtype.toUpperCase() : type.toUpperCase();
+}
+
+export default function FileCard({
+  file,
+  previewUrl,
+  canManage = true,
+  onReplace,
+  onDownload,
+  onDelete,
+}: FileCardProps) {
+  const isImage = file.contentType.startsWith("image/");
+
+  return (
+    <article className="surface file-card min-w-0 p-3">
+      <div className="file-card-preview media-preview mb-3">
+        {isImage && previewUrl ? (
+          <img
+            src={previewUrl}
+            alt={file.originalFileName}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-500">
+            <FileText aria-hidden="true" size={34} strokeWidth={1.5} />
+            <span className="text-xs font-semibold tracking-wide">{formatFileType(file.contentType)}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex min-w-0 items-start justify-between gap-3 px-1">
+        <div className="min-w-0">
+          <h3 className="truncate text-[15px] font-semibold text-slate-900" title={file.originalFileName}>
+            {file.originalFileName}
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            {formatFileType(file.contentType)} <span aria-hidden="true">Â·</span> {formatFileSize(file.fileSize)}
+          </p>
+        </div>
+
+        <details className="file-menu shrink-0">
+          <summary aria-label={`Actions for ${file.originalFileName}`} title="File actions">
+            <MoreHorizontal aria-hidden="true" size={20} />
+          </summary>
+          <div className="file-menu-popover">
+            {canManage && (
+              <button
+                type="button"
+                className="file-menu-action"
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  onReplace();
+                }}
+              >
+                <Replace aria-hidden="true" size={16} /> Replace
+              </button>
+            )}
+            <button
+              type="button"
+              className="file-menu-action"
+              onClick={(event) => {
+                event.currentTarget.closest("details")?.removeAttribute("open");
+                onDownload();
+              }}
+            >
+              <Download aria-hidden="true" size={16} /> Download
+            </button>
+            {canManage && (
+              <button
+                type="button"
+                className="file-menu-action is-danger"
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  onDelete();
+                }}
+              >
+                <Trash2 aria-hidden="true" size={16} /> Delete
+              </button>
+            )}
+          </div>
+        </details>
+      </div>
+      <p className="mt-3 truncate border-t border-slate-100 px-1 pt-2 text-[11px] text-slate-400">
+        Added {new Date(file.uploadedAt).toLocaleDateString()}
+      </p>
+    </article>
+  );
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\components\Layout.tsx
+============================================================
+
+import { FolderOpen, House, Images, LogOut, Shield, UserRound } from "lucide-react";
+import { NavLink, Outlet } from "react-router-dom";
+
+import { useAuth } from "../context/AuthContext";
+
+const navigation = [
+  { to: "/dashboard", label: "Home", icon: House },
+  { to: "/albums", label: "Albums", icon: Images },
+  { to: "/files", label: "Files", icon: FolderOpen },
+];
+
+export default function Layout() {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="app-shell">
+      <div className="app-container py-0">
+        <header className="app-header">
+          <div className="app-header-inner">
+            <div className="app-brand flex items-center">
+              <img
+                src="/winwire-logo.png"
+                alt="WinWire logo"
+                  className="h-12 w-20 object-contain"
+              />
+            </div>
+
+            <nav className="app-nav">
+              {navigation.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `app-nav-link ${isActive ? "is-active" : ""}`
+                  }
+                >
+                  {item.label === "Home" ? "Dashboard" : item.label}
+                </NavLink>
+              ))}
+
+              {user?.role === "Admin" && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    `app-nav-link ${isActive ? "is-active" : ""}`
+                  }
+                >
+                  Admin
+                </NavLink>
+              )}
+            </nav>
+
+            <div className="app-user-actions">
+              <NavLink
+                to="/profile"
+                aria-label={`Profile: ${user?.name ?? "User"}`}
+                className="profile-link flex items-center gap-2 px-3 py-2 text-sm font-medium transition"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-white">
+                  {user?.name?.charAt(0).toUpperCase() ?? "U"}
+                </span>
+                <span className="user-name max-w-36 truncate">{user?.name ?? "Profile"}</span>
+              </NavLink>
+
+              <button
+                type="button"
+                aria-label="Sign out"
+                onClick={() => void logout()}
+                className="quiet-button signout-button px-3 py-2 text-sm font-medium transition"
+              >
+                <LogOut aria-hidden="true" size={17} />
+                <span className="signout-label">Sign out</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="app-main pb-8">
+          <Outlet />
+        </main>
+      </div>
+
+      <nav className="mobile-nav" aria-label="Primary navigation">
+        {navigation.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              aria-label={item.label === "Home" ? "Dashboard" : item.label}
+              className={({ isActive }) => `mobile-nav-link ${isActive ? "is-active" : ""}`}
+            >
+              <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
+        {user?.role === "Admin" && (
+          <NavLink
+            to="/admin"
+            aria-label="Admin"
+            className={({ isActive }) => `mobile-nav-link ${isActive ? "is-active" : ""}`}
+          >
+            <Shield aria-hidden="true" size={20} strokeWidth={1.8} />
+            <span>Admin</span>
+          </NavLink>
+        )}
+        <NavLink
+          to="/profile"
+          aria-label="Profile"
+          className={({ isActive }) => `mobile-nav-link ${isActive ? "is-active" : ""}`}
+        >
+          <UserRound aria-hidden="true" size={20} strokeWidth={1.8} />
+          <span>Profile</span>
+        </NavLink>
+      </nav>
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\context\AuthContext.tsx
+============================================================
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import type {
+  AccountInfo,
+} from "@azure/msal-browser";
+
+import {
+  InteractionStatus,
+} from "@azure/msal-browser";
+
+import {
+  useMsal,
+} from "@azure/msal-react";
+
+import {
+  getCurrentUser,
+  type CurrentUser,
+} from "../api/apiClient";
+
+import {
+  loginRequest,
+  msalPostLogoutRedirectUri,
+} from "../authConfig";
+
+interface AuthContextValue {
+  account: AccountInfo | null;
+  user: CurrentUser | null;
+  loading: boolean;
+  error: string | null;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext =
+  createContext<AuthContextValue | undefined>(
+    undefined,
+  );
+
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const {
+    instance,
+    accounts,
+    inProgress,
+  } = useMsal();
+
+  const [user, setUser] =
+    useState<CurrentUser | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      !instance.getActiveAccount() &&
+      accounts.length > 0
+    ) {
+      instance.setActiveAccount(
+        accounts[0],
+      );
+    }
+  }, [instance, accounts]);
+
+  const account =
+    instance.getActiveAccount() ??
+    accounts[0] ??
+    null;
+
+  const refreshUser =
+    async () => {
+      if (!account) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const currentUser =
+          await getCurrentUser(
+            instance,
+            account,
+          );
+
+        setUser(currentUser);
+      } catch (caughtError) {
+        setUser(null);
+
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Microsoft authentication succeeded, but the WinCapture API rejected the request.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  useEffect(() => {
+    if (
+      inProgress ===
+      InteractionStatus.None
+    ) {
+      void refreshUser();
+    }
+  }, [
+    account?.homeAccountId,
+    inProgress,
+  ]);
+
+  const login =
+    async () => {
+      setError(null);
+
+      try {
+        await instance.loginRedirect(
+          loginRequest,
+        );
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Microsoft authentication could not be started.",
+        );
+      }
+    };
+
+  const logout =
+    async () => {
+      setUser(null);
+      setError(null);
+
+      try {
+        await instance.logoutRedirect({
+          account:
+            account ?? undefined,
+          postLogoutRedirectUri:
+            msalPostLogoutRedirectUri,
+        });
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Microsoft logout could not be completed.",
+        );
+      }
+    };
+
+  const value =
+    useMemo<AuthContextValue>(
+      () => ({
+        account,
+        user,
+        loading:
+          loading ||
+          inProgress !==
+            InteractionStatus.None,
+        error,
+        login,
+        logout,
+        refreshUser,
+      }),
+      [
+        account,
+        user,
+        loading,
+        inProgress,
+        error,
+      ],
+    );
+
+  return (
+    <AuthContext.Provider
+      value={value}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthContextValue {
+  const context =
+    useContext(AuthContext);
+
+  if (!context) {
+    throw new Error(
+      "useAuth must be used inside AuthProvider.",
+    );
+  }
+
+  return context;
+}
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\AdminPage.tsx
+============================================================
+
+import { useEffect, useState } from "react";
+import { useMsal } from "@azure/msal-react";
+
+import { getAdminAlbums, getAdminFiles } from "../api/apiClient";
+import { useAuth } from "../context/AuthContext";
+import type { AlbumResponse } from "../types/album";
+import type { FileResponse } from "../types/file";
+
+export default function AdminPage() {
+  const { instance } = useMsal();
+  const { account } = useAuth();
+  const [albums, setAlbums] = useState<AlbumResponse[]>([]);
+  const [files, setFiles] = useState<FileResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      if (!account) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const [albumResult, fileResult] = await Promise.all([
+          getAdminAlbums(instance, account),
+          getAdminFiles(instance, account),
+        ]);
+
+        setAlbums(albumResult);
+        setFiles(fileResult);
+      } catch (caughtError) {
+        setError(caughtError instanceof Error ? caughtError.message : "Unable to load admin data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+  }, [account, instance]);
+
+  if (loading) {
+    return <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />;
+  }
+
+  return (
+    <div className="app-page">
+      <section className="page-toolbar surface">
+        <div>
+          <p className="page-kicker">Administration</p>
+          <h2 className="page-heading">System overview</h2>
+        </div>
+      </section>
+
+      {error && <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="surface p-5">
+          <p className="text-sm text-slate-500">Total albums</p>
+          <p className="metric-value mt-4">{albums.length}</p>
+        </div>
+        <div className="surface p-5">
+          <p className="text-sm text-slate-500">Total files</p>
+          <p className="metric-value mt-4">{files.length}</p>
+        </div>
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="surface p-5">
+          <h3 className="section-title mb-4">Latest albums</h3>
+          <div className="space-y-3">
+            {albums.slice(0, 5).map((album) => (
+              <div key={album.id} className="surface-muted flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="font-medium text-slate-900">{album.albumName}</p>
+                  <p className="text-xs text-slate-500">{album.ownerName}</p>
+                </div>
+                <span className="text-xs text-slate-400">#{album.id}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="surface p-5">
+          <h3 className="section-title mb-4">Latest files</h3>
+          <div className="space-y-3">
+            {files.slice(0, 5).map((file) => (
+              <div key={file.id} className="surface-muted flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="font-medium text-slate-900">{file.originalFileName}</p>
+                  <p className="text-xs text-slate-500">{file.contentType}</p>
+                </div>
+                <span className="text-xs text-slate-400">{file.id}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\AlbumDetailPage.tsx
+============================================================
+
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ChevronDown, Share2 } from "lucide-react";
+import { useMsal } from "@azure/msal-react";
+import { Link, useParams } from "react-router-dom";
+
+import {
+  addAlbumMember,
+  deleteAlbumFile,
+  downloadAlbumFile,
+  getAlbum,
+  getAlbumFiles,
+  getAlbumMembers,
+  getFilePreviewUrl,
+  removeAlbumMember,
+  replaceFile,
+  updateAlbum,
+  updateAlbumMember,
+  uploadAlbumFile,
+} from "../api/apiClient";
+import FileCard from "../components/FileCard";
+import { useAuth } from "../context/AuthContext";
+import type { AlbumMemberResponse, AlbumResponse } from "../types/album";
+import type { FileResponse } from "../types/file";
+
+export default function AlbumDetailPage() {
+  const { instance } = useMsal();
+  const { account, user } = useAuth();
+  const { albumId } = useParams();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceTargetIdRef = useRef<number | null>(null);
+
+  const [album, setAlbum] = useState<AlbumResponse | null>(null);
+  const [files, setFiles] = useState<FileResponse[]>([]);
+  const [members, setMembers] = useState<AlbumMemberResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [canView, setCanView] = useState(true);
+  const [canDownload, setCanDownload] = useState(true);
+  const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
+  const [albumNameDraft, setAlbumNameDraft] = useState("");
+
+  const numericAlbumId = Number(albumId ?? "0");
+
+  useEffect(() => () => {
+    Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+  }, [previewUrls]);
+
+  const loadAlbumData = async () => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const albumResult = await getAlbum(instance, account, numericAlbumId);
+      setAlbum(albumResult);
+      setAlbumNameDraft(albumResult.albumName);
+
+      const canManageAlbum = user?.role === "Admin" || albumResult.ownerId === user?.userId;
+      const fileResult = await getAlbumFiles(instance, account, numericAlbumId);
+      setFiles(fileResult);
+
+      if (canManageAlbum) {
+        try {
+          setMembers(await getAlbumMembers(instance, account, numericAlbumId));
+        } catch {
+          setMembers([]);
+          setError("Album opened, but sharing settings could not be loaded.");
+        }
+      } else {
+        setMembers([]);
+      }
+
+      const urls = await Promise.all(fileResult
+        .filter((file) => file.contentType.startsWith("image/"))
+        .map(async (file) => {
+          try {
+            return [file.id, await getFilePreviewUrl(instance, account, file.id, numericAlbumId)] as const;
+          } catch {
+            return null;
+          }
+        }));
+      setPreviewUrls(Object.fromEntries(urls.filter((entry) => entry !== null)));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to load album details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAlbumData();
+  }, [account, instance, numericAlbumId, user?.role, user?.userId]);
+
+  const canManageAlbum = Boolean(
+    album && user && (user.role === "Admin" || album.ownerId === user.userId),
+  );
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile || !account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+      await uploadAlbumFile(instance, account, numericAlbumId, selectedFile);
+      event.target.value = "";
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (file: FileResponse) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await downloadAlbumFile(instance, account, numericAlbumId, file.id, file.originalFileName);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Download failed.");
+    }
+  };
+
+  const handleDelete = async (fileId: number) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await deleteAlbumFile(instance, account, numericAlbumId, fileId);
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Delete failed.");
+    }
+  };
+
+  const handleReplace = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    const fileId = replaceTargetIdRef.current;
+    if (!selectedFile || !account || !Number.isFinite(numericAlbumId) || fileId === null) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await replaceFile(instance, account, fileId, selectedFile);
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Replace failed.");
+    } finally {
+      replaceTargetIdRef.current = null;
+      event.target.value = "";
+    }
+  };
+
+  const handleUpdateAlbum = async () => {
+    if (!account || !Number.isFinite(numericAlbumId) || !albumNameDraft.trim()) {
+      setError("Album name is required.");
+      return;
+    }
+
+    try {
+      setError(null);
+      const updated = await updateAlbum(instance, account, numericAlbumId, {
+        albumName: albumNameDraft.trim(),
+      });
+
+      setAlbum(updated);
+      setAlbumNameDraft(updated.albumName);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to update album.");
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!account || !Number.isFinite(numericAlbumId) || !memberEmail.trim()) {
+      setError("An email address is required to share the album.");
+      return;
+    }
+
+    try {
+      setError(null);
+      await addAlbumMember(instance, account, numericAlbumId, {
+        email: memberEmail.trim(),
+        canView,
+        canDownload,
+      });
+      setMemberEmail("");
+      setCanView(true);
+      setCanDownload(true);
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to share album.");
+    }
+  };
+
+  const handleUpdateMember = async (userId: number, nextView: boolean, nextDownload: boolean) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await updateAlbumMember(instance, account, numericAlbumId, userId, {
+        canView: nextView,
+        canDownload: nextDownload,
+      });
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to update member access.");
+    }
+  };
+
+  const handleRemoveMember = async (userId: number) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await removeAlbumMember(instance, account, numericAlbumId, userId);
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to revoke access.");
+    }
+  };
+
+  if (loading) {
+    return <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />;
+  }
+
+  if (!album) {
+    return (
+      <div role="alert" className="surface p-6 text-slate-700">
+        {error ?? "Album not found."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-page">
+      <section className="surface p-5 sm:p-6">
+        <Link to="/albums" className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900">
+          <ArrowLeft aria-hidden="true" size={16} /> Albums
+        </Link>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="page-heading">{album.albumName}</h2>
+            <p className="mt-2 text-sm text-slate-500">{files.length} {files.length === 1 ? "file" : "files"}</p>
+          </div>
+          {canManageAlbum && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="primary-action"
+            >
+              {uploading ? "Adding files..." : "Add files"}
+            </button>
+          )}
+        </div>
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+        <input ref={replaceInputRef} type="file" className="hidden" onChange={handleReplace} />
+      </section>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <section className="surface p-5 sm:p-6">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="section-title">Album info</h3>
+          <span className="text-xs text-slate-400">#{album.id}</span>
+        </div>
+        <div className="album-info-grid">
+          <div className="settings-row">
+            <span className="text-sm text-slate-500">Owner</span>
+            <span className="text-sm font-medium text-slate-900">{album.ownerName}</span>
+          </div>
+          <div className="settings-row">
+            <span className="text-sm text-slate-500">Created</span>
+            <span className="text-sm text-slate-700">{new Date(album.createdAt).toLocaleDateString()}</span>
+          </div>
+          <div className="settings-row">
+            <span className="text-sm text-slate-500">Updated</span>
+            <span className="text-sm text-slate-700">{album.updatedAt ? new Date(album.updatedAt).toLocaleDateString() : "Never"}</span>
+          </div>
+          {canManageAlbum && (
+            <div className="settings-row album-name-row">
+              <label htmlFor="album-name" className="text-sm text-slate-500">Name</label>
+              <div className="flex min-w-0 gap-2">
+                <input
+                  id="album-name"
+                  value={albumNameDraft}
+                  onChange={(event) => setAlbumNameDraft(event.target.value)}
+                  className="field min-w-0 flex-1"
+                />
+                <button type="button" onClick={() => void handleUpdateAlbum()} className="secondary-action">Save</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="app-page-section">
+        <div className="section-heading-row">
+          <div>
+            <h3 className="section-title">Files</h3>
+            <p className="mt-1 text-sm text-slate-500">Images and documents in this collection</p>
+          </div>
+          <span className="text-sm text-slate-500">{files.length}</span>
+        </div>
+        {files.length === 0 ? (
+          <div className="surface p-8 text-center text-sm text-slate-500">No files in this album yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {files.map((file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                previewUrl={previewUrls[file.id]}
+                canManage={canManageAlbum}
+                onReplace={() => {
+                  replaceTargetIdRef.current = file.id;
+                  if (replaceInputRef.current) {
+                    replaceInputRef.current.value = "";
+                    replaceInputRef.current.click();
+                  }
+                }}
+                onDownload={() => void handleDownload(file)}
+                onDelete={() => void handleDelete(file.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {canManageAlbum && <details className="surface share-details">
+        <summary className="share-summary">
+          <span className="share-summary-icon"><Share2 aria-hidden="true" size={19} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-slate-900">Share access</span>
+            <span className="mt-1 block text-sm text-slate-500">Manage who can view and download</span>
+          </span>
+          <span className="mr-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{members.length}</span>
+          <ChevronDown aria-hidden="true" className="share-chevron text-slate-400" size={18} />
+        </summary>
+
+        <div className="share-content">
+          <div className="share-invite">
+            <label htmlFor="share-email" className="mb-2 block text-sm font-medium text-slate-700">Invite a WinWire user</label>
+            <input
+              id="share-email"
+              type="email"
+              value={memberEmail}
+              onChange={(event) => setMemberEmail(event.target.value)}
+              placeholder="name@winwire.com"
+              className="field w-full"
+            />
+            <div className="permission-row">
+              <span className="text-sm text-slate-700">Can view</span>
+              <button type="button" aria-pressed={canView} onClick={() => {
+                setCanView((previous) => !previous);
+                if (canView) setCanDownload(false);
+              }} className={`permission-toggle ${canView ? "is-enabled" : ""}`}>
+                <span aria-hidden="true" />
+                {canView ? "On" : "Off"}
+              </button>
+            </div>
+            <div className="permission-row">
+              <span className="text-sm text-slate-700">Can download</span>
+              <button type="button" aria-pressed={canDownload} disabled={!canView} onClick={() => setCanDownload((previous) => !previous)} className={`permission-toggle ${canDownload ? "is-enabled" : ""}`}>
+                <span aria-hidden="true" />
+                {canDownload ? "On" : "Off"}
+              </button>
+            </div>
+            <button type="button" onClick={() => void handleAddMember()} className="primary-action mt-3 w-full">Share album</button>
+          </div>
+
+          <div className="share-members">
+            <h4 className="section-title mb-1">People with access</h4>
+            {members.length === 0 ? (
+              <p className="py-4 text-sm text-slate-500">No one else has access yet.</p>
+            ) : (
+              members.map((member) => (
+                <div key={member.userId} className="member-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{member.name || member.email}</p>
+                    <p className="truncate text-xs text-slate-500">{member.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Revoke access for ${member.email}`}
+                    onClick={() => void handleRemoveMember(member.userId)}
+                    className="text-sm font-medium text-red-600 hover:text-red-700"
+                  >
+                    Revoke
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={member.canView}
+                    onClick={() => void handleUpdateMember(member.userId, !member.canView, !member.canView && member.canDownload ? false : member.canDownload)}
+                    className={`member-permission ${member.canView ? "is-enabled" : ""}`}
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={member.canDownload}
+                    disabled={!member.canView}
+                    onClick={() => void handleUpdateMember(member.userId, member.canView, !member.canDownload)}
+                    className={`member-permission ${member.canDownload ? "is-enabled" : ""}`}
+                  >
+                    Download
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </details>}
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\AlbumsPage.tsx
+============================================================
+
+import { useEffect, useState } from "react";
+import { useMsal } from "@azure/msal-react";
+import { ArrowUpRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import { createAlbum, getAlbums } from "../api/apiClient";
+import { useAuth } from "../context/AuthContext";
+import type { AlbumResponse } from "../types/album";
+
+export default function AlbumsPage() {
+  const { instance } = useMsal();
+  const { account } = useAuth();
+  const navigate = useNavigate();
+
+  const [albums, setAlbums] = useState<AlbumResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [albumName, setAlbumName] = useState("");
+
+  const loadAlbums = async () => {
+    if (!account) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setAlbums(await getAlbums(instance, account));
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to load albums.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAlbums();
+  }, [account, instance]);
+
+  const handleCreateAlbum = async () => {
+    if (!account || !albumName.trim()) {
+      setError("Album name is required.");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setError(null);
+      const created = await createAlbum(instance, account, { albumName: albumName.trim() });
+      setAlbumName("");
+      navigate(`/albums/${created.id}`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to create album.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />;
+  }
+
+  return (
+    <div className="app-page">
+      <section className="page-toolbar surface">
+        <div>
+          <p className="page-kicker">Your library</p>
+          <h2 className="page-heading">Albums</h2>
+        </div>
+
+        <div className="flex w-full gap-2 md:w-auto">
+          <input
+            value={albumName}
+            onChange={(event) => setAlbumName(event.target.value)}
+            placeholder="New album name"
+            className="field min-w-0 flex-1 md:w-64"
+          />
+          <button
+            type="button"
+            onClick={() => void handleCreateAlbum()}
+            disabled={creating}
+            className="primary-action whitespace-nowrap disabled:opacity-60"
+          >
+            {creating ? "Creating..." : "New album"}
+          </button>
+        </div>
+      </section>
+
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {albums.length === 0 ? (
+          <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3">
+            No albums available.
+          </div>
+        ) : (
+          albums.map((album) => (
+            <button
+              key={album.id}
+              type="button"
+              onClick={() => navigate(`/albums/${album.id}`)}
+              className="surface album-card p-5 text-left transition hover:border-sky-200"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="page-kicker">Album</p>
+                  <h3 className="mt-1 text-xl font-semibold text-slate-900">{album.albumName}</h3>
+                </div>
+                <ArrowUpRight aria-hidden="true" className="album-arrow text-slate-400" size={20} />
+              </div>
+
+              <dl className="space-y-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                <div className="flex justify-between gap-3"><dt>Owner</dt><dd className="font-medium text-slate-900">{album.ownerName}</dd></div>
+                <div className="flex justify-between gap-3"><dt>Created</dt><dd>{new Date(album.createdAt).toLocaleDateString()}</dd></div>
+                <div className="flex justify-between gap-3"><dt>Updated</dt><dd>{album.updatedAt ? new Date(album.updatedAt).toLocaleDateString() : "Never"}</dd></div>
+              </dl>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\Dashboard.tsx
+============================================================
+
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMsal } from "@azure/msal-react";
+
+import { getAlbums, getFiles, getAdminFiles } from "../api/apiClient";
+import { useAuth } from "../context/AuthContext";
+import type { AlbumResponse } from "../types/album";
+import type { FileResponse } from "../types/file";
+
+export default function Dashboard() {
+  const { instance } = useMsal();
+  const { account, user } = useAuth();
+  const navigate = useNavigate();
+
+  const [albums, setAlbums] = useState<AlbumResponse[]>([]);
+  const [files, setFiles] = useState<FileResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      if (!account) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [albumResult, fileResult] = await Promise.all([
+          getAlbums(instance, account),
+          user?.role === "Admin" ? getAdminFiles(instance, account) : getFiles(instance, account),
+        ]);
+
+        setAlbums(albumResult);
+        setFiles(fileResult);
+      } catch (caughtError) {
+        setError(caughtError instanceof Error ? caughtError.message : "Unable to load dashboard data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+  }, [account, instance, user?.role]);
+
+  if (loading) {
+    return (
+      <section className="grid gap-4 md:grid-cols-3">
+        {[1, 2, 3].map((item) => (
+          <div key={item} className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />
+        ))}
+      </section>
+    );
+  }
+
+  return (
+    <div className="app-page">
+      <section className="page-toolbar surface">
+        <div>
+          <p className="page-kicker">Your workspace at a glance</p>
+          <h2 className="page-heading">Welcome back, {user?.name ?? "User"}</h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => navigate("/albums")} className="secondary-action">Albums</button>
+          <button type="button" onClick={() => navigate("/files")} className="primary-action">Open files</button>
+        </div>
+      </section>
+
+      {error && (
+        <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      <section className="workspace-stats grid gap-3 md:grid-cols-2">
+        <div className="surface p-5">
+          <p className="text-sm font-medium text-slate-500">Albums</p>
+          <p className="metric-value mt-4">{albums.length}</p>
+        </div>
+
+        <div className="surface p-5">
+          <p className="text-sm font-medium text-slate-500">Files</p>
+          <p className="metric-value mt-4">{files.length}</p>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <div className="surface p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="section-title">Recent albums</h3>
+            <button type="button" onClick={() => navigate("/albums")} className="text-sm font-semibold text-sky-700 hover:text-sky-600">
+              View all
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {albums.length === 0 ? (
+              <p className="text-sm text-slate-500">No albums yet.</p>
+            ) : (
+              albums.slice(0, 4).map((album) => (
+                <button
+                  key={album.id}
+                  type="button"
+                  onClick={() => navigate(`/albums/${album.id}`)}
+                  className="surface-muted interactive-row flex w-full items-center justify-between px-4 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                >
+                  <div>
+                    <p className="font-medium text-slate-900">{album.albumName}</p>
+                    <p className="text-xs text-slate-500">Owner: {album.ownerName}</p>
+                  </div>
+                  <span className="text-sm text-slate-400">â†’</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="surface p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="section-title">Recent files</h3>
+            <button type="button" onClick={() => navigate("/files")} className="text-sm font-semibold text-sky-700 hover:text-sky-600">
+              View all
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {files.length === 0 ? (
+              <p className="text-sm text-slate-500">No files uploaded yet.</p>
+            ) : (
+              files.slice(0, 4).map((file) => (
+                <button key={file.id} type="button" onClick={() => navigate("/files")} className="surface-muted interactive-row flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div>
+                    <p className="max-w-[28ch] truncate font-medium text-slate-900">{file.originalFileName}</p>
+                    <p className="text-xs text-slate-500">{file.contentType}</p>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {file.fileSize > 1024 * 1024 ? `${(file.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${file.fileSize} B`}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\FilesPage.tsx
+============================================================
+
+import { useEffect, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
+import { useMsal } from "@azure/msal-react";
+
+import {
+  deleteFile,
+  downloadFile,
+  getFilePreviewUrl,
+  getFiles,
+  replaceFile,
+  uploadFile,
+} from "../api/apiClient";
+import FileCard from "../components/FileCard";
+import { useAuth } from "../context/AuthContext";
+import type { FileResponse } from "../types/file";
+
+export default function FilesPage() {
+  const { instance } = useMsal();
+  const { account } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceTargetIdRef = useRef<number | null>(null);
+
+  const [files, setFiles] = useState<FileResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+  const filteredFiles = normalizedQuery
+    ? files.filter((file) =>
+        file.originalFileName.toLocaleLowerCase().includes(normalizedQuery) ||
+        file.contentType.toLocaleLowerCase().includes(normalizedQuery) ||
+        String(file.id).includes(normalizedQuery),
+      )
+    : files;
+
+  const loadPreviewUrls = async (nextFiles: FileResponse[]) => {
+    if (!account) {
+      return;
+    }
+
+    const imageFiles = nextFiles.filter((file) => file.contentType.startsWith("image/"));
+
+    if (imageFiles.length === 0) {
+      setPreviewUrls({});
+      return;
+    }
+
+    const urls = await Promise.all(imageFiles.map(async (file) => {
+      try {
+        return [file.id, await getFilePreviewUrl(instance, account, file.id)] as const;
+      } catch {
+        return null;
+      }
+    }));
+
+    setPreviewUrls(Object.fromEntries(urls.filter((entry) => entry !== null)));
+  };
+
+  useEffect(() => () => {
+    Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+  }, [previewUrls]);
+
+  const loadFiles = async () => {
+    if (!account) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const nextFiles = await getFiles(instance, account);
+      setFiles(nextFiles);
+      await loadPreviewUrls(nextFiles);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to load files.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadFiles();
+  }, [account, instance]);
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile || !account) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+      await uploadFile(instance, account, selectedFile);
+      event.target.value = "";
+      await loadFiles();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleReplace = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    const fileId = replaceTargetIdRef.current;
+
+    if (!selectedFile || !account || fileId === null) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await replaceFile(instance, account, fileId, selectedFile);
+      await loadFiles();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Replace failed.");
+    } finally {
+      replaceTargetIdRef.current = null;
+      event.target.value = "";
+    }
+  };
+
+  const handleDownload = async (file: FileResponse) => {
+    if (!account) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await downloadFile(instance, account, file.id, file.originalFileName);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Download failed.");
+    }
+  };
+
+  const handleDelete = async (fileId: number) => {
+    if (!account) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await deleteFile(instance, account, fileId);
+      await loadFiles();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Delete failed.");
+    }
+  };
+
+  if (loading) {
+    return <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />;
+  }
+
+  return (
+    <div className="app-page">
+      <section className="page-toolbar surface">
+        <div>
+          <p className="page-kicker">Your library</p>
+          <h2 className="page-heading">Files</h2>
+        </div>
+
+        <div className="files-toolbar-actions">
+          <label className="search-field">
+            <Search aria-hidden="true" size={18} />
+            <span className="sr-only">Search files</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search files"
+              aria-label="Search files by name, type, or ID"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="Clear file search"
+                onClick={() => setSearchQuery("")}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            )}
+          </label>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="primary-action"
+          >
+            {uploading ? "Uploading..." : "Upload file"}
+          </button>
+        </div>
+
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+        <input ref={replaceInputRef} type="file" className="hidden" onChange={handleReplace} />
+      </section>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {filteredFiles.length === 0 ? (
+          <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-4">
+            {files.length === 0 ? "No files uploaded yet." : "No files match your search."}
+          </div>
+        ) : (
+          filteredFiles.map((file) => (
+            <FileCard
+              key={file.id}
+              file={file}
+              previewUrl={previewUrls[file.id]}
+              onReplace={() => {
+                replaceTargetIdRef.current = file.id;
+                if (replaceInputRef.current) {
+                  replaceInputRef.current.value = "";
+                  replaceInputRef.current.click();
+                }
+              }}
+              onDownload={() => void handleDownload(file)}
+              onDelete={() => void handleDelete(file.id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\ProfilePage.tsx
+============================================================
+
+import { LogOut, ShieldCheck, UserRound } from "lucide-react";
+
+import { useAuth } from "../context/AuthContext";
+
+export default function ProfilePage() {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="app-page max-w-3xl">
+      <section className="page-toolbar surface">
+        <div>
+          <p className="page-kicker">Account</p>
+          <h2 className="page-heading">Profile</h2>
+        </div>
+      </section>
+
+      <section className="surface identity-section">
+        <div className="identity-avatar">
+          <span className="sr-only">Account avatar</span>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-800 text-xl font-semibold text-white">
+            {user?.name?.charAt(0).toUpperCase() ?? "U"}
+          </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xl font-semibold text-slate-900">{user?.name ?? "Unknown user"}</p>
+            <p className="text-sm text-slate-500">{user?.email ?? "noreply@example.com"}</p>
+        </div>
+      </section>
+
+      <section className="surface account-settings">
+        <h3 className="section-title mb-2">Account</h3>
+        <div className="settings-row">
+          <span className="settings-label"><UserRound aria-hidden="true" size={18} /> Role</span>
+          <span className="text-sm font-medium text-slate-900">{user?.role ?? "User"}</span>
+        </div>
+        <div className="settings-row">
+          <span className="settings-label"><ShieldCheck aria-hidden="true" size={18} /> Authentication</span>
+          <span className="text-sm font-medium text-slate-900">Microsoft</span>
+        </div>
+      </section>
+
+      <button
+        type="button"
+        onClick={() => void logout()}
+        className="danger-action self-start gap-2"
+      >
+        <LogOut aria-hidden="true" size={17} /> Sign out
+      </button>
+    </div>
+  );
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\types\album.ts
+============================================================
+
+export interface AlbumResponse {
+  id: number;
+  albumName: string;
+  ownerId: number;
+  ownerName: string;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CreateAlbumRequest {
+  albumName: string;
+}
+
+export interface UpdateAlbumRequest {
+  albumName: string;
+}
+
+export interface AlbumMemberResponse {
+  userId: number;
+  name: string;
+  email: string;
+  canView: boolean;
+  canDownload: boolean;
+  grantedAt: string;
+}
+
+export interface AddAlbumMemberRequest {
+  email: string;
+  canView: boolean;
+  canDownload: boolean;
+}
+
+export interface UpdateAlbumMemberRequest {
+  canView: boolean;
+  canDownload: boolean;
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\types\api.ts
+============================================================
+
+export interface ErrorResponse {
+  status: number;
+  message: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\types\auth.ts
+============================================================
+
+export type UserRole = "User" | "Admin";
+
+export interface CurrentUser {
+  userId: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  authenticationType: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  user: CurrentUser | null;
+  error: string | null;
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\types\file.ts
+============================================================
+
+export interface FileResponse {
+  id: number;
+  originalFileName: string;
+  contentType: string;
+  fileSize: number;
+  uploadedAt: string;
+  url: string;
+  downloadUrl: string;
+}
+
+export const ALLOWED_FILE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".pdf"] as const;
+export type AllowedFileExtension = (typeof ALLOWED_FILE_EXTENSIONS)[number];
+
+export const ALLOWED_MIME_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".pdf": "application/pdf",
+};
+
+export const MAXIMUM_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export interface FileValidationResult {
+  isValid: boolean;
+  error?: string;
+}
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\types\user.ts
+============================================================
+
+import type { UserRole } from "./auth";
+
+export interface UserSummary {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+

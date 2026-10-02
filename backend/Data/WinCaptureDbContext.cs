@@ -19,6 +19,9 @@ public sealed class WinCaptureDbContext(
     public DbSet<AlbumAccess> AlbumAccess =>
         Set<AlbumAccess>();
 
+    public DbSet<Favorite> Favorites =>
+        Set<Favorite>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
@@ -40,6 +43,13 @@ public sealed class WinCaptureDbContext(
                 .IsRequired();
 
             entity.HasIndex(user => user.Email)
+                .IsUnique();
+
+            entity.Property(user => user.EntraObjectId)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.HasIndex(user => user.EntraObjectId)
                 .IsUnique();
 
             entity.Property(user => user.Role)
@@ -175,6 +185,34 @@ public sealed class WinCaptureDbContext(
                 .WithMany()
                 .HasForeignKey(access => access.GrantedBy)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Favorite>(entity =>
+        {
+            entity.ToTable("Favorites");
+
+            entity.HasKey(favorite =>
+                new
+                {
+                    favorite.UserId,
+                    favorite.FileId
+                });
+
+            entity.Property(favorite => favorite.FavoritedAt)
+                .HasColumnType("datetime2")
+                .IsRequired();
+
+            entity.HasIndex(favorite => favorite.FileId);
+
+            entity.HasOne(favorite => favorite.User)
+                .WithMany(user => user.Favorites)
+                .HasForeignKey(favorite => favorite.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(favorite => favorite.File)
+                .WithMany(file => file.Favorites)
+                .HasForeignKey(favorite => favorite.FileId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

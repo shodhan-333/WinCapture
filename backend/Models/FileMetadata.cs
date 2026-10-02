@@ -21,4 +21,6 @@ public sealed class FileMetadata
     public User User { get; set; } = null!;
 
     public Album? Album { get; set; }
+
+    public ICollection<Favorite> Favorites { get; set; } = [];
 }

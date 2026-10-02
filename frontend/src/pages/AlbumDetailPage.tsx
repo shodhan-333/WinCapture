@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ChevronDown, Share2 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import {
   addAlbumMember,
@@ -16,15 +17,18 @@ import {
   updateAlbumMember,
   uploadAlbumFile,
 } from "../api/apiClient";
+import FileCard from "../components/FileCard";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumMemberResponse, AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
 
 export default function AlbumDetailPage() {
   const { instance } = useMsal();
-  const { account } = useAuth();
+  const { account, user } = useAuth();
   const { albumId } = useParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceTargetIdRef = useRef<number | null>(null);
 
   const [album, setAlbum] = useState<AlbumResponse | null>(null);
   const [files, setFiles] = useState<FileResponse[]>([]);
@@ -35,11 +39,14 @@ export default function AlbumDetailPage() {
   const [memberEmail, setMemberEmail] = useState("");
   const [canView, setCanView] = useState(true);
   const [canDownload, setCanDownload] = useState(true);
-  const [replaceTargetId, setReplaceTargetId] = useState<number | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [albumNameDraft, setAlbumNameDraft] = useState("");
 
   const numericAlbumId = Number(albumId ?? "0");
+
+  useEffect(() => () => {
+    Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+  }, [previewUrls]);
 
   const loadAlbumData = async () => {
     if (!account || !Number.isFinite(numericAlbumId)) {
@@ -50,28 +57,35 @@ export default function AlbumDetailPage() {
       setLoading(true);
       setError(null);
 
-      const [albumResult, fileResult, membersResult] = await Promise.all([
-        getAlbum(instance, account, numericAlbumId),
-        getAlbumFiles(instance, account, numericAlbumId),
-        getAlbumMembers(instance, account, numericAlbumId),
-      ]);
-
+      const albumResult = await getAlbum(instance, account, numericAlbumId);
       setAlbum(albumResult);
       setAlbumNameDraft(albumResult.albumName);
+
+      const canManageAlbum = user?.role === "Admin" || albumResult.ownerId === user?.userId;
+      const fileResult = await getAlbumFiles(instance, account, numericAlbumId);
       setFiles(fileResult);
-      setMembers(membersResult);
-      const urls = await Promise.all(
-        fileResult
-          .filter((file) => file.contentType.startsWith("image/"))
-          .map(async (file) => ({
-            id: file.id,
-            url: await getFilePreviewUrl(instance, account, file.id, numericAlbumId),
-          })),
-      );
-      setPreviewUrls((previous) => ({
-        ...previous,
-        ...Object.fromEntries(urls.map((entry) => [entry.id, entry.url])),
-      }));
+
+      if (canManageAlbum) {
+        try {
+          setMembers(await getAlbumMembers(instance, account, numericAlbumId));
+        } catch {
+          setMembers([]);
+          setError("Album opened, but sharing settings could not be loaded.");
+        }
+      } else {
+        setMembers([]);
+      }
+
+      const urls = await Promise.all(fileResult
+        .filter((file) => file.contentType.startsWith("image/"))
+        .map(async (file) => {
+          try {
+            return [file.id, await getFilePreviewUrl(instance, account, file.id, numericAlbumId)] as const;
+          } catch {
+            return null;
+          }
+        }));
+      setPreviewUrls(Object.fromEntries(urls.filter((entry) => entry !== null)));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to load album details.");
     } finally {
@@ -81,7 +95,11 @@ export default function AlbumDetailPage() {
 
   useEffect(() => {
     void loadAlbumData();
-  }, [account, instance, numericAlbumId]);
+  }, [account, instance, numericAlbumId, user?.role, user?.userId]);
+
+  const canManageAlbum = Boolean(
+    album && user && (user.role === "Admin" || album.ownerId === user.userId),
+  );
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -131,18 +149,20 @@ export default function AlbumDetailPage() {
 
   const handleReplace = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
-    if (!selectedFile || !account || !Number.isFinite(numericAlbumId) || replaceTargetId === null) {
+    const fileId = replaceTargetIdRef.current;
+    if (!selectedFile || !account || !Number.isFinite(numericAlbumId) || fileId === null) {
       return;
     }
 
     try {
       setError(null);
-      await replaceFile(instance, account, replaceTargetId, selectedFile);
-      setReplaceTargetId(null);
-      event.target.value = "";
+      await replaceFile(instance, account, fileId, selectedFile);
       await loadAlbumData();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Replace failed.");
+    } finally {
+      replaceTargetIdRef.current = null;
+      event.target.value = "";
     }
   };
 
@@ -224,243 +244,192 @@ export default function AlbumDetailPage() {
 
   if (!album) {
     return (
-      <div className="rounded-[28px] border border-slate-200 bg-white p-6 text-slate-700 shadow-[0_15px_40px_rgba(15,23,42,0.06)]">
-        Album not found.
+      <div role="alert" className="surface p-6 text-slate-700">
+        {error ?? "Album not found."}
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_15px_40px_rgba(15,23,42,0.06)]">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="app-page">
+      <section className="surface p-5 sm:p-6">
+        <Link to="/albums" className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900">
+          <ArrowLeft aria-hidden="true" size={16} /> Albums
+        </Link>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Album</p>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-900">{album.albumName}</h2>
+            <h2 className="page-heading">{album.albumName}</h2>
+            <p className="mt-2 text-sm text-slate-500">{files.length} {files.length === 1 ? "file" : "files"}</p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="rounded-full bg-sky-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-400"
-          >
-            {uploading ? "Uploading..." : "Add files"}
-          </button>
+          {canManageAlbum && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="primary-action"
+            >
+              {uploading ? "Adding files..." : "Add files"}
+            </button>
+          )}
         </div>
-
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
-        <input
-          type="file"
-          className="hidden"
-          onChange={handleReplace}
-          key={replaceTargetId ?? "replace-none"}
-        />
+        <input ref={replaceInputRef} type="file" className="hidden" onChange={handleReplace} />
       </section>
 
-      {error && <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_15px_40px_rgba(15,23,42,0.06)]">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Album details</span>
-          <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-sky-700"># {album.id}</span>
+      <section className="surface p-5 sm:p-6">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="section-title">Album info</h3>
+          <span className="text-xs text-slate-400">#{album.id}</span>
         </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Name</p>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={albumNameDraft}
-                onChange={(event) => setAlbumNameDraft(event.target.value)}
-                className="w-full rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400"
-              />
-              <button
-                type="button"
-                onClick={() => void handleUpdateAlbum()}
-                className="rounded-full bg-sky-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-sky-400"
-              >
-                Save
-              </button>
-            </div>
+        <div className="album-info-grid">
+          <div className="settings-row">
+            <span className="text-sm text-slate-500">Owner</span>
+            <span className="text-sm font-medium text-slate-900">{album.ownerName}</span>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Owner</p>
-            <p className="mt-2 text-base font-medium text-slate-900">{album.ownerName}</p>
+          <div className="settings-row">
+            <span className="text-sm text-slate-500">Created</span>
+            <span className="text-sm text-slate-700">{new Date(album.createdAt).toLocaleDateString()}</span>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Created</p>
-            <p className="mt-2 text-base font-medium text-slate-900">{new Date(album.createdAt).toLocaleDateString()}</p>
+          <div className="settings-row">
+            <span className="text-sm text-slate-500">Updated</span>
+            <span className="text-sm text-slate-700">{album.updatedAt ? new Date(album.updatedAt).toLocaleDateString() : "Never"}</span>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Updated</p>
-            <p className="mt-2 text-base font-medium text-slate-900">{album.updatedAt ? new Date(album.updatedAt).toLocaleDateString() : "Never"}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_15px_40px_rgba(15,23,42,0.06)]">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Files</p>
-          </div>
-
-          {files.length === 0 ? (
-            <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
-              No files in this album yet.
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {files.map((file) => (
-                <article key={file.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                  <div className="mb-3 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-slate-900">{file.originalFileName}</p>
-                      <p className="text-xs text-slate-500">{file.contentType}</p>
-                    </div>
-                    <span className="rounded-full bg-slate-900 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-white">
-                      {file.fileSize > 1024 * 1024 ? `${(file.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${file.fileSize} B`}
-                    </span>
-                  </div>
-
-                  {file.contentType.startsWith("image/") ? (
-                    <img
-                      src={previewUrls[file.id] ?? file.downloadUrl}
-                      alt={file.originalFileName}
-                      className="mb-3 h-36 w-full rounded-2xl border border-slate-200 bg-white object-cover"
-                    />
-                  ) : (
-                    <div className="mb-3 flex h-36 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-slate-500">
-                      {file.originalFileName}
-                    </div>
-                  )}
-
-                  <div className="mb-3 rounded-2xl bg-white px-3 py-2 text-xs text-slate-500">
-                    Uploaded {new Date(file.uploadedAt).toLocaleString()}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReplaceTargetId(file.id);
-                        const input = document.querySelectorAll<HTMLInputElement>('input[type="file"]')[1];
-                        input?.click();
-                      }}
-                      className="flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                    >
-                      Replace
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownload(file)}
-                      className="flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                    >
-                      Download
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(file.id)}
-                      className="flex-1 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
+          {canManageAlbum && (
+            <div className="settings-row album-name-row">
+              <label htmlFor="album-name" className="text-sm text-slate-500">Name</label>
+              <div className="flex min-w-0 gap-2">
+                <input
+                  id="album-name"
+                  value={albumNameDraft}
+                  onChange={(event) => setAlbumNameDraft(event.target.value)}
+                  className="field min-w-0 flex-1"
+                />
+                <button type="button" onClick={() => void handleUpdateAlbum()} className="secondary-action">Save</button>
+              </div>
             </div>
           )}
         </div>
+      </section>
 
-        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_15px_40px_rgba(15,23,42,0.06)]">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Share access</p>
+      <section className="app-page-section">
+        <div className="section-heading-row">
+          <div>
+            <h3 className="section-title">Files</h3>
+            <p className="mt-1 text-sm text-slate-500">Images and documents in this collection</p>
           </div>
+          <span className="text-sm text-slate-500">{files.length}</span>
+        </div>
+        {files.length === 0 ? (
+          <div className="surface p-8 text-center text-sm text-slate-500">No files in this album yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {files.map((file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                previewUrl={previewUrls[file.id]}
+                canManage={canManageAlbum}
+                onReplace={() => {
+                  replaceTargetIdRef.current = file.id;
+                  if (replaceInputRef.current) {
+                    replaceInputRef.current.value = "";
+                    replaceInputRef.current.click();
+                  }
+                }}
+                onDownload={() => void handleDownload(file)}
+                onDelete={() => void handleDelete(file.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
-          <div className="space-y-3 rounded-[22px] border border-slate-200 bg-slate-50 p-3">
+      {canManageAlbum && <details className="surface share-details">
+        <summary className="share-summary">
+          <span className="share-summary-icon"><Share2 aria-hidden="true" size={19} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-slate-900">Share access</span>
+            <span className="mt-1 block text-sm text-slate-500">Manage who can view and download</span>
+          </span>
+          <span className="mr-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{members.length}</span>
+          <ChevronDown aria-hidden="true" className="share-chevron text-slate-400" size={18} />
+        </summary>
+
+        <div className="share-content">
+          <div className="share-invite">
+            <label htmlFor="share-email" className="mb-2 block text-sm font-medium text-slate-700">Invite a WinWire user</label>
             <input
+              id="share-email"
+              type="email"
               value={memberEmail}
               onChange={(event) => setMemberEmail(event.target.value)}
-              placeholder="Email address"
-              className="w-full rounded-full border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-sky-400"
+              placeholder="name@winwire.com"
+              className="field w-full"
             />
-
-            <div className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+            <div className="permission-row">
               <span className="text-sm text-slate-700">Can view</span>
-              <button
-                type="button"
-                onClick={() => setCanView((previous) => !previous)}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${canView ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}
-              >
-                {canView ? "Enabled" : "Disabled"}
+              <button type="button" aria-pressed={canView} onClick={() => {
+                setCanView((previous) => !previous);
+                if (canView) setCanDownload(false);
+              }} className={`permission-toggle ${canView ? "is-enabled" : ""}`}>
+                <span aria-hidden="true" />
+                {canView ? "On" : "Off"}
               </button>
             </div>
-
-            <div className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+            <div className="permission-row">
               <span className="text-sm text-slate-700">Can download</span>
-              <button
-                type="button"
-                onClick={() => setCanDownload((previous) => !previous)}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${canDownload ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}
-              >
-                {canDownload ? "Enabled" : "Disabled"}
+              <button type="button" aria-pressed={canDownload} disabled={!canView} onClick={() => setCanDownload((previous) => !previous)} className={`permission-toggle ${canDownload ? "is-enabled" : ""}`}>
+                <span aria-hidden="true" />
+                {canDownload ? "On" : "Off"}
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={() => void handleAddMember()}
-              className="w-full rounded-full bg-sky-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-400"
-            >
-              Share album
-            </button>
+            <button type="button" onClick={() => void handleAddMember()} className="primary-action mt-3 w-full">Share album</button>
           </div>
 
-          <div className="mt-5 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Members</p>
-
+          <div className="share-members">
+            <h4 className="section-title mb-1">People with access</h4>
             {members.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-                No shared users yet.
-              </div>
+              <p className="py-4 text-sm text-slate-500">No one else has access yet.</p>
             ) : (
               members.map((member) => (
-                <div key={member.userId} className="rounded-[20px] border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-slate-900">{member.name || member.email}</p>
-                      <p className="text-xs text-slate-500">{member.email}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveMember(member.userId)}
-                      className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-red-600"
-                    >
-                      Revoke
-                    </button>
+                <div key={member.userId} className="member-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{member.name || member.email}</p>
+                    <p className="truncate text-xs text-slate-500">{member.email}</p>
                   </div>
-
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleUpdateMember(member.userId, !member.canView, member.canDownload)}
-                      className={`flex-1 rounded-full px-3 py-2 text-xs font-medium ${member.canView ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}
-                    >
-                      {member.canView ? "View on" : "View off"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleUpdateMember(member.userId, member.canView, !member.canDownload)}
-                      className={`flex-1 rounded-full px-3 py-2 text-xs font-medium ${member.canDownload ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}
-                    >
-                      {member.canDownload ? "Download on" : "Download off"}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Revoke access for ${member.email}`}
+                    onClick={() => void handleRemoveMember(member.userId)}
+                    className="text-sm font-medium text-red-600 hover:text-red-700"
+                  >
+                    Revoke
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={member.canView}
+                    onClick={() => void handleUpdateMember(member.userId, !member.canView, !member.canView && member.canDownload ? false : member.canDownload)}
+                    className={`member-permission ${member.canView ? "is-enabled" : ""}`}
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={member.canDownload}
+                    disabled={!member.canView}
+                    onClick={() => void handleUpdateMember(member.userId, member.canView, !member.canDownload)}
+                    className={`member-permission ${member.canDownload ? "is-enabled" : ""}`}
+                  >
+                    Download
+                  </button>
                 </div>
               ))
             )}
           </div>
         </div>
-      </section>
+      </details>}
     </div>
   );
 }

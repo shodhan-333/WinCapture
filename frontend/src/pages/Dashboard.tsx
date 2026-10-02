@@ -58,8 +58,8 @@ export default function Dashboard() {
     <div className="app-page">
       <section className="page-toolbar surface">
         <div>
-          <p className="page-kicker">Workspace overview</p>
-          <h2 className="page-heading">Welcome, {user?.name ?? "User"}</h2>
+          <p className="page-kicker">Your workspace at a glance</p>
+          <h2 className="page-heading">Welcome back, {user?.name ?? "User"}</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => navigate("/albums")} className="secondary-action">Albums</button>
@@ -71,20 +71,15 @@ export default function Dashboard() {
         <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="workspace-stats grid gap-3 md:grid-cols-2">
         <div className="surface p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Albums</p>
+          <p className="text-sm font-medium text-slate-500">Albums</p>
           <p className="metric-value mt-4">{albums.length}</p>
         </div>
 
         <div className="surface p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Files</p>
+          <p className="text-sm font-medium text-slate-500">Files</p>
           <p className="metric-value mt-4">{files.length}</p>
-        </div>
-
-        <div className="surface p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Role</p>
-          <p className="metric-value mt-4 text-2xl">{user?.role ?? "User"}</p>
         </div>
       </section>
 
@@ -105,8 +100,8 @@ export default function Dashboard() {
                 <button
                   key={album.id}
                   type="button"
-                  onClick={() => navigate("/albums")}
-                  className="surface-muted flex w-full items-center justify-between px-4 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                  onClick={() => navigate(`/albums/${album.id}`)}
+                  className="surface-muted interactive-row flex w-full items-center justify-between px-4 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
                 >
                   <div>
                     <p className="font-medium text-slate-900">{album.albumName}</p>
@@ -132,15 +127,15 @@ export default function Dashboard() {
               <p className="text-sm text-slate-500">No files uploaded yet.</p>
             ) : (
               files.slice(0, 4).map((file) => (
-                <div key={file.id} className="surface-muted flex items-center justify-between px-4 py-3">
+                <button key={file.id} type="button" onClick={() => navigate("/files")} className="surface-muted interactive-row flex w-full items-center justify-between px-4 py-3 text-left">
                   <div>
-                    <p className="font-medium text-slate-900">{file.originalFileName}</p>
+                    <p className="max-w-[28ch] truncate font-medium text-slate-900">{file.originalFileName}</p>
                     <p className="text-xs text-slate-500">{file.contentType}</p>
                   </div>
-                  <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white">
+                  <span className="text-xs text-slate-500">
                     {file.fileSize > 1024 * 1024 ? `${(file.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${file.fileSize} B`}
                   </span>
-                </div>
+                </button>
               ))
             )}
           </div>

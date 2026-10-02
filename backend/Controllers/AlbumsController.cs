@@ -27,8 +27,8 @@ public sealed class AlbumsController(
     {
         get
         {
-            var value =User.FindFirst("wincapture_user_id")?.Value
-                ?? User.FindFirst("sub")?.Value;
+            var value =
+                User.FindFirst("wincapture_user_id")?.Value;
 
             if (!int.TryParse(
                     value,
@@ -47,39 +47,42 @@ public sealed class AlbumsController(
     {
         get
         {
-            if (User.IsInRole(
-                    UserRole.Admin.ToString()))
+            if (User.IsInRole("WinCapture.Admin"))
             {
                 return UserRole.Admin;
             }
 
-            if (User.IsInRole(
-                    UserRole.User.ToString()))
+            if (User.IsInRole("WinCapture.User"))
             {
                 return UserRole.User;
             }
 
-            throw new UnauthorizedException(
+            throw new ForbiddenException(
                 "The authenticated user role is missing or invalid.");
         }
     }
 
-    private User CurrentUser => new()
-    {
-        Id = UserId,
-        Name =
-            User.FindFirst("name")?.Value
-            ?? string.Empty,
-        Email =
-            User.FindFirst("email")?.Value
-            ?? string.Empty,
-        Role = CurrentUserRole
-    };
+    private User CurrentUser =>
+        new()
+        {
+            Id = UserId,
+
+            Name =
+                User.FindFirst("name")?.Value
+                ?? string.Empty,
+
+            Email =
+                User.FindFirst("email")?.Value
+                ?? User.FindFirst("preferred_username")?.Value
+                ?? string.Empty,
+
+            Role = CurrentUserRole
+        };
 
     [HttpPost]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<ActionResult<AlbumResponse>>
-        Create(CreateAlbumRequest request)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<AlbumResponse>> Create(
+        CreateAlbumRequest request)
     {
         var user = CurrentUser;
 
@@ -94,9 +97,9 @@ public sealed class AlbumsController(
     }
 
     [HttpGet]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<
-        ActionResult<IReadOnlyList<AlbumResponse>>>
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<
+        IReadOnlyList<AlbumResponse>>>
         GetAll()
     {
         var user = CurrentUser;
@@ -108,9 +111,9 @@ public sealed class AlbumsController(
     }
 
     [HttpGet("{id:long}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<ActionResult<AlbumResponse>>
-        Get(long id)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<AlbumResponse>> Get(
+        long id)
     {
         var user = CurrentUser;
 
@@ -122,11 +125,10 @@ public sealed class AlbumsController(
     }
 
     [HttpPut("{id:long}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<ActionResult<AlbumResponse>>
-        Update(
-            long id,
-            UpdateAlbumRequest request)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<AlbumResponse>> Update(
+        long id,
+        UpdateAlbumRequest request)
     {
         var user = CurrentUser;
 
@@ -139,9 +141,9 @@ public sealed class AlbumsController(
     }
 
     [HttpDelete("{id:long}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<IActionResult>
-        Delete(long id)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> Delete(
+        long id)
     {
         var user = CurrentUser;
 
@@ -154,16 +156,14 @@ public sealed class AlbumsController(
     }
 
     [HttpPost("{id:long}/files")]
-    [Authorize(Roles = "User,Admin")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestSize)]
     [RequestFormLimits(
-        MultipartBodyLengthLimit =
-            MaximumRequestSize)]
-    public async Task<ActionResult<FileResponse>>
-        UploadFile(
-            long id,
-            IFormFile file)
+        MultipartBodyLengthLimit = MaximumRequestSize)]
+    public async Task<ActionResult<FileResponse>> UploadFile(
+        long id,
+        IFormFile file)
     {
         var user = CurrentUser;
 
@@ -180,9 +180,9 @@ public sealed class AlbumsController(
     }
 
     [HttpGet("{id:long}/files")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<
-        ActionResult<IReadOnlyList<FileResponse>>>
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
         GetFiles(long id)
     {
         var user = CurrentUser;
@@ -195,11 +195,10 @@ public sealed class AlbumsController(
     }
 
     [HttpGet("{id:long}/files/{fileId:long}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<ActionResult<FileResponse>>
-        GetFile(
-            long id,
-            long fileId)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<FileResponse>> GetFile(
+        long id,
+        long fileId)
     {
         var user = CurrentUser;
 
@@ -213,11 +212,10 @@ public sealed class AlbumsController(
 
     [HttpGet(
         "{id:long}/files/{fileId:long}/download")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<IActionResult>
-        DownloadFile(
-            long id,
-            long fileId)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> DownloadFile(
+        long id,
+        long fileId)
     {
         var user = CurrentUser;
 
@@ -235,11 +233,10 @@ public sealed class AlbumsController(
     }
 
     [HttpDelete("{id:long}/files/{fileId:long}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<IActionResult>
-        DeleteFile(
-            long id,
-            long fileId)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> DeleteFile(
+        long id,
+        long fileId)
     {
         var user = CurrentUser;
 
@@ -253,9 +250,9 @@ public sealed class AlbumsController(
     }
 
     [HttpGet("{id:long}/members")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<
-        ActionResult<IReadOnlyList<AlbumMemberResponse>>>
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<
+        IReadOnlyList<AlbumMemberResponse>>>
         GetMembers(long id)
     {
         var user = CurrentUser;
@@ -268,11 +265,10 @@ public sealed class AlbumsController(
     }
 
     [HttpPost("{id:long}/members")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<IActionResult>
-        AddMember(
-            long id,
-            AddAlbumMemberRequest request)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> AddMember(
+        long id,
+        AddAlbumMemberRequest request)
     {
         var user = CurrentUser;
 
@@ -286,12 +282,11 @@ public sealed class AlbumsController(
     }
 
     [HttpPut("{id:long}/members/{userId:int}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<IActionResult>
-        UpdateMember(
-            long id,
-            int userId,
-            UpdateAlbumMemberRequest request)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> UpdateMember(
+        long id,
+        int userId,
+        UpdateAlbumMemberRequest request)
     {
         var user = CurrentUser;
 
@@ -306,11 +301,10 @@ public sealed class AlbumsController(
     }
 
     [HttpDelete("{id:long}/members/{userId:int}")]
-    [Authorize(Roles = "User,Admin")]
-    public async Task<IActionResult>
-        RemoveMember(
-            long id,
-            int userId)
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> RemoveMember(
+        long id,
+        int userId)
     {
         var user = CurrentUser;
 

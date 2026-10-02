@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMsal } from "@azure/msal-react";
+import { ArrowUpRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { createAlbum, getAlbums } from "../api/apiClient";
@@ -88,7 +89,7 @@ export default function AlbumsPage() {
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {albums.length === 0 ? (
           <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3">
             No albums available.
@@ -99,16 +100,14 @@ export default function AlbumsPage() {
               key={album.id}
               type="button"
               onClick={() => navigate(`/albums/${album.id}`)}
-              className="surface p-5 text-left transition hover:border-sky-200 hover:bg-sky-50/30"
+              className="surface album-card p-5 text-left transition hover:border-sky-200"
             >
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="page-kicker">Album</p>
                   <h3 className="mt-1 text-xl font-semibold text-slate-900">{album.albumName}</h3>
                 </div>
-                <span className="rounded-lg bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
-                  #{album.id}
-                </span>
+                <ArrowUpRight aria-hidden="true" className="album-arrow text-slate-400" size={20} />
               </div>
 
               <dl className="space-y-2 border-t border-slate-100 pt-3 text-sm text-slate-600">

@@ -8,6 +8,8 @@ public sealed class User
 
     public string Email { get; set; } = string.Empty;
 
+    public string EntraObjectId { get; set; } = string.Empty;
+
     public UserRole Role { get; set; }
 
     public DateTime CreatedAt { get; set; }
@@ -17,4 +19,6 @@ public sealed class User
     public ICollection<Album> Albums { get; set; } = [];
 
     public ICollection<AlbumAccess> AlbumAccess { get; set; } = [];
+
+    public ICollection<Favorite> Favorites { get; set; } = [];
 }

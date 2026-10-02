@@ -14,8 +14,8 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[#f5f5f7] text-slate-800">
-        <div className="flex flex-col items-center gap-4 rounded-[28px] border border-slate-200 bg-white/80 px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <main className="auth-screen text-slate-800">
+        <div className="auth-panel">
           <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-sky-500" />
           <p className="text-sm text-slate-500">Connecting to Microsoft...</p>
         </div>
@@ -26,8 +26,8 @@ function AuthGate() {
   if (!account && !user) {
     void login();
     return (
-      <main className="grid min-h-screen place-items-center bg-[#f5f5f7] text-slate-800">
-        <div className="flex flex-col items-center gap-4 rounded-[28px] border border-slate-200 bg-white/80 px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <main className="auth-screen text-slate-800">
+        <div className="auth-panel">
           <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-slate-200 border-t-sky-500" />
           <p className="text-sm text-slate-500">Redirecting to Microsoft sign-in...</p>
         </div>

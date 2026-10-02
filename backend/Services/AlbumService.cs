@@ -16,20 +16,29 @@ public sealed class AlbumService(
         CreateAlbumRequest request,
         User currentUser)
     {
-        ValidateAlbumName(request.AlbumName);
+        ValidateAlbumName(
+            request.AlbumName);
 
         var album = new Album
         {
-            AlbumName = request.AlbumName.Trim(),
-            CreatedBy = currentUser.Id,
-            CreatedAt = DateTime.UtcNow
+            AlbumName =
+                request.AlbumName.Trim(),
+
+            CreatedBy =
+                currentUser.Id,
+
+            CreatedAt =
+                DateTime.UtcNow
         };
 
-        await albums.AddAsync(album);
+        await albums.AddAsync(
+            album);
 
-        album.Owner = currentUser;
+        album.Owner =
+            currentUser;
 
-        return ToResponse(album);
+        return ToResponse(
+            album);
     }
 
     public async Task<IReadOnlyList<AlbumResponse>>
@@ -37,23 +46,27 @@ public sealed class AlbumService(
             User currentUser,
             UserRole role)
     {
-        var result = role == UserRole.Admin
-            ? await albums.GetAllAsync()
-            : await albums.GetAccessibleByUserIdAsync(
-                currentUser.Id);
+        var result =
+            role == UserRole.Admin
+                ? await albums.GetAllAsync()
+                : await albums.GetAccessibleByUserIdAsync(
+                    currentUser.Id);
 
         return result
-            .Select(ToResponse)
+            .Select(
+                ToResponse)
             .ToList();
     }
 
     public async Task<IReadOnlyList<AlbumResponse>>
         GetAllForAdminAsync()
     {
-        var result = await albums.GetAllAsync();
+        var result =
+            await albums.GetAllAsync();
 
         return result
-            .Select(ToResponse)
+            .Select(
+                ToResponse)
             .ToList();
     }
 
@@ -62,13 +75,15 @@ public sealed class AlbumService(
         User currentUser,
         UserRole role)
     {
-        var album = await GetAuthorizedAlbumAsync(
-            albumId,
-            currentUser,
-            role,
-            true);
+        var album =
+            await GetAuthorizedAlbumAsync(
+                albumId,
+                currentUser,
+                role,
+                true);
 
-        return ToResponse(album);
+        return ToResponse(
+            album);
     }
 
     public async Task<AlbumResponse> UpdateAsync(
@@ -77,13 +92,15 @@ public sealed class AlbumService(
         User currentUser,
         UserRole role)
     {
-        ValidateAlbumName(request.AlbumName);
+        ValidateAlbumName(
+            request.AlbumName);
 
-        var album = await GetAuthorizedAlbumAsync(
-            albumId,
-            currentUser,
-            role,
-            false);
+        var album =
+            await GetAuthorizedAlbumAsync(
+                albumId,
+                currentUser,
+                role,
+                false);
 
         album.AlbumName =
             request.AlbumName.Trim();
@@ -94,9 +111,11 @@ public sealed class AlbumService(
         album.UpdatedAt =
             DateTime.UtcNow;
 
-        await albums.UpdateAsync(album);
+        await albums.UpdateAsync(
+            album);
 
-        return ToResponse(album);
+        return ToResponse(
+            album);
     }
 
     public async Task DeleteAsync(
@@ -104,19 +123,25 @@ public sealed class AlbumService(
         User currentUser,
         UserRole role)
     {
-        var album = await GetAuthorizedAlbumAsync(
-            albumId,
-            currentUser,
-            role,
-            false);
+        var album =
+            await GetAuthorizedAlbumAsync(
+                albumId,
+                currentUser,
+                role,
+                false);
 
-        var allFiles = await files.GetAllAsync();
+        var allFiles =
+            await files.GetAllAsync();
 
-        var albumFiles = allFiles
-            .Where(file => file.AlbumId == albumId)
-            .ToList();
+        var albumFiles =
+            allFiles
+                .Where(
+                    file =>
+                        file.AlbumId == albumId)
+                .ToList();
 
-        await albums.DeleteAsync(album);
+        await albums.DeleteAsync(
+            album);
 
         foreach (var file in albumFiles)
         {
@@ -150,17 +175,19 @@ public sealed class AlbumService(
             false);
 
         var access =
-            await albums.GetAccessListAsync(albumId);
+            await albums.GetAccessListAsync(
+                albumId);
 
         return access
-            .Select(item =>
-                new AlbumMemberResponse(
-                    item.UserId,
-                    item.User.Name,
-                    item.User.Email,
-                    item.CanView,
-                    item.CanDownload,
-                    item.GrantedAt))
+            .Select(
+                item =>
+                    new AlbumMemberResponse(
+                        item.UserId,
+                        item.User.Name,
+                        item.User.Email,
+                        item.CanView,
+                        item.CanDownload,
+                        item.GrantedAt))
             .ToList();
     }
 
@@ -180,14 +207,6 @@ public sealed class AlbumService(
             request.Email.Trim()
                 .ToLowerInvariant();
 
-        if (!email.EndsWith(
-                "@winwire.com",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new BadRequestException(
-                "Only WinWire users can be added to an album.");
-        }
-
         if (!request.CanView &&
             request.CanDownload)
         {
@@ -196,7 +215,8 @@ public sealed class AlbumService(
         }
 
         var user =
-            await users.GetByEmailAsync(email)
+            await users.GetByEmailAsync(
+                email)
             ?? throw new NotFoundException(
                 "The user must register in WinCapture before they can be added to an album.");
 
@@ -220,14 +240,24 @@ public sealed class AlbumService(
         await albums.AddAccessAsync(
             new AlbumAccess
             {
-                AlbumId = albumId,
-                UserId = user.Id,
-                CanView = request.CanView,
+                AlbumId =
+                    albumId,
+
+                UserId =
+                    user.Id,
+
+                CanView =
+                    request.CanView,
+
                 CanDownload =
                     request.CanView &&
                     request.CanDownload,
-                GrantedAt = DateTime.UtcNow,
-                GrantedBy = currentUser.Id
+
+                GrantedAt =
+                    DateTime.UtcNow,
+
+                GrantedBy =
+                    currentUser.Id
             });
     }
 
@@ -265,7 +295,8 @@ public sealed class AlbumService(
             request.CanView &&
             request.CanDownload;
 
-        await albums.UpdateAccessAsync(access);
+        await albums.UpdateAccessAsync(
+            access);
     }
 
     public async Task RemoveMemberAsync(
@@ -287,7 +318,8 @@ public sealed class AlbumService(
             ?? throw new NotFoundException(
                 "Album access was not found.");
 
-        await albums.DeleteAccessAsync(access);
+        await albums.DeleteAccessAsync(
+            access);
     }
 
     public async Task<Album> GetForUploadAsync(
@@ -308,7 +340,8 @@ public sealed class AlbumService(
         UserRole role)
     {
         var album =
-            await albums.GetByIdAsync(albumId)
+            await albums.GetByIdAsync(
+                albumId)
             ?? throw new NotFoundException(
                 "The requested album was not found.");
 
@@ -335,7 +368,8 @@ public sealed class AlbumService(
             bool canView)
     {
         var album =
-            await albums.GetByIdAsync(albumId)
+            await albums.GetByIdAsync(
+                albumId)
             ?? throw new NotFoundException(
                 "The requested album was not found.");
 
@@ -369,7 +403,8 @@ public sealed class AlbumService(
     private static void ValidateAlbumName(
         string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(
+                name))
         {
             throw new BadRequestException(
                 "Album name is required.");

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 
 import {
@@ -9,6 +10,7 @@ import {
   replaceFile,
   uploadFile,
 } from "../api/apiClient";
+import FileCard from "../components/FileCard";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
 
@@ -24,6 +26,16 @@ export default function FilesPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+  const filteredFiles = normalizedQuery
+    ? files.filter((file) =>
+        file.originalFileName.toLocaleLowerCase().includes(normalizedQuery) ||
+        file.contentType.toLocaleLowerCase().includes(normalizedQuery) ||
+        String(file.id).includes(normalizedQuery),
+      )
+    : files;
 
   const loadPreviewUrls = async (nextFiles: FileResponse[]) => {
     if (!account) {
@@ -37,18 +49,20 @@ export default function FilesPage() {
       return;
     }
 
-    const urls = await Promise.all(
-      imageFiles.map(async (file) => ({
-        id: file.id,
-        url: await getFilePreviewUrl(instance, account, file.id),
-      })),
-    );
-
-    setPreviewUrls((previous) => ({
-      ...previous,
-      ...Object.fromEntries(urls.map((entry) => [entry.id, entry.url])),
+    const urls = await Promise.all(imageFiles.map(async (file) => {
+      try {
+        return [file.id, await getFilePreviewUrl(instance, account, file.id)] as const;
+      } catch {
+        return null;
+      }
     }));
+
+    setPreviewUrls(Object.fromEntries(urls.filter((entry) => entry !== null)));
   };
+
+  useEffect(() => () => {
+    Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
+  }, [previewUrls]);
 
   const loadFiles = async () => {
     if (!account) {
@@ -150,76 +164,65 @@ export default function FilesPage() {
           <h2 className="page-heading">Files</h2>
         </div>
 
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="primary-action"
-        >
-          {uploading ? "Uploading..." : "Upload file"}
-        </button>
+        <div className="files-toolbar-actions">
+          <label className="search-field">
+            <Search aria-hidden="true" size={18} />
+            <span className="sr-only">Search files</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search files"
+              aria-label="Search files by name, type, or ID"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="Clear file search"
+                onClick={() => setSearchQuery("")}
+              >
+                <X aria-hidden="true" size={16} />
+              </button>
+            )}
+          </label>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="primary-action"
+          >
+            {uploading ? "Uploading..." : "Upload file"}
+          </button>
+        </div>
 
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
         <input ref={replaceInputRef} type="file" className="hidden" onChange={handleReplace} />
       </section>
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {files.length === 0 ? (
-          <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3">
-            No files uploaded yet.
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {filteredFiles.length === 0 ? (
+          <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-4">
+            {files.length === 0 ? "No files uploaded yet." : "No files match your search."}
           </div>
         ) : (
-          files.map((file) => (
-            <article key={file.id} className="surface p-4">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-slate-900">{file.originalFileName}</p>
-                  <p className="text-xs text-slate-500">{file.contentType}</p>
-                </div>
-                <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
-                  {file.fileSize > 1024 * 1024 ? `${(file.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${file.fileSize} B`}
-                </span>
-              </div>
-
-              {file.contentType.startsWith("image/") ? (
-                <img
-                  src={previewUrls[file.id] ?? file.downloadUrl}
-                  alt={file.originalFileName}
-                  className="media-preview mb-3 h-44 w-full rounded-xl border border-slate-200"
-                />
-              ) : (
-                <div className="surface-muted mb-3 flex h-44 items-center justify-center px-4 text-sm text-slate-500">
-                  {file.originalFileName}
-                </div>
-              )}
-
-              <div className="surface-muted mb-3 px-3 py-2 text-xs text-slate-600">
-                Uploaded {new Date(file.uploadedAt).toLocaleString()}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    replaceTargetIdRef.current = file.id;
-                    if (replaceInputRef.current) {
-                      replaceInputRef.current.value = "";
-                      replaceInputRef.current.click();
-                    }
-                  }}
-                  className="secondary-action flex-1"
-                >
-                  Replace
-                </button>
-                <button type="button" onClick={() => void handleDownload(file)} className="secondary-action flex-1">
-                  Download
-                </button>
-                <button type="button" onClick={() => void handleDelete(file.id)} className="danger-action flex-1">
-                  Delete
-                </button>
-              </div>
-            </article>
+          filteredFiles.map((file) => (
+            <FileCard
+              key={file.id}
+              file={file}
+              previewUrl={previewUrls[file.id]}
+              onReplace={() => {
+                replaceTargetIdRef.current = file.id;
+                if (replaceInputRef.current) {
+                  replaceInputRef.current.value = "";
+                  replaceInputRef.current.click();
+                }
+              }}
+              onDownload={() => void handleDownload(file)}
+              onDelete={() => void handleDelete(file.id)}
+            />
           ))
         )}
       </div>

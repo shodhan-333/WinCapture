@@ -11,15 +11,27 @@ public sealed class MicrosoftUserService(
     public async Task<User> GetOrCreateAsync(
         string name,
         string email,
+        string entraObjectId,
         UserRole role)
     {
         var normalizedEmail =
-            email.Trim().ToLowerInvariant();
+            email.Trim()
+                .ToLowerInvariant();
+
+        var normalizedObjectId =
+            entraObjectId.Trim();
 
         if (!IsValidEmail(normalizedEmail))
         {
             throw new UnauthorizedException(
                 "The Microsoft account email address is invalid.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                normalizedObjectId))
+        {
+            throw new UnauthorizedException(
+                "The Microsoft account object ID is missing.");
         }
 
         var normalizedName =
@@ -33,9 +45,31 @@ public sealed class MicrosoftUserService(
                 normalizedName[..200];
         }
 
+        // ========================================================
+        // First identify the user by Microsoft Entra object ID.
+        // This is the authoritative identity binding.
+        // ========================================================
+
         var user =
-            await userRepository.GetByEmailAsync(
-                normalizedEmail);
+            await userRepository.GetByEntraObjectIdAsync(
+                normalizedObjectId);
+
+        // ========================================================
+        // Legacy/email fallback.
+        // This allows an existing WinCapture record to be linked
+        // to its Microsoft Entra object ID.
+        // ========================================================
+
+        if (user is null)
+        {
+            user =
+                await userRepository.GetByEmailAsync(
+                    normalizedEmail);
+        }
+
+        // ========================================================
+        // Create new user
+        // ========================================================
 
         if (user is null)
         {
@@ -43,6 +77,7 @@ public sealed class MicrosoftUserService(
             {
                 Name = normalizedName,
                 Email = normalizedEmail,
+                EntraObjectId = normalizedObjectId,
                 Role = role,
                 CreatedAt = DateTime.UtcNow
             };
@@ -52,10 +87,12 @@ public sealed class MicrosoftUserService(
                 await userRepository.AddAsync(user);
             }
             catch (DbUpdateException exception)
-                when (IsDuplicateEmailException(exception))
+                when (IsDuplicateKeyException(exception))
             {
                 user =
-                    await userRepository.GetByEmailAsync(
+                    await userRepository.GetByEntraObjectIdAsync(
+                        normalizedObjectId)
+                    ?? await userRepository.GetByEmailAsync(
                         normalizedEmail)
                     ?? throw new UnauthorizedException(
                         "The Microsoft user could not be created or loaded.");
@@ -64,20 +101,51 @@ public sealed class MicrosoftUserService(
             return user;
         }
 
+        // ========================================================
+        // Sync Microsoft identity information
+        // ========================================================
+
         var changed = false;
+
+        if (!string.Equals(
+                user.EntraObjectId,
+                normalizedObjectId,
+                StringComparison.Ordinal))
+        {
+            user.EntraObjectId =
+                normalizedObjectId;
+
+            changed = true;
+        }
+
+        if (!string.Equals(
+                user.Email,
+                normalizedEmail,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            user.Email =
+                normalizedEmail;
+
+            changed = true;
+        }
 
         if (!string.Equals(
                 user.Name,
                 normalizedName,
                 StringComparison.Ordinal))
         {
-            user.Name = normalizedName;
+            user.Name =
+                normalizedName;
+
             changed = true;
         }
 
+        // The Entra application role is authoritative.
         if (user.Role != role)
         {
-            user.Role = role;
+            user.Role =
+                role;
+
             changed = true;
         }
 
@@ -89,12 +157,14 @@ public sealed class MicrosoftUserService(
         return user;
     }
 
-    private static bool IsValidEmail(string email)
+    private static bool IsValidEmail(
+        string email)
     {
         try
         {
             var address =
-                new System.Net.Mail.MailAddress(email);
+                new System.Net.Mail.MailAddress(
+                    email);
 
             return string.Equals(
                 address.Address,
@@ -107,7 +177,7 @@ public sealed class MicrosoftUserService(
         }
     }
 
-    private static bool IsDuplicateEmailException(
+    private static bool IsDuplicateKeyException(
         DbUpdateException exception)
     {
         return exception.InnerException is
