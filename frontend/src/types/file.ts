@@ -9,3 +9,4 @@ export interface FileResponse {
   isFavorite: boolean;
   canManage: boolean;
 }
+

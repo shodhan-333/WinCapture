@@ -9,6 +9,7 @@ import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
 
 import { createAlbum, getAlbums } from "../api/apiClient";
+import ErrorBanner from "../components/ui/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import { formatDate } from "../utils/formatters";
@@ -200,18 +201,7 @@ export default function AlbumsPage() {
         </div>
       </section>
 
-      {error && (
-        <div
-          role="alert"
-          className="error-banner"
-        >
-          <span className="error-banner-icon">
-            !
-          </span>
-
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       <section className="albums-section">
         {albums.length === 0 ? (
@@ -366,3 +356,4 @@ export default function AlbumsPage() {
     </div>
   );
 }
+

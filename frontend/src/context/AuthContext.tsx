@@ -21,8 +21,8 @@ import {
 
 import {
   getCurrentUser,
-  type CurrentUser,
 } from "../api/apiClient";
+import type { CurrentUser } from "../types/auth";
 
 import {
   loginRequest,
@@ -206,3 +206,4 @@ export function useAuth(): AuthContextValue {
 
   return context;
 }
+

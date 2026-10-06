@@ -8,7 +8,11 @@ import {
 } from "lucide-react";
 
 import type { FileResponse } from "../types/file";
-import { formatFileSize, formatFileType } from "../utils/formatters";
+import {
+  formatDate,
+  formatFileSize,
+  formatFileType,
+} from "../utils/formatters";
 
 interface FileCardProps {
   file: FileResponse;
@@ -134,7 +138,7 @@ export default function FileCard({
                 {formatFileType(file.contentType)}
 
                 <span aria-hidden="true">
-                  ·
+                  Â·
                 </span>
 
                 {formatFileSize(file.fileSize)}
@@ -222,10 +226,7 @@ export default function FileCard({
           </div>
 
           <p className="file-card-date">
-            Added{" "}
-            {new Date(
-              file.uploadedAt,
-            ).toLocaleDateString()}
+            Added {formatDate(file.uploadedAt)}
           </p>
         </div>
 
@@ -233,3 +234,4 @@ export default function FileCard({
     </article>
   );
 }
+

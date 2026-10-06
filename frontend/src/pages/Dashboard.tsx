@@ -12,6 +12,7 @@ import {
   getAlbums,
   getFiles,
 } from "../api/apiClient";
+import ErrorBanner from "../components/ui/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
@@ -158,18 +159,7 @@ export default function Dashboard() {
 
       </section>
 
-      {error && (
-        <div
-          role="alert"
-          className="error-banner"
-        >
-          <span className="error-banner-icon">
-            !
-          </span>
-
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       <section className="dashboard-stat-grid">
         <button
@@ -421,7 +411,7 @@ export default function Dashboard() {
                         file.contentType,
                       )}
                       <span aria-hidden="true">
-                        {" · "}
+                        {" Â· "}
                       </span>
                       {formatFileSize(
                         file.fileSize,
@@ -450,3 +440,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

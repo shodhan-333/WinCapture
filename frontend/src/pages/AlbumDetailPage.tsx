@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -28,7 +29,6 @@ import {
 
 import {
   addAlbumMember,
-  addFavorite,
   deleteAlbumFile,
   downloadAlbumFile,
   getAlbum,
@@ -36,24 +36,22 @@ import {
   getAlbumMembers,
   getFilePreviewUrl,
   removeAlbumMember,
-  removeFavorite,
   replaceFile,
   updateAlbum,
   updateAlbumMember,
   uploadAlbumFile,
 } from "../api/apiClient";
-
-import FileCard from "../components/FileCard";
+import ErrorBanner from "../components/ui/ErrorBanner";
+import FileCardGrid from "../components/files/FileCardGrid";
+import useFileFavorites from "../hooks/useFileFavorites";
+import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
 
 import type {
   AlbumMemberResponse,
   AlbumResponse,
 } from "../types/album";
-
-import type {
-  FileResponse,
-} from "../types/file";
+import type { FileResponse } from "../types/file";
 import { formatDate } from "../utils/formatters";
 
 export default function AlbumDetailPage() {
@@ -68,42 +66,28 @@ export default function AlbumDetailPage() {
     useParams();
 
   const fileInputRef =
-    useRef<HTMLInputElement | null>(
-      null,
-    );
+    useRef<HTMLInputElement | null>(null);
 
   const replaceInputRef =
-    useRef<HTMLInputElement | null>(
-      null,
-    );
+    useRef<HTMLInputElement | null>(null);
 
   const replaceTargetIdRef =
-    useRef<number | null>(
-      null,
-    );
+    useRef<number | null>(null);
 
   const [album, setAlbum] =
-    useState<AlbumResponse | null>(
-      null,
-    );
+    useState<AlbumResponse | null>(null);
 
   const [files, setFiles] =
-    useState<FileResponse[]>(
-      [],
-    );
+    useState<FileResponse[]>([]);
 
   const [members, setMembers] =
-    useState<AlbumMemberResponse[]>(
-      [],
-    );
+    useState<AlbumMemberResponse[]>([]);
 
   const [loading, setLoading] =
     useState(true);
 
   const [error, setError] =
-    useState<string | null>(
-      null,
-    );
+    useState<string | null>(null);
 
   const [uploading, setUploading] =
     useState(false);
@@ -117,18 +101,6 @@ export default function AlbumDetailPage() {
   const [canDownload, setCanDownload] =
     useState(true);
 
-  const [previewUrls, setPreviewUrls] =
-    useState<Record<number, string>>(
-      {},
-    );
-
-  const [
-    favoritePendingIds,
-    setFavoritePendingIds,
-  ] = useState<Set<number>>(
-    new Set(),
-  );
-
   const [albumNameDraft, setAlbumNameDraft] =
     useState("");
 
@@ -140,139 +112,104 @@ export default function AlbumDetailPage() {
       albumId ?? "0",
     );
 
-  useEffect(
-    () => () => {
-      Object.values(
-        previewUrls,
-      ).forEach(
-        (url) => {
-          URL.revokeObjectURL(url);
-        },
-      );
-    },
-    [previewUrls],
+  const canManageAlbum = Boolean(
+    album &&
+      user &&
+      (user.role === "Admin" ||
+        album.ownerId === user.userId),
   );
 
-  const loadAlbumData =
-    async () => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        )
-      ) {
-        return;
+  const loadPreview = useCallback(
+    async (file: FileResponse) => {
+      if (!account) {
+        throw new Error("An authenticated account is required.");
       }
 
-      try {
-        setLoading(true);
-        setError(null);
+      return getFilePreviewUrl(
+        instance,
+        account,
+        file.id,
+        numericAlbumId,
+        canManageAlbum,
+      );
+    },
+    [
+      account,
+      canManageAlbum,
+      instance,
+      numericAlbumId,
+    ],
+  );
 
-        const albumResult =
-          await getAlbum(
-            instance,
-            account,
-            numericAlbumId,
-          );
+  const {
+    previewUrls,
+    loading: previewsLoading,
+  } = useFilePreviews(
+    files,
+    loadPreview,
+  );
 
-        setAlbum(
-          albumResult,
-        );
+  const loadAlbumData = async () => {
+    if (
+      !account ||
+      !Number.isFinite(numericAlbumId)
+    ) {
+      return;
+    }
 
-        setAlbumNameDraft(
-          albumResult.albumName,
-        );
+    try {
+      setLoading(true);
+      setError(null);
 
-        const canManageAlbum =
-          user?.role === "Admin" ||
-          albumResult.ownerId ===
-            user?.userId;
+      const albumResult = await getAlbum(
+        instance,
+        account,
+        numericAlbumId,
+      );
 
-        const fileResult =
-          await getAlbumFiles(
-            instance,
-            account,
-            numericAlbumId,
-          );
+      setAlbum(albumResult);
+      setAlbumNameDraft(albumResult.albumName);
 
-        setFiles(
-          fileResult,
-        );
+      const nextCanManageAlbum =
+        user?.role === "Admin" ||
+        albumResult.ownerId === user?.userId;
 
-        if (canManageAlbum) {
-          try {
-            setMembers(
-              await getAlbumMembers(
-                instance,
-                account,
-                numericAlbumId,
-              ),
-            );
-          } catch {
-            setMembers([]);
+      const fileResult = await getAlbumFiles(
+        instance,
+        account,
+        numericAlbumId,
+      );
 
-            setError(
-              "Album opened, but sharing settings could not be loaded.",
-            );
-          }
-        } else {
-          setMembers([]);
-        }
+      setFiles(fileResult);
 
-        const urls =
-          await Promise.all(
-            fileResult
-              .filter(
-                (file) =>
-                  file.contentType.startsWith(
-                    "image/",
-                  ),
-              )
-              .map(
-                async (file) => {
-                  try {
-                    return [
-                      file.id,
-                      await getFilePreviewUrl(
-                        instance,
-                        account,
-                        file.id,
-                        numericAlbumId,
-                        canManageAlbum,
-                      ),
-                    ] as const;
-                  } catch {
-                    return null;
-                  }
-                },
-              ),
-          );
-
-        setPreviewUrls(
-          Object.fromEntries(
-            urls.filter(
-              (
-                entry,
-              ): entry is readonly [
-                number,
-                string,
-              ] =>
-                entry !== null,
+      if (nextCanManageAlbum) {
+        try {
+          setMembers(
+            await getAlbumMembers(
+              instance,
+              account,
+              numericAlbumId,
             ),
-          ),
-        );
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to load album details.",
-        );
-      } finally {
-        setLoading(false);
+          );
+        } catch {
+          setMembers([]);
+          setError(
+            "Album opened, but sharing settings could not be loaded.",
+          );
+        }
+      } else {
+        setMembers([]);
       }
-    };
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load album details.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(
     () => {
@@ -287,96 +224,38 @@ export default function AlbumDetailPage() {
     ],
   );
 
-  const canManageAlbum =
-    Boolean(
-      album &&
-        user &&
-        (
-          user.role === "Admin" ||
-          album.ownerId ===
-            user.userId
+  const handleFavoriteSuccess = useCallback(
+    (file: FileResponse, nextFavorite: boolean) => {
+      setFiles((previous) =>
+        previous.map((currentFile) =>
+          currentFile.id === file.id
+            ? {
+                ...currentFile,
+                isFavorite: nextFavorite,
+              }
+            : currentFile,
         ),
-    );
-
-  const handleFavoriteToggle =
-    async (
-      file: FileResponse,
-    ) => {
-      if (!account) {
-        return;
-      }
-
-      setFavoritePendingIds(
-        (previous) => {
-          const next =
-            new Set(
-              previous,
-            );
-
-          next.add(
-            file.id,
-          );
-
-          return next;
-        },
       );
+    },
+    [],
+  );
 
-      try {
-        setError(null);
+  const handleFavoriteError = useCallback(
+    (message: string) => {
+      setError(message);
+    },
+    [],
+  );
 
-        if (file.isFavorite) {
-          await removeFavorite(
-            instance,
-            account,
-            file.id,
-          );
-        } else {
-          await addFavorite(
-            instance,
-            account,
-            file.id,
-          );
-        }
-
-        setFiles(
-          (previous) =>
-            previous.map(
-              (currentFile) =>
-                currentFile.id ===
-                file.id
-                  ? {
-                      ...currentFile,
-                      isFavorite:
-                        !file.isFavorite,
-                    }
-                  : currentFile,
-            ),
-        );
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to update favorite.",
-        );
-      } finally {
-        setFavoritePendingIds(
-          (previous) => {
-            const next =
-              new Set(
-                previous,
-              );
-
-            next.delete(
-              file.id,
-            );
-
-            return next;
-          },
-        );
-      }
-    };
+  const {
+    pendingIds: favoritePendingIds,
+    toggleFavorite,
+  } = useFileFavorites({
+    instance,
+    account,
+    onSuccess: handleFavoriteSuccess,
+    onError: handleFavoriteError,
+  });
 
   const handleUpload =
     async (
@@ -714,7 +593,7 @@ export default function AlbumDetailPage() {
       }
     };
 
-  if (loading) {
+  if (loading || previewsLoading) {
     return (
       <div className="app-page">
         <section className="album-detail-hero skeleton-panel">
@@ -826,13 +705,9 @@ export default function AlbumDetailPage() {
 
               <input
                 id="album-name"
-                value={
-                  albumNameDraft
-                }
+                value={albumNameDraft}
                 onChange={(event) =>
-                  setAlbumNameDraft(
-                    event.target.value,
-                  )
+                  setAlbumNameDraft(event.target.value)
                 }
                 className="field album-title-input"
                 maxLength={200}
@@ -841,9 +716,7 @@ export default function AlbumDetailPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  void handleUpdateAlbum()
-                }
+                onClick={() => void handleUpdateAlbum()}
                 className="primary-action compact-action"
               >
                 <Save
@@ -857,9 +730,7 @@ export default function AlbumDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setAlbumNameDraft(
-                    album.albumName,
-                  );
+                  setAlbumNameDraft(album.albumName);
                   setEditingName(false);
                 }}
                 className="secondary-action compact-action"
@@ -877,9 +748,7 @@ export default function AlbumDetailPage() {
                 <button
                   type="button"
                   className="album-title-edit-button"
-                  onClick={() =>
-                    setEditingName(true)
-                  }
+                  onClick={() => setEditingName(true)}
                   aria-label="Edit album name"
                   title="Edit album name"
                 >
@@ -894,10 +763,7 @@ export default function AlbumDetailPage() {
           )}
 
           <p className="album-detail-subtitle">
-            {files.length}{" "}
-            {files.length === 1
-              ? "file"
-              : "files"}{" "}
+            {files.length} {files.length === 1 ? "file" : "files"}{" "}
           </p>
 
           <div className="album-detail-meta">
@@ -916,17 +782,12 @@ export default function AlbumDetailPage() {
                 size={14}
                 strokeWidth={1.8}
               />
-              {formatDate(
-                album.createdAt,
-              )}
+              {formatDate(album.createdAt)}
             </span>
 
             {album.updatedAt && (
               <span>
-                Updated{" "}
-                {formatDate(
-                  album.updatedAt,
-                )}
+                Updated {formatDate(album.updatedAt)}
               </span>
             )}
           </div>
@@ -935,9 +796,7 @@ export default function AlbumDetailPage() {
         {canManageAlbum && (
           <button
             type="button"
-            onClick={() =>
-              fileInputRef.current?.click()
-            }
+            onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="primary-action album-upload-button disabled:opacity-60 disabled:cursor-wait"
           >
@@ -948,9 +807,7 @@ export default function AlbumDetailPage() {
             />
 
             <span>
-              {uploading
-                ? "Adding..."
-                : "Add files"}
+              {uploading ? "Adding..." : "Add files"}
             </span>
           </button>
         )}
@@ -970,18 +827,7 @@ export default function AlbumDetailPage() {
         />
       </section>
 
-      {error && (
-        <div
-          role="alert"
-          className="error-banner"
-        >
-          <span className="error-banner-icon">
-            !
-          </span>
-
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       <section className="album-files-section">
         <div className="section-heading-row album-files-heading">
@@ -990,102 +836,60 @@ export default function AlbumDetailPage() {
               Collection content
             </p>
 
-            <h2 className="section-title">
-              Files
-            </h2>
-
+            <h2 className="section-title">Files</h2>
           </div>
         </div>
 
-        {files.length === 0 ? (
-          <section className="surface album-files-empty">
-            <span className="album-files-empty-icon">
-              <Upload
-                aria-hidden="true"
-                size={25}
-                strokeWidth={1.5}
-              />
-            </span>
+        <FileCardGrid
+          files={files}
+          previewUrls={previewUrls}
+          favoritePendingIds={favoritePendingIds}
+          canManage={canManageAlbum}
+          onFavoriteToggle={(file) => void toggleFavorite(file)}
+          onReplace={(file) => {
+            replaceTargetIdRef.current = file.id;
 
-            <h3>
-              No files in this album
-            </h3>
-
-            <p>
-              Add images or PDF documents to
-              start building this collection.
-            </p>
-
-            {canManageAlbum && (
-              <button
-                type="button"
-                onClick={() =>
-                  fileInputRef.current?.click()
-                }
-                className="primary-action"
-              >
+            if (replaceInputRef.current) {
+              replaceInputRef.current.value = "";
+              replaceInputRef.current.click();
+            }
+          }}
+          onDownload={(file) => void handleDownload(file)}
+          onDelete={(file) => void handleDelete(file.id)}
+          empty={
+            <section className="surface album-files-empty">
+              <span className="album-files-empty-icon">
                 <Upload
                   aria-hidden="true"
-                  size={16}
-                  strokeWidth={1.8}
+                  size={25}
+                  strokeWidth={1.5}
                 />
-                Add your first file
-              </button>
-            )}
-          </section>
-        ) : (
-          <div className="file-card-grid">
-            {files.map(
-              (file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  previewUrl={
-                    previewUrls[
-                      file.id
-                    ]
-                  }
-                  canManage={
-                    canManageAlbum
-                  }
-                  favoritePending={
-                    favoritePendingIds.has(
-                      file.id,
-                    )
-                  }
-                  onFavoriteToggle={() =>
-                    void handleFavoriteToggle(
-                      file,
-                    )
-                  }
-                  onReplace={() => {
-                    replaceTargetIdRef.current =
-                      file.id;
+              </span>
 
-                    if (
-                      replaceInputRef.current
-                    ) {
-                      replaceInputRef.current.value =
-                        "";
+              <h3>No files in this album</h3>
 
-                      replaceInputRef.current.click();
-                    }
-                  }}
-                  onDownload={() =>
-                    void handleDownload(
-                      file,
-                    )
-                  }
-                  onDelete={() =>
-                    void handleDelete(
-                      file.id,
-                    )
-                  }
-                />
-              ),
-            )}
-          </div>
-        )}
+              <p>
+                Add images or PDF documents to start building this
+                collection.
+              </p>
+
+              {canManageAlbum && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="primary-action"
+                >
+                  <Upload
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.8}
+                  />
+                  Add your first file
+                </button>
+              )}
+            </section>
+          }
+        />
       </section>
 
       {canManageAlbum && (
@@ -1100,13 +904,10 @@ export default function AlbumDetailPage() {
             </span>
 
             <span className="share-summary-copy">
-              <strong>
-                Share access
-              </strong>
+              <strong>Share access</strong>
 
               <small>
-                Manage who can view and
-                download this album
+                Manage who can view and download this album
               </small>
             </span>
 
@@ -1161,9 +962,7 @@ export default function AlbumDetailPage() {
                 type="email"
                 value={memberEmail}
                 onChange={(event) =>
-                  setMemberEmail(
-                    event.target.value,
-                  )
+                  setMemberEmail(event.target.value)
                 }
                 placeholder="name@winwire.com"
                 className="field w-full"
@@ -1172,101 +971,63 @@ export default function AlbumDetailPage() {
               <div className="permission-panel">
                 <div className="permission-row">
                   <div>
-                    <strong>
-                      Can view
-                    </strong>
+                    <strong>Can view</strong>
 
                     <span>
-                      Allow this person to
-                      open the album.
+                      Allow this person to open the album.
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    aria-pressed={
-                      canView
-                    }
+                    aria-pressed={canView}
                     onClick={() => {
-                      setCanView(
-                        (previous) =>
-                          !previous,
-                      );
+                      setCanView((previous) => !previous);
 
                       if (canView) {
-                        setCanDownload(
-                          false,
-                        );
+                        setCanDownload(false);
                       }
                     }}
                     className={`permission-toggle ${
-                      canView
-                        ? "is-enabled"
-                        : ""
+                      canView ? "is-enabled" : ""
                     }`}
                   >
-                    <span
-                      aria-hidden="true"
-                    />
+                    <span aria-hidden="true" />
 
-                    {canView
-                      ? "On"
-                      : "Off"}
+                    {canView ? "On" : "Off"}
                   </button>
                 </div>
 
                 <div className="permission-row">
                   <div>
-                    <strong>
-                      Can download
-                    </strong>
+                    <strong>Can download</strong>
 
                     <span>
-                      Allow files to be
-                      downloaded.
+                      Allow files to be downloaded.
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    aria-pressed={
-                      canDownload
-                    }
-                    disabled={
-                      !canView
-                    }
+                    aria-pressed={canDownload}
+                    disabled={!canView}
                     onClick={() =>
-                      setCanDownload(
-                        (previous) =>
-                          !previous,
-                      )
+                      setCanDownload((previous) => !previous)
                     }
                     className={`permission-toggle ${
-                      canDownload
-                        ? "is-enabled"
-                        : ""
-                    } ${
-                      !canView
-                        ? "is-disabled"
-                        : ""
-                    }`}
+                      canDownload ? "is-enabled" : ""
+                    } ${!canView ? "is-disabled" : ""}`}
                   >
-                    <span
-                      aria-hidden="true"
-                    />
+                    <span aria-hidden="true" />
 
-                    {canDownload
-                      ? "On"
-                      : "Off"}
+                    {canDownload ? "On" : "Off"}
                   </button>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  void handleAddMember()
-                }
+                onClick={() => void handleAddMember()}
                 className="primary-action mt-4 w-full"
               >
                 <Link2
@@ -1305,156 +1066,109 @@ export default function AlbumDetailPage() {
                     />
                   </span>
 
-                  <p>
-                    No one else has access yet.
-                  </p>
+                  <p>No one else has access yet.</p>
 
                   <small>
-                    Invite a WinWire user
-                    using the form.
+                    Invite a WinWire user using the form.
                   </small>
                 </div>
               ) : (
                 <div className="share-member-list">
-                  {members.map(
-                    (member) => (
-                      <div
-                        key={
-                          member.userId
-                        }
-                        className="member-row"
-                      >
-                        <div className="member-avatar">
-                          {member.name
-                            ?.charAt(
-                              0,
-                            )
-                            .toUpperCase() ??
-                            member.email
-                              .charAt(
-                                0,
-                              )
-                              .toUpperCase()}
-                        </div>
-
-                        <div className="member-copy">
-                          <strong>
-                            {
-                              member.name ||
-                              member.email
-                            }
-                          </strong>
-
-                          <span>
-                            {
-                              member.email
-                            }
-                          </span>
-
-                          <small>
-                            Granted{" "}
-                            {formatDate(
-                              member.grantedAt,
-                            )}
-                          </small>
-                        </div>
-
-                        <div className="member-actions">
-                          <button
-                            type="button"
-                            aria-pressed={
-                              member.canView
-                            }
-                            onClick={() =>
-                              void handleUpdateMember(
-                                member.userId,
-                                !member.canView,
-                                !member.canView &&
-                                  member.canDownload
-                                  ? false
-                                  : member.canDownload,
-                              )
-                            }
-                            className={`member-permission ${
-                              member.canView
-                                ? "is-enabled"
-                                : ""
-                            }`}
-                          >
-                            {member.canView && (
-                              <Check
-                                aria-hidden="true"
-                                size={12}
-                                strokeWidth={
-                                  2
-                                }
-                              />
-                            )}
-                            View
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-pressed={
-                              member.canDownload
-                            }
-                            disabled={
-                              !member.canView
-                            }
-                            onClick={() =>
-                              void handleUpdateMember(
-                                member.userId,
-                                member.canView,
-                                !member.canDownload,
-                              )
-                            }
-                            className={`member-permission ${
-                              member.canDownload
-                                ? "is-enabled"
-                                : ""
-                            } ${
-                              !member.canView
-                                ? "is-disabled"
-                                : ""
-                            }`}
-                          >
-                            {member.canDownload && (
-                              <Download
-                                aria-hidden="true"
-                                size={12}
-                                strokeWidth={
-                                  1.9
-                                }
-                              />
-                            )}
-                            Download
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-label={`Revoke access for ${member.email}`}
-                            title="Revoke access"
-                            onClick={() =>
-                              void handleRemoveMember(
-                                member.userId,
-                              )
-                            }
-                            className="member-revoke"
-                          >
-                            <Trash2
-                              aria-hidden="true"
-                              size={15}
-                              strokeWidth={1.8}
-                            />
-                            <span>
-                              Revoke
-                            </span>
-                          </button>
-                        </div>
-
+                  {members.map((member) => (
+                    <div
+                      key={member.userId}
+                      className="member-row"
+                    >
+                      <div className="member-avatar">
+                        {member.name
+                          ?.charAt(0)
+                          .toUpperCase() ??
+                          member.email.charAt(0).toUpperCase()}
                       </div>
-                    ),
-                  )}
+
+                      <div className="member-copy">
+                        <strong>
+                          {member.name || member.email}
+                        </strong>
+
+                        <span>{member.email}</span>
+
+                        <small>
+                          Granted {formatDate(member.grantedAt)}
+                        </small>
+                      </div>
+
+                      <div className="member-actions">
+                        <button
+                          type="button"
+                          aria-pressed={member.canView}
+                          onClick={() =>
+                            void handleUpdateMember(
+                              member.userId,
+                              !member.canView,
+                              !member.canView && member.canDownload
+                                ? false
+                                : member.canDownload,
+                            )
+                          }
+                          className={`member-permission ${
+                            member.canView ? "is-enabled" : ""
+                          }`}
+                        >
+                          {member.canView && (
+                            <Check
+                              aria-hidden="true"
+                              size={12}
+                              strokeWidth={2}
+                            />
+                          )}
+                          View
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-pressed={member.canDownload}
+                          disabled={!member.canView}
+                          onClick={() =>
+                            void handleUpdateMember(
+                              member.userId,
+                              member.canView,
+                              !member.canDownload,
+                            )
+                          }
+                          className={`member-permission ${
+                            member.canDownload ? "is-enabled" : ""
+                          } ${!member.canView ? "is-disabled" : ""}`}
+                        >
+                          {member.canDownload && (
+                            <Download
+                              aria-hidden="true"
+                              size={12}
+                              strokeWidth={1.9}
+                            />
+                          )}
+                          Download
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label={`Revoke access for ${member.email}`}
+                          title="Revoke access"
+                          onClick={() =>
+                            void handleRemoveMember(member.userId)
+                          }
+                          className="member-revoke"
+                        >
+                          <Trash2
+                            aria-hidden="true"
+                            size={15}
+                            strokeWidth={1.8}
+                          />
+                          <span>Revoke</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1489,3 +1203,4 @@ export default function AlbumDetailPage() {
     </div>
   );
 }
+

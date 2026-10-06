@@ -12,6 +12,7 @@ import {
   getAdminAlbums,
   getAdminFiles,
 } from "../api/apiClient";
+import ErrorBanner from "../components/ui/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
@@ -25,22 +26,13 @@ export default function AdminPage() {
   const { account } = useAuth();
 
   const [albums, setAlbums] =
-    useState<AlbumResponse[]>(
-      [],
-    );
-
+    useState<AlbumResponse[]>([]);
   const [files, setFiles] =
-    useState<FileResponse[]>(
-      [],
-    );
-
+    useState<FileResponse[]>([]);
   const [loading, setLoading] =
     useState(true);
-
   const [error, setError] =
-    useState<string | null>(
-      null,
-    );
+    useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -52,27 +44,14 @@ export default function AdminPage() {
         setLoading(true);
         setError(null);
 
-        const [
-          albumResult,
-          fileResult,
-        ] = await Promise.all([
-          getAdminAlbums(
-            instance,
-            account,
-          ),
-          getAdminFiles(
-            instance,
-            account,
-          ),
-        ]);
+        const [albumResult, fileResult] =
+          await Promise.all([
+            getAdminAlbums(instance, account),
+            getAdminFiles(instance, account),
+          ]);
 
-        setAlbums(
-          albumResult,
-        );
-
-        setFiles(
-          fileResult,
-        );
+        setAlbums(albumResult);
+        setFiles(fileResult);
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
@@ -85,10 +64,7 @@ export default function AdminPage() {
     }
 
     void load();
-  }, [
-    account,
-    instance,
-  ]);
+  }, [account, instance]);
 
   if (loading) {
     return (
@@ -104,19 +80,17 @@ export default function AdminPage() {
         </section>
 
         <section className="admin-content-grid">
-          {[1, 2].map(
-            (item) => (
-              <div
-                key={item}
-                className="surface admin-list-skeleton"
-              >
-                <span className="skeleton-line skeleton-line-md" />
-                <span className="skeleton-line skeleton-line-sm" />
-                <span className="skeleton-line skeleton-line-sm" />
-                <span className="skeleton-line skeleton-line-sm" />
-              </div>
-            ),
-          )}
+          {[1, 2].map((item) => (
+            <div
+              key={item}
+              className="surface admin-list-skeleton"
+            >
+              <span className="skeleton-line skeleton-line-md" />
+              <span className="skeleton-line skeleton-line-sm" />
+              <span className="skeleton-line skeleton-line-sm" />
+              <span className="skeleton-line skeleton-line-sm" />
+            </div>
+          ))}
         </section>
       </div>
     );
@@ -134,13 +108,10 @@ export default function AdminPage() {
             Administration
           </div>
 
-          <h1 className="page-heading">
-            System overview
-          </h1>
+          <h1 className="page-heading">System overview</h1>
 
           <p className="page-description">
-            Monitor the albums and files
-            currently managed across
+            Monitor the albums and files currently managed across
             WinCapture.
           </p>
         </div>
@@ -155,20 +126,16 @@ export default function AdminPage() {
       </section>
 
       {error && (
-        <div
-          role="alert"
-          className="error-banner"
-        >
-          <span className="error-banner-icon">
+        <ErrorBanner
+          message={error}
+          icon={
             <AlertCircle
               aria-hidden="true"
               size={17}
               strokeWidth={1.8}
             />
-          </span>
-
-          <span>{error}</span>
-        </div>
+          }
+        />
       )}
 
       <section className="admin-content-grid">
@@ -201,72 +168,46 @@ export default function AdminPage() {
                 </span>
 
                 <div>
-                  <strong>
-                    No albums available
-                  </strong>
+                  <strong>No albums available</strong>
 
                   <p>
-                    There are currently no
-                    albums to display.
+                    There are currently no albums to display.
                   </p>
                 </div>
               </div>
             ) : (
-              albums
-                .slice(0, 5)
-                .map(
-                  (album) => (
-                    <div
-                      key={album.id}
-                      className="admin-list-row"
-                    >
-                      <span className="admin-row-icon album">
-                        <Images
-                          aria-hidden="true"
-                          size={17}
-                          strokeWidth={1.7}
-                        />
-                      </span>
+              albums.slice(0, 5).map((album) => (
+                <div
+                  key={album.id}
+                  className="admin-list-row"
+                >
+                  <span className="admin-row-icon album">
+                    <Images
+                      aria-hidden="true"
+                      size={17}
+                      strokeWidth={1.7}
+                    />
+                  </span>
 
-                      <div className="admin-row-main">
-                        <strong
-                          title={
-                            album.albumName
-                          }
-                        >
-                          {
-                            album.albumName
-                          }
-                        </strong>
+                  <div className="admin-row-main">
+                    <strong title={album.albumName}>
+                      {album.albumName}
+                    </strong>
 
-                        <span>
-                          Owner:{" "}
-                          {
-                            album.ownerName
-                          }
-                        </span>
-                      </div>
+                    <span>Owner: {album.ownerName}</span>
+                  </div>
 
-                      <div className="admin-row-meta">
-                        <small>
-                          Created
-                        </small>
+                  <div className="admin-row-meta">
+                    <small>Created</small>
 
-                        <strong>
-                          {formatDate(
-                            album.createdAt,
-                          )}
-                        </strong>
-                      </div>
+                    <strong>{formatDate(album.createdAt)}</strong>
+                  </div>
 
-                      <span className="admin-row-id">
-                        #
-                        {album.id}
-                      </span>
-
-                    </div>
-                  ),
-                )
+                  <span className="admin-row-id">
+                    #{album.id}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </section>
@@ -300,71 +241,46 @@ export default function AdminPage() {
                 </span>
 
                 <div>
-                  <strong>
-                    No files available
-                  </strong>
+                  <strong>No files available</strong>
 
                   <p>
-                    There are currently no
-                    files to display.
+                    There are currently no files to display.
                   </p>
                 </div>
               </div>
             ) : (
-              files
-                .slice(0, 5)
-                .map(
-                  (file) => (
-                    <div
-                      key={file.id}
-                      className="admin-list-row"
-                    >
-                      <span className="admin-row-icon file">
-                        <FolderOpen
-                          aria-hidden="true"
-                          size={17}
-                          strokeWidth={1.7}
-                        />
-                      </span>
+              files.slice(0, 5).map((file) => (
+                <div
+                  key={file.id}
+                  className="admin-list-row"
+                >
+                  <span className="admin-row-icon file">
+                    <FolderOpen
+                      aria-hidden="true"
+                      size={17}
+                      strokeWidth={1.7}
+                    />
+                  </span>
 
-                      <div className="admin-row-main">
-                        <strong
-                          title={
-                            file.originalFileName
-                          }
-                        >
-                          {
-                            file.originalFileName
-                          }
-                        </strong>
+                  <div className="admin-row-main">
+                    <strong title={file.originalFileName}>
+                      {file.originalFileName}
+                    </strong>
 
-                        <span>
-                          {
-                            file.contentType
-                          }
-                        </span>
-                      </div>
+                    <span>{file.contentType}</span>
+                  </div>
 
-                      <div className="admin-row-meta">
-                        <small>
-                          Size
-                        </small>
+                  <div className="admin-row-meta">
+                    <small>Size</small>
 
-                        <strong>
-                          {formatFileSize(
-                            file.fileSize,
-                          )}
-                        </strong>
-                      </div>
+                    <strong>{formatFileSize(file.fileSize)}</strong>
+                  </div>
 
-                      <span className="admin-row-id">
-                        #
-                        {file.id}
-                      </span>
-
-                    </div>
-                  ),
-                )
+                  <span className="admin-row-id">
+                    #{file.id}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </section>

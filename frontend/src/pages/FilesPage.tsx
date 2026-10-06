@@ -1,7 +1,9 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
+  type ChangeEvent,
 } from "react";
 import {
   FilePlus2,
@@ -14,17 +16,18 @@ import {
 import { useMsal } from "@azure/msal-react";
 
 import {
-  addFavorite,
   deleteFile,
   downloadFileByPath,
   getFavorites,
   getFilePreviewUrlByPath,
   getFiles,
-  removeFavorite,
   replaceFile,
   uploadFile,
 } from "../api/apiClient";
-import FileCard from "../components/FileCard";
+import ErrorBanner from "../components/ui/ErrorBanner";
+import FileCardGrid from "../components/files/FileCardGrid";
+import useFileFavorites from "../hooks/useFileFavorites";
+import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
 
@@ -33,172 +36,79 @@ type FileView =
   | "favorites";
 
 export default function FilesPage() {
-  const { instance } =
-    useMsal();
-
-  const { account } =
-    useAuth();
+  const { instance } = useMsal();
+  const { account } = useAuth();
 
   const fileInputRef =
-    useRef<HTMLInputElement | null>(
-      null,
-    );
+    useRef<HTMLInputElement | null>(null);
 
   const replaceInputRef =
-    useRef<HTMLInputElement | null>(
-      null,
-    );
+    useRef<HTMLInputElement | null>(null);
 
   const replaceTargetIdRef =
-    useRef<number | null>(
-      null,
-    );
+    useRef<number | null>(null);
 
   const [files, setFiles] =
-    useState<FileResponse[]>(
-      [],
-    );
-
+    useState<FileResponse[]>([]);
   const [view, setView] =
-    useState<FileView>(
-      "all",
-    );
-
+    useState<FileView>("all");
   const [loading, setLoading] =
     useState(true);
-
   const [error, setError] =
-    useState<string | null>(
-      null,
-    );
-
+    useState<string | null>(null);
   const [uploading, setUploading] =
     useState(false);
-
-  const [previewUrls, setPreviewUrls] =
-    useState<Record<number, string>>(
-      {},
-    );
-
   const [searchQuery, setSearchQuery] =
     useState("");
 
-  const [
-    favoritePendingIds,
-    setFavoritePendingIds,
-  ] = useState<Set<number>>(
-    new Set(),
+  const loadPreview = useCallback(
+    async (file: FileResponse) => {
+      if (!account) {
+        throw new Error("An authenticated account is required.");
+      }
+
+      const previewPath =
+        file.downloadUrl.startsWith("/api/albums/") &&
+        !file.canManage
+          ? file.downloadUrl.replace(
+              /\/download$/,
+              "/preview",
+            )
+          : file.downloadUrl;
+
+      return getFilePreviewUrlByPath(
+        instance,
+        account,
+        previewPath,
+        file.contentType,
+      );
+    },
+    [account, instance],
+  );
+
+  const {
+    previewUrls,
+    loading: previewsLoading,
+  } = useFilePreviews(
+    files,
+    loadPreview,
   );
 
   const normalizedQuery =
-    searchQuery
-      .trim()
-      .toLocaleLowerCase();
+    searchQuery.trim().toLocaleLowerCase();
 
-  const filteredFiles =
-    normalizedQuery
-      ? files.filter(
-          (file) =>
-            file.originalFileName
-              .toLocaleLowerCase()
-              .includes(
-                normalizedQuery,
-              ) ||
-            file.contentType
-              .toLocaleLowerCase()
-              .includes(
-                normalizedQuery,
-              ) ||
-            String(
-              file.id,
-            ).includes(
-              normalizedQuery,
-            ),
-        )
-      : files;
-
-  const loadPreviewUrls = async (
-    nextFiles: FileResponse[],
-  ) => {
-    if (!account) {
-      return;
-    }
-
-    const imageFiles =
-      nextFiles.filter(
+  const filteredFiles = normalizedQuery
+    ? files.filter(
         (file) =>
-          file.contentType.startsWith(
-            "image/",
-          ),
-      );
-
-    if (
-      imageFiles.length === 0
-    ) {
-      setPreviewUrls({});
-      return;
-    }
-
-    const urls =
-      await Promise.all(
-        imageFiles.map(
-          async (file) => {
-            try {
-              const previewPath =
-                file.downloadUrl.startsWith(
-                  "/api/albums/",
-                ) &&
-                !file.canManage
-                  ? file.downloadUrl.replace(
-                      /\/download$/,
-                      "/preview",
-                    )
-                  : file.downloadUrl;
-
-              return [
-                file.id,
-                await getFilePreviewUrlByPath(
-                  instance,
-                  account,
-                  previewPath,
-                  file.contentType,
-                ),
-              ] as const;
-            } catch {
-              return null;
-            }
-          },
-        ),
-      );
-
-    setPreviewUrls(
-      Object.fromEntries(
-        urls.filter(
-          (
-            entry,
-          ): entry is readonly [
-            number,
-            string,
-          ] =>
-            entry !== null,
-        ),
-      ),
-    );
-  };
-
-  useEffect(
-    () => () => {
-      Object.values(
-        previewUrls,
-      ).forEach(
-        (url) =>
-          URL.revokeObjectURL(
-            url,
-          ),
-      );
-    },
-    [previewUrls],
-  );
+          file.originalFileName
+            .toLocaleLowerCase()
+            .includes(normalizedQuery) ||
+          file.contentType
+            .toLocaleLowerCase()
+            .includes(normalizedQuery) ||
+          String(file.id).includes(normalizedQuery),
+      )
+    : files;
 
   const loadFiles = async (
     nextView: FileView = view,
@@ -213,22 +123,10 @@ export default function FilesPage() {
 
       const nextFiles =
         nextView === "favorites"
-          ? await getFavorites(
-              instance,
-              account,
-            )
-          : await getFiles(
-              instance,
-              account,
-            );
+          ? await getFavorites(instance, account)
+          : await getFiles(instance, account);
 
-      setFiles(
-        nextFiles,
-      );
-
-      await loadPreviewUrls(
-        nextFiles,
-      );
+      setFiles(nextFiles);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -242,22 +140,14 @@ export default function FilesPage() {
 
   useEffect(() => {
     void loadFiles(view);
-  }, [
-    account,
-    instance,
-    view,
-  ]);
+  }, [account, instance, view]);
 
   const handleUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: ChangeEvent<HTMLInputElement>,
   ) => {
-    const selectedFile =
-      event.target.files?.[0];
+    const selectedFile = event.target.files?.[0];
 
-    if (
-      !selectedFile ||
-      !account
-    ) {
+    if (!selectedFile || !account) {
       return;
     }
 
@@ -273,15 +163,10 @@ export default function FilesPage() {
 
       event.target.value = "";
 
-      if (
-        view ===
-        "favorites"
-      ) {
+      if (view === "favorites") {
         setView("all");
       } else {
-        await loadFiles(
-          "all",
-        );
+        await loadFiles("all");
       }
     } catch (caughtError) {
       setError(
@@ -295,19 +180,12 @@ export default function FilesPage() {
   };
 
   const handleReplace = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: ChangeEvent<HTMLInputElement>,
   ) => {
-    const selectedFile =
-      event.target.files?.[0];
+    const selectedFile = event.target.files?.[0];
+    const fileId = replaceTargetIdRef.current;
 
-    const fileId =
-      replaceTargetIdRef.current;
-
-    if (
-      !selectedFile ||
-      !account ||
-      fileId === null
-    ) {
+    if (!selectedFile || !account || fileId === null) {
       return;
     }
 
@@ -321,9 +199,7 @@ export default function FilesPage() {
         selectedFile,
       );
 
-      await loadFiles(
-        view,
-      );
+      await loadFiles(view);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -331,16 +207,12 @@ export default function FilesPage() {
           : "Replace failed.",
       );
     } finally {
-      replaceTargetIdRef.current =
-        null;
-
+      replaceTargetIdRef.current = null;
       event.target.value = "";
     }
   };
 
-  const handleDownload = async (
-    file: FileResponse,
-  ) => {
+  const handleDownload = async (file: FileResponse) => {
     if (!account) {
       return;
     }
@@ -363,9 +235,7 @@ export default function FilesPage() {
     }
   };
 
-  const handleDelete = async (
-    fileId: number,
-  ) => {
+  const handleDelete = async (fileId: number) => {
     if (!account) {
       return;
     }
@@ -379,9 +249,7 @@ export default function FilesPage() {
         fileId,
       );
 
-      await loadFiles(
-        view,
-      );
+      await loadFiles(view);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -391,109 +259,55 @@ export default function FilesPage() {
     }
   };
 
-  const setFavoritePending = (
-    fileId: number,
-    pending: boolean,
-  ) => {
-    setFavoritePendingIds(
-      (previous) => {
-        const next =
-          new Set(
-            previous,
-          );
-
-        if (pending) {
-          next.add(
-            fileId,
-          );
-        } else {
-          next.delete(
-            fileId,
+  const handleFavoriteSuccess = useCallback(
+    (file: FileResponse, nextFavorite: boolean) => {
+      setFiles((previous) => {
+        if (view === "favorites" && !nextFavorite) {
+          return previous.filter(
+            (item) => item.id !== file.id,
           );
         }
 
-        return next;
-      },
-    );
+        return previous.map((item) =>
+          item.id === file.id
+            ? {
+                ...item,
+                isFavorite: nextFavorite,
+              }
+            : item,
+        );
+      });
+    },
+    [view],
+  );
+
+  const handleFavoriteError = useCallback(
+    (message: string) => {
+      setError(message);
+    },
+    [],
+  );
+
+  const {
+    pendingIds: favoritePendingIds,
+    toggleFavorite,
+  } = useFileFavorites({
+    instance,
+    account,
+    onSuccess: handleFavoriteSuccess,
+    onError: handleFavoriteError,
+  });
+
+  const openReplace = (file: FileResponse) => {
+    replaceTargetIdRef.current = file.id;
+
+    if (replaceInputRef.current) {
+      replaceInputRef.current.value = "";
+      replaceInputRef.current.click();
+    }
   };
 
-  const handleFavoriteToggle =
-    async (
-      file: FileResponse,
-    ) => {
-      if (!account) {
-        return;
-      }
-
-      const nextFavorite =
-        !file.isFavorite;
-
-      setFavoritePending(
-        file.id,
-        true,
-      );
-
-      try {
-        setError(null);
-
-        if (
-          nextFavorite
-        ) {
-          await addFavorite(
-            instance,
-            account,
-            file.id,
-          );
-        } else {
-          await removeFavorite(
-            instance,
-            account,
-            file.id,
-          );
-        }
-
-        setFiles(
-          (previous) => {
-            if (
-              view ===
-                "favorites" &&
-              !nextFavorite
-            ) {
-              return previous.filter(
-                (item) =>
-                  item.id !==
-                  file.id,
-              );
-            }
-
-            return previous.map(
-              (item) =>
-                item.id ===
-                file.id
-                  ? {
-                      ...item,
-                      isFavorite:
-                        nextFavorite,
-                    }
-                  : item,
-            );
-          },
-        );
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to update favorite.",
-        );
-      } finally {
-        setFavoritePending(
-          file.id,
-          false,
-        );
-      }
-    };
-
-  if (loading) {
+  if (loading || previewsLoading) {
     return (
       <div className="app-page">
         <section className="files-page-header skeleton-panel">
@@ -511,22 +325,20 @@ export default function FilesPage() {
         </section>
 
         <section className="file-card-grid">
-          {[1, 2, 3, 4].map(
-            (item) => (
-              <div
-                key={item}
-                className="surface file-card-loading"
-              >
-                <div className="file-loading-preview" />
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="surface file-card-loading"
+            >
+              <div className="file-loading-preview" />
 
-                <div className="file-loading-body">
-                  <span className="skeleton-line skeleton-line-md" />
-                  <span className="skeleton-line skeleton-line-sm" />
-                  <span className="skeleton-line skeleton-line-xs" />
-                </div>
+              <div className="file-loading-body">
+                <span className="skeleton-line skeleton-line-md" />
+                <span className="skeleton-line skeleton-line-sm" />
+                <span className="skeleton-line skeleton-line-xs" />
               </div>
-            ),
-          )}
+            </div>
+          ))}
         </section>
       </div>
     );
@@ -542,14 +354,12 @@ export default function FilesPage() {
           </div>
 
           <h1 className="page-heading">
-            {view === "favorites"
-              ? "Favorites"
-              : "Files"}
+            {view === "favorites" ? "Favorites" : "Files"}
           </h1>
 
           <p className="page-description">
-            Browse, search, and manage your
-            files from one place.
+            Browse, search, and manage your files from one
+            place.
           </p>
         </div>
 
@@ -561,17 +371,9 @@ export default function FilesPage() {
           >
             <button
               type="button"
-              aria-pressed={
-                view === "all"
-              }
-              onClick={() =>
-                setView("all")
-              }
-              className={
-                view === "all"
-                  ? "is-active"
-                  : ""
-              }
+              aria-pressed={view === "all"}
+              onClick={() => setView("all")}
+              className={view === "all" ? "is-active" : ""}
             >
               <FolderOpen
                 aria-hidden="true"
@@ -584,20 +386,10 @@ export default function FilesPage() {
 
             <button
               type="button"
-              aria-pressed={
-                view ===
-                "favorites"
-              }
-              onClick={() =>
-                setView(
-                  "favorites",
-                )
-              }
+              aria-pressed={view === "favorites"}
+              onClick={() => setView("favorites")}
               className={
-                view ===
-                "favorites"
-                  ? "is-active"
-                  : ""
+                view === "favorites" ? "is-active" : ""
               }
             >
               <Star
@@ -605,8 +397,7 @@ export default function FilesPage() {
                 size={15}
                 strokeWidth={1.8}
                 className={
-                  view ===
-                  "favorites"
+                  view === "favorites"
                     ? "fill-current"
                     : ""
                 }
@@ -623,19 +414,13 @@ export default function FilesPage() {
               strokeWidth={1.8}
             />
 
-            <span className="sr-only">
-              Search files
-            </span>
+            <span className="sr-only">Search files</span>
 
             <input
               type="search"
-              value={
-                searchQuery
-              }
+              value={searchQuery}
               onChange={(event) =>
-                setSearchQuery(
-                  event.target.value,
-                )
+                setSearchQuery(event.target.value)
               }
               placeholder="Search files..."
               aria-label="Search files by name, type, or ID"
@@ -646,11 +431,7 @@ export default function FilesPage() {
                 type="button"
                 className="search-clear"
                 aria-label="Clear file search"
-                onClick={() =>
-                  setSearchQuery(
-                    "",
-                  )
-                }
+                onClick={() => setSearchQuery("")}
               >
                 <X
                   aria-hidden="true"
@@ -663,12 +444,8 @@ export default function FilesPage() {
 
           <button
             type="button"
-            onClick={() =>
-              fileInputRef.current?.click()
-            }
-            disabled={
-              uploading
-            }
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
             className="primary-action files-upload-button disabled:opacity-60 disabled:cursor-wait"
           >
             <Upload
@@ -678,9 +455,7 @@ export default function FilesPage() {
             />
 
             <span>
-              {uploading
-                ? "Uploading..."
-                : "Upload file"}
+              {uploading ? "Uploading..." : "Upload file"}
             </span>
           </button>
         </div>
@@ -689,46 +464,26 @@ export default function FilesPage() {
           ref={fileInputRef}
           type="file"
           className="hidden"
-          onChange={
-            handleUpload
-          }
+          onChange={handleUpload}
         />
 
         <input
-          ref={
-            replaceInputRef
-          }
+          ref={replaceInputRef}
           type="file"
           className="hidden"
-          onChange={
-            handleReplace
-          }
+          onChange={handleReplace}
         />
       </section>
 
-      {error && (
-        <div
-          role="alert"
-          className="error-banner"
-        >
-          <span className="error-banner-icon">
-            !
-          </span>
-
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       <section
         className="files-section"
         aria-label={
-          view === "favorites"
-            ? "Favorite files"
-            : "Files"
+          view === "favorites" ? "Favorite files" : "Files"
         }
       >
-        {filteredFiles.length ===
-        0 ? (
+        {filteredFiles.length === 0 ? (
           <section className="surface files-empty-state">
             <span className="files-empty-icon">
               {view === "favorites" ? (
@@ -753,8 +508,7 @@ export default function FilesPage() {
             </span>
 
             <h3>
-              {view ===
-              "favorites"
+              {view === "favorites"
                 ? searchQuery
                   ? "No favorite files found"
                   : "No favorite files yet"
@@ -764,43 +518,33 @@ export default function FilesPage() {
             </h3>
 
             <p>
-              {view ===
-              "favorites"
+              {view === "favorites"
                 ? searchQuery
                   ? "Try a different filename, type, or ID."
                   : "Favorite a file to keep it close at hand."
-                : files.length ===
-                    0
+                : files.length === 0
                   ? "Upload an image or PDF to start building your library."
                   : "Try changing your search terms."}
             </p>
 
-            {view ===
-              "favorites" &&
-              !searchQuery && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setView(
-                      "all",
-                    )
-                  }
-                  className="secondary-action"
-                >
-                  <FolderOpen
-                    aria-hidden="true"
-                    size={16}
-                    strokeWidth={1.8}
-                  />
-                  Browse all files
-                </button>
-              )}
+            {view === "favorites" && !searchQuery && (
+              <button
+                type="button"
+                onClick={() => setView("all")}
+                className="secondary-action"
+              >
+                <FolderOpen
+                  aria-hidden="true"
+                  size={16}
+                  strokeWidth={1.8}
+                />
+                Browse all files
+              </button>
+            )}
 
-            {files.length ===
-              0 &&
+            {files.length === 0 &&
               !searchQuery &&
-              view ===
-                "all" && (
+              view === "all" && (
                 <button
                   type="button"
                   onClick={() =>
@@ -818,55 +562,22 @@ export default function FilesPage() {
               )}
           </section>
         ) : (
-          <div className="file-card-grid">
-            {filteredFiles.map(
-              (file) => (
-                <FileCard
-                  key={file.id}
-                  file={file}
-                  previewUrl={
-                    previewUrls[
-                      file.id
-                    ]
-                  }
-                  canManage={
-                    file.canManage
-                  }
-                  favoritePending={favoritePendingIds.has(
-                    file.id,
-                  )}
-                  onFavoriteToggle={() =>
-                    void handleFavoriteToggle(
-                      file,
-                    )
-                  }
-                  onReplace={() => {
-                    replaceTargetIdRef.current =
-                      file.id;
-
-                    if (
-                      replaceInputRef.current
-                    ) {
-                      replaceInputRef.current.value =
-                        "";
-
-                      replaceInputRef.current.click();
-                    }
-                  }}
-                  onDownload={() =>
-                    void handleDownload(
-                      file,
-                    )
-                  }
-                  onDelete={() =>
-                    void handleDelete(
-                      file.id,
-                    )
-                  }
-                />
-              ),
-            )}
-          </div>
+          <FileCardGrid
+            files={filteredFiles}
+            previewUrls={previewUrls}
+            favoritePendingIds={favoritePendingIds}
+            canManage={(file) => file.canManage}
+            onFavoriteToggle={(file) =>
+              void toggleFavorite(file)
+            }
+            onReplace={openReplace}
+            onDownload={(file) =>
+              void handleDownload(file)
+            }
+            onDelete={(file) =>
+              void handleDelete(file.id)
+            }
+          />
         )}
       </section>
     </div>

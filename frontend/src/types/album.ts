@@ -34,3 +34,5 @@ export interface UpdateAlbumMemberRequest {
   canView: boolean;
   canDownload: boolean;
 }
+
+

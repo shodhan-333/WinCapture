@@ -1,4 +1,4 @@
-﻿import {
+import {
   InteractionRequiredAuthError,
   type AccountInfo,
   type IPublicClientApplication,
@@ -17,8 +17,6 @@ import type {
 } from "../types/album";
 import type { FileResponse } from "../types/file";
 
-export { ApiError };
-export type { CurrentUser };
 
 async function acquireAccessToken(
   instance: IPublicClientApplication,
@@ -400,28 +398,13 @@ export async function uploadAlbumFile(
   albumId: number,
   file: File,
 ): Promise<FileResponse> {
-  const formData =
-    new FormData();
-
-  formData.append(
-    "file",
+  return uploadMultipartFile<FileResponse>(
+    instance,
+    account,
+    `/api/albums/${albumId}/files`,
+    "POST",
     file,
   );
-
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/albums/${albumId}/files`,
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
-
-  return (
-    await response.json()
-  ) as FileResponse;
 }
 
 export async function downloadAlbumFile(
@@ -431,25 +414,11 @@ export async function downloadAlbumFile(
   fileId: number,
   fallbackFileName: string,
 ): Promise<void> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/albums/${albumId}/files/${fileId}/download`,
-    );
-
-  const blob =
-    await response.blob();
-
-  const fileName =
-    extractFileNameFromHeaders(
-      response,
-      fallbackFileName,
-    );
-
-  triggerBrowserDownload(
-    blob,
-    fileName,
+  await downloadResponse(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}/download`,
+    fallbackFileName,
   );
 }
 
@@ -592,28 +561,13 @@ export async function uploadFile(
   account: AccountInfo,
   file: File,
 ): Promise<FileResponse> {
-  const formData =
-    new FormData();
-
-  formData.append(
-    "file",
+  return uploadMultipartFile<FileResponse>(
+    instance,
+    account,
+    "/api/files",
+    "POST",
     file,
   );
-
-  const response =
-    await callApi(
-      instance,
-      account,
-      "/api/files",
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
-
-  return (
-    await response.json()
-  ) as FileResponse;
 }
 
 export async function replaceFile(
@@ -622,28 +576,13 @@ export async function replaceFile(
   fileId: number,
   file: File,
 ): Promise<FileResponse> {
-  const formData =
-    new FormData();
-
-  formData.append(
-    "file",
+  return uploadMultipartFile<FileResponse>(
+    instance,
+    account,
+    `/api/files/${fileId}`,
+    "PUT",
     file,
   );
-
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/files/${fileId}`,
-      {
-        method: "PUT",
-        body: formData,
-      },
-    );
-
-  return (
-    await response.json()
-  ) as FileResponse;
 }
 
 export async function downloadFileByPath(
@@ -652,25 +591,11 @@ export async function downloadFileByPath(
   path: string,
   fallbackFileName: string,
 ): Promise<void> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      path,
-    );
-
-  const blob =
-    await response.blob();
-
-  const fileName =
-    extractFileNameFromHeaders(
-      response,
-      fallbackFileName,
-    );
-
-  triggerBrowserDownload(
-    blob,
-    fileName,
+  await downloadResponse(
+    instance,
+    account,
+    path,
+    fallbackFileName,
   );
 }
 
@@ -723,6 +648,50 @@ export async function getAdminAlbums(
   return (
     await response.json()
   ) as AlbumResponse[];
+}
+
+async function uploadMultipartFile<T>(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+  method: "POST" | "PUT",
+  file: File,
+): Promise<T> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await callApi(
+    instance,
+    account,
+    path,
+    {
+      method,
+      body: formData,
+    },
+  );
+
+  return (await response.json()) as T;
+}
+
+async function downloadResponse(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+  fallbackFileName: string,
+): Promise<void> {
+  const response = await callApi(
+    instance,
+    account,
+    path,
+  );
+
+  const blob = await response.blob();
+  const fileName = extractFileNameFromHeaders(
+    response,
+    fallbackFileName,
+  );
+
+  triggerBrowserDownload(blob, fileName);
 }
 
 // ==========================================
@@ -783,3 +752,4 @@ function triggerBrowserDownload(
     url,
   );
 }
+
