@@ -21,7 +21,8 @@ public sealed class FilesController(IFileService fileService) : ControllerBase
     {
         get
         {
-            var value = User.FindFirst("sub")?.Value;
+            var value =User.FindFirst("wincapture_user_id")?.Value
+                ?? User.FindFirst("sub")?.Value;
 
             if (!int.TryParse(value, out var userId) || userId <= 0)
             {

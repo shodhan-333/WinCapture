@@ -27,9 +27,9 @@ public sealed class AlbumsController(
     {
         get
         {
+
             var value =
                 User.FindFirst("sub")?.Value;
-
             if (!int.TryParse(
                     value,
                     out var userId) ||

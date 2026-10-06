@@ -42,10 +42,6 @@ public sealed class WinCaptureDbContext(
             entity.HasIndex(user => user.Email)
                 .IsUnique();
 
-            entity.Property(user => user.PasswordHash)
-                .HasMaxLength(500)
-                .IsRequired();
-
             entity.Property(user => user.Role)
                 .HasConversion<string>()
                 .HasMaxLength(20)

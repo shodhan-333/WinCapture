@@ -40,3 +40,6 @@ GET {{WinCapture_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+### Get current authenticated user
+GET {{WinCapture_HostAddress}}/api/auth/me
+Authorization: Bearer YOUR_JWT_OR_MICROSOFT_ACCESS_TOKEN
