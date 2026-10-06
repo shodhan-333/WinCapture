@@ -796,9 +796,16 @@ builder.Services.AddOpenApi(
             });
     });
 
-// ============================================================
-// Build application
-// ============================================================
+builder.Services.AddScoped<TokenService>();
+builder.Services.AddScoped<FileValidator>();
+builder.Services.AddScoped<IFileRepository, FileRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
+builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
+builder.Services.AddScoped<IAlbumService, AlbumService>();
+builder.Services.AddScoped<IAlbumFileService, AlbumFileService>();
 
 var app =
     builder.Build();
