@@ -20,36 +20,36 @@ interface FileCardProps {
   onDelete: () => void;
 }
 
-function formatFileSize(
-  bytes: number,
-): string {
+function formatFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024) {
-    return `${(
-      bytes /
-      (1024 * 1024)
-    ).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   if (bytes >= 1024) {
-    return `${Math.round(
-      bytes / 1024,
-    )} KB`;
+    return `${Math.round(bytes / 1024)} KB`;
   }
 
   return `${bytes} B`;
 }
 
-function formatFileType(
-  contentType: string,
-): string {
-  const [
-    type,
-    subtype,
-  ] = contentType.split("/");
+function formatFileType(contentType: string): string {
+  const [type, subtype] = contentType.split("/");
 
   return subtype
     ? subtype.toUpperCase()
     : type.toUpperCase();
+}
+
+function getFileCategory(contentType: string): string {
+  if (contentType.startsWith("image/")) {
+    return "image";
+  }
+
+  if (contentType === "application/pdf") {
+    return "document";
+  }
+
+  return "file";
 }
 
 export default function FileCard({
@@ -63,36 +63,42 @@ export default function FileCard({
   onDelete,
 }: FileCardProps) {
   const isImage =
-    file.contentType.startsWith(
-      "image/",
-    );
+    file.contentType.startsWith("image/");
 
   const effectiveCanManage =
     canManage ?? file.canManage;
 
+  const category =
+    getFileCategory(file.contentType);
+
   return (
-    <article className="surface file-card min-w-0 p-3">
-      <div className="file-card-preview media-preview relative mb-3">
+    <article className="file-card surface">
+      <div
+        className={`file-card-preview media-preview file-category-${category}`}
+      >
         {isImage && previewUrl ? (
           <img
             src={previewUrl}
             alt={file.originalFileName}
-            className="h-full w-full object-cover"
+            className="file-preview-image"
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-500">
-            <FileText
-              aria-hidden="true"
-              size={34}
-              strokeWidth={1.5}
-            />
-            <span className="text-xs font-semibold tracking-wide">
-              {formatFileType(
-                file.contentType,
-              )}
+          <div className="file-preview-placeholder">
+            <span className="file-preview-icon">
+              <FileText
+                aria-hidden="true"
+                size={38}
+                strokeWidth={1.45}
+              />
+            </span>
+
+            <span className="file-preview-type">
+              {formatFileType(file.contentType)}
             </span>
           </div>
         )}
+
+        <div className="file-card-preview-overlay" />
 
         <button
           type="button"
@@ -109,128 +115,164 @@ export default function FileCard({
           }
           disabled={favoritePending}
           onClick={onFavoriteToggle}
-          className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:scale-105 hover:text-amber-500 disabled:cursor-wait disabled:opacity-60"
+          className={`file-favorite-button ${
+            file.isFavorite
+              ? "is-favorite"
+              : ""
+          }`}
         >
           <Star
             aria-hidden="true"
-            size={18}
+            size={17}
             strokeWidth={1.8}
             className={
               file.isFavorite
-                ? "fill-current text-amber-500"
+                ? "fill-current"
                 : ""
             }
           />
         </button>
+
+        <div className="file-preview-badge">
+          {formatFileType(file.contentType)}
+        </div>
       </div>
 
-      <div className="flex min-w-0 items-start justify-between gap-3 px-1">
-        <div className="min-w-0">
-          <h3
-            className="truncate text-[15px] font-semibold text-slate-900"
-            title={file.originalFileName}
-          >
-            {file.originalFileName}
-          </h3>
+      <div className="file-card-body">
+        <div className="file-card-main">
+          <div className="file-card-heading">
+            <div className="min-w-0">
+              <h3
+                className="file-card-name"
+                title={file.originalFileName}
+              >
+                {file.originalFileName}
+              </h3>
 
-          <p className="mt-1 text-xs text-slate-500">
-            {formatFileType(
-              file.contentType,
-            )}{" "}
-            <span aria-hidden="true">
-              ·
-            </span>{" "}
-            {formatFileSize(
-              file.fileSize,
-            )}
+              <p className="file-card-meta">
+                {formatFileType(file.contentType)}
+
+                <span aria-hidden="true">
+                  ·
+                </span>
+
+                {formatFileSize(file.fileSize)}
+              </p>
+            </div>
+
+            <details className="file-menu">
+              <summary
+                aria-label={`Actions for ${file.originalFileName}`}
+                title="File actions"
+              >
+                <MoreHorizontal
+                  aria-hidden="true"
+                  size={19}
+                  strokeWidth={1.8}
+                />
+              </summary>
+
+              <div className="file-menu-popover">
+                {effectiveCanManage && (
+                  <button
+                    type="button"
+                    className="file-menu-action"
+                    onClick={(event) => {
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+
+                      onReplace();
+                    }}
+                  >
+                    <Replace
+                      aria-hidden="true"
+                      size={16}
+                      strokeWidth={1.8}
+                    />
+
+                    <span>Replace</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="file-menu-action"
+                  onClick={(event) => {
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
+
+                    onDownload();
+                  }}
+                >
+                  <Download
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.8}
+                  />
+
+                  <span>Download</span>
+                </button>
+
+                {effectiveCanManage && (
+                  <button
+                    type="button"
+                    className="file-menu-action is-danger"
+                    onClick={(event) => {
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+
+                      onDelete();
+                    }}
+                  >
+                    <Trash2
+                      aria-hidden="true"
+                      size={16}
+                      strokeWidth={1.8}
+                    />
+
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
+            </details>
+          </div>
+
+          <p className="file-card-date">
+            Added{" "}
+            {new Date(
+              file.uploadedAt,
+            ).toLocaleDateString()}
           </p>
         </div>
 
-        <details className="file-menu shrink-0">
-          <summary
-            aria-label={`Actions for ${file.originalFileName}`}
-            title="File actions"
-          >
-            <MoreHorizontal
+        <div className="file-card-footer">
+          <span className="file-status">
+            <span
+              className="file-status-dot"
               aria-hidden="true"
-              size={20}
             />
-          </summary>
 
-          <div className="file-menu-popover">
-            {effectiveCanManage && (
-              <button
-                type="button"
-                className="file-menu-action"
-                onClick={(event) => {
-                  event.currentTarget
-                    .closest("details")
-                    ?.removeAttribute(
-                      "open",
-                    );
+            Available
+          </span>
 
-                  onReplace();
-                }}
-              >
-                <Replace
-                  aria-hidden="true"
-                  size={16}
-                />{" "}
-                Replace
-              </button>
-            )}
+          <button
+            type="button"
+            className="file-download-action"
+            onClick={onDownload}
+          >
+            <Download
+              aria-hidden="true"
+              size={14}
+              strokeWidth={1.8}
+            />
 
-            <button
-              type="button"
-              className="file-menu-action"
-              onClick={(event) => {
-                event.currentTarget
-                  .closest("details")
-                  ?.removeAttribute(
-                    "open",
-                  );
-
-                onDownload();
-              }}
-            >
-              <Download
-                aria-hidden="true"
-                size={16}
-              />{" "}
-              Download
-            </button>
-
-            {effectiveCanManage && (
-              <button
-                type="button"
-                className="file-menu-action is-danger"
-                onClick={(event) => {
-                  event.currentTarget
-                    .closest("details")
-                    ?.removeAttribute(
-                      "open",
-                    );
-
-                  onDelete();
-                }}
-              >
-                <Trash2
-                  aria-hidden="true"
-                  size={16}
-                />{" "}
-                Delete
-              </button>
-            )}
-          </div>
-        </details>
+            <span>Download</span>
+          </button>
+        </div>
       </div>
-
-      <p className="mt-3 truncate border-t border-slate-100 px-1 pt-2 text-[11px] text-slate-400">
-        Added{" "}
-        {new Date(
-          file.uploadedAt,
-        ).toLocaleDateString()}
-      </p>
     </article>
   );
 }

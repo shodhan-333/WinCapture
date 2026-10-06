@@ -1,51 +1,287 @@
-import { LogOut, ShieldCheck, UserRound } from "lucide-react";
+import {
+  BadgeCheck,
+  ChevronRight,
+  LogOut,
+  Mail,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
+
+function getInitials(name?: string): string {
+  if (!name?.trim()) {
+    return "U";
+  }
+
+  const parts = name.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="app-page max-w-3xl">
-      <section className="page-toolbar surface">
+    <div className="app-page profile-page">
+      <section className="profile-page-header">
         <div>
-          <p className="page-kicker">Account</p>
-          <h2 className="page-heading">Profile</h2>
+          <div className="page-kicker">
+            <span className="page-kicker-dot" />
+            Account
+          </div>
+
+          <h1 className="page-heading">
+            Profile
+          </h1>
+
+          <p className="page-description">
+            Manage your WinCapture account
+            information and authentication
+            details.
+          </p>
         </div>
       </section>
 
-      <section className="surface identity-section">
-        <div className="identity-avatar">
-          <span className="sr-only">Account avatar</span>
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-800 text-xl font-semibold text-white">
-            {user?.name?.charAt(0).toUpperCase() ?? "U"}
+      <section className="profile-identity-card surface">
+        <div className="profile-identity-background" />
+
+        <div className="profile-identity-main">
+          <div className="profile-avatar-large">
+            {getInitials(user?.name)}
+          </div>
+
+          <div className="profile-identity-copy">
+            <div className="profile-name-row">
+              <h2>
+                {user?.name ??
+                  "Unknown user"}
+              </h2>
+
+              <span className="profile-role-badge">
+                <BadgeCheck
+                  aria-hidden="true"
+                  size={13}
+                  strokeWidth={1.9}
+                />
+
+                {user?.role ??
+                  "User"}
+              </span>
+            </div>
+
+            <p>
+              <Mail
+                aria-hidden="true"
+                size={14}
+                strokeWidth={1.8}
+              />
+
+              {user?.email ??
+                "No email available"}
+            </p>
+
+            <span className="profile-account-note">
+              Your WinCapture account is
+              connected to Microsoft Entra ID.
+            </span>
           </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xl font-semibold text-slate-900">{user?.name ?? "Unknown user"}</p>
-            <p className="text-sm text-slate-500">{user?.email ?? "noreply@example.com"}</p>
+
+        <div className="profile-identity-status">
+          <span className="profile-status-dot" />
+
+          <span>
+            Authenticated
+          </span>
         </div>
       </section>
 
-      <section className="surface account-settings">
-        <h3 className="section-title mb-2">Account</h3>
-        <div className="settings-row">
-          <span className="settings-label"><UserRound aria-hidden="true" size={18} /> Role</span>
-          <span className="text-sm font-medium text-slate-900">{user?.role ?? "User"}</span>
+      <section className="profile-settings-card surface">
+        <div className="profile-section-header">
+          <div>
+            <p className="dashboard-panel-kicker">
+              Account details
+            </p>
+
+            <h2 className="section-title">
+              Account information
+            </h2>
+          </div>
+
+          <span className="profile-section-icon">
+            <UserRound
+              aria-hidden="true"
+              size={18}
+              strokeWidth={1.8}
+            />
+          </span>
         </div>
-        <div className="settings-row">
-          <span className="settings-label"><ShieldCheck aria-hidden="true" size={18} /> Authentication</span>
-          <span className="text-sm font-medium text-slate-900">Microsoft</span>
+
+        <div className="profile-settings-list">
+          <div className="profile-setting-row">
+            <div className="profile-setting-icon blue">
+              <UserRound
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.8}
+              />
+            </div>
+
+            <div className="profile-setting-copy">
+              <span>
+                Name
+              </span>
+
+              <strong>
+                {user?.name ??
+                  "Unknown user"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="profile-setting-row">
+            <div className="profile-setting-icon purple">
+              <Mail
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.8}
+              />
+            </div>
+
+            <div className="profile-setting-copy">
+              <span>
+                Email
+              </span>
+
+              <strong>
+                {user?.email ??
+                  "No email available"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="profile-setting-row">
+            <div className="profile-setting-icon green">
+              <ShieldCheck
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.8}
+              />
+            </div>
+
+            <div className="profile-setting-copy">
+              <span>
+                Role
+              </span>
+
+              <strong>
+                {user?.role ??
+                  "User"}
+              </strong>
+            </div>
+
+            <span className="profile-setting-trailing">
+              <ChevronRight
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.8}
+              />
+            </span>
+          </div>
         </div>
       </section>
 
-      <button
-        type="button"
-        onClick={() => void logout()}
-        className="danger-action self-start gap-2"
-      >
-        <LogOut aria-hidden="true" size={17} /> Sign out
-      </button>
+      <section className="profile-security-card surface">
+        <div className="profile-section-header">
+          <div>
+            <p className="dashboard-panel-kicker">
+              Authentication
+            </p>
+
+            <h2 className="section-title">
+              Microsoft Entra ID
+            </h2>
+          </div>
+
+          <span className="profile-section-icon microsoft">
+            <ShieldCheck
+              aria-hidden="true"
+              size={18}
+              strokeWidth={1.8}
+            />
+          </span>
+        </div>
+
+        <div className="profile-authentication-row">
+          <div className="profile-authentication-icon">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+
+          <div className="profile-authentication-copy">
+            <strong>
+              Microsoft authentication
+            </strong>
+
+            <p>
+              Your WinCapture session is
+              authenticated through your
+              organization's Microsoft
+              identity.
+            </p>
+          </div>
+
+          <span className="profile-authentication-badge">
+            Connected
+          </span>
+        </div>
+      </section>
+
+      <section className="profile-signout-card">
+        <div className="profile-signout-copy">
+          <span className="profile-signout-icon">
+            <LogOut
+              aria-hidden="true"
+              size={18}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <div>
+            <strong>
+              Sign out of WinCapture
+            </strong>
+
+            <p>
+              End your current Microsoft
+              session on this device.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            void logout()
+          }
+          className="danger-action"
+        >
+          <LogOut
+            aria-hidden="true"
+            size={16}
+            strokeWidth={1.8}
+          />
+
+          Sign out
+        </button>
+      </section>
     </div>
   );
 }

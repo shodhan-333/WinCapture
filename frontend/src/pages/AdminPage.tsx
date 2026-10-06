@@ -1,18 +1,74 @@
+import {
+  FileText,
+  FolderOpen,
+  Images,
+  ShieldCheck,
+  Users,
+  ArrowUpRight,
+  AlertCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 
-import { getAdminAlbums, getAdminFiles } from "../api/apiClient";
+import {
+  getAdminAlbums,
+  getAdminFiles,
+} from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
 
+function formatDate(value: string): string {
+  return new Date(value).toLocaleDateString(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
+}
+
+function formatFileSize(
+  bytes: number,
+): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(
+      bytes /
+      (1024 * 1024)
+    ).toFixed(1)} MB`;
+  }
+
+  if (bytes >= 1024) {
+    return `${Math.round(
+      bytes / 1024,
+    )} KB`;
+  }
+
+  return `${bytes} B`;
+}
+
 export default function AdminPage() {
   const { instance } = useMsal();
   const { account } = useAuth();
-  const [albums, setAlbums] = useState<AlbumResponse[]>([]);
-  const [files, setFiles] = useState<FileResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [albums, setAlbums] =
+    useState<AlbumResponse[]>(
+      [],
+    );
+
+  const [files, setFiles] =
+    useState<FileResponse[]>(
+      [],
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(
+      null,
+    );
 
   useEffect(() => {
     async function load() {
@@ -23,80 +79,428 @@ export default function AdminPage() {
       try {
         setLoading(true);
         setError(null);
-        const [albumResult, fileResult] = await Promise.all([
-          getAdminAlbums(instance, account),
-          getAdminFiles(instance, account),
+
+        const [
+          albumResult,
+          fileResult,
+        ] = await Promise.all([
+          getAdminAlbums(
+            instance,
+            account,
+          ),
+          getAdminFiles(
+            instance,
+            account,
+          ),
         ]);
 
-        setAlbums(albumResult);
-        setFiles(fileResult);
+        setAlbums(
+          albumResult,
+        );
+
+        setFiles(
+          fileResult,
+        );
       } catch (caughtError) {
-        setError(caughtError instanceof Error ? caughtError.message : "Unable to load admin data.");
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load admin data.",
+        );
       } finally {
         setLoading(false);
       }
     }
 
     void load();
-  }, [account, instance]);
+  }, [
+    account,
+    instance,
+  ]);
 
   if (loading) {
-    return <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />;
+    return (
+      <div className="app-page">
+        <section className="admin-hero skeleton-panel">
+          <div className="skeleton-content">
+            <span className="skeleton-line skeleton-line-sm" />
+            <span className="skeleton-line skeleton-line-lg" />
+            <span className="skeleton-line skeleton-line-md" />
+          </div>
+
+          <span className="skeleton-icon skeleton-icon-large" />
+        </section>
+
+        <section className="admin-stat-grid">
+          {[1, 2, 3].map(
+            (item) => (
+              <div
+                key={item}
+                className="surface admin-stat-skeleton"
+              >
+                <span className="skeleton-icon" />
+
+                <span className="skeleton-content">
+                  <span className="skeleton-line skeleton-line-xs" />
+                  <span className="skeleton-line skeleton-line-value" />
+                </span>
+              </div>
+            ),
+          )}
+        </section>
+
+        <section className="admin-content-grid">
+          {[1, 2].map(
+            (item) => (
+              <div
+                key={item}
+                className="surface admin-list-skeleton"
+              >
+                <span className="skeleton-line skeleton-line-md" />
+                <span className="skeleton-line skeleton-line-sm" />
+                <span className="skeleton-line skeleton-line-sm" />
+                <span className="skeleton-line skeleton-line-sm" />
+              </div>
+            ),
+          )}
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className="app-page">
-      <section className="page-toolbar surface">
-        <div>
-          <p className="page-kicker">Administration</p>
-          <h2 className="page-heading">System overview</h2>
+    <div className="app-page admin-page">
+      <section className="admin-hero surface">
+        <div className="admin-hero-glow admin-hero-glow-one" />
+        <div className="admin-hero-glow admin-hero-glow-two" />
+
+        <div className="admin-hero-content">
+          <div className="page-kicker">
+            <span className="page-kicker-dot" />
+            Administration
+          </div>
+
+          <h1 className="page-heading">
+            System overview
+          </h1>
+
+          <p className="page-description">
+            Monitor the albums and files
+            currently managed across
+            WinCapture.
+          </p>
+        </div>
+
+        <div className="admin-hero-icon">
+          <ShieldCheck
+            aria-hidden="true"
+            size={31}
+            strokeWidth={1.45}
+          />
         </div>
       </section>
 
-      {error && <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div
+          role="alert"
+          className="error-banner"
+        >
+          <span className="error-banner-icon">
+            <AlertCircle
+              aria-hidden="true"
+              size={17}
+              strokeWidth={1.8}
+            />
+          </span>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="surface p-5">
-          <p className="text-sm text-slate-500">Total albums</p>
-          <p className="metric-value mt-4">{albums.length}</p>
+          <span>{error}</span>
         </div>
-        <div className="surface p-5">
-          <p className="text-sm text-slate-500">Total files</p>
-          <p className="metric-value mt-4">{files.length}</p>
+      )}
+
+      <section className="admin-stat-grid">
+        <div className="surface admin-stat-card">
+          <span className="admin-stat-icon blue">
+            <Users
+              aria-hidden="true"
+              size={20}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <div className="admin-stat-copy">
+            <span>
+              Managed users
+            </span>
+
+            <strong>
+              Active
+            </strong>
+
+            <small>
+              Microsoft Entra accounts
+            </small>
+          </div>
+        </div>
+
+        <div className="surface admin-stat-card">
+          <span className="admin-stat-icon purple">
+            <Images
+              aria-hidden="true"
+              size={20}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <div className="admin-stat-copy">
+            <span>
+              Total albums
+            </span>
+
+            <strong>
+              {albums.length}
+            </strong>
+
+            <small>
+              Collections in WinCapture
+            </small>
+          </div>
+        </div>
+
+        <div className="surface admin-stat-card">
+          <span className="admin-stat-icon green">
+            <FileText
+              aria-hidden="true"
+              size={20}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <div className="admin-stat-copy">
+            <span>
+              Total files
+            </span>
+
+            <strong>
+              {files.length}
+            </strong>
+
+            <small>
+              Files across the system
+            </small>
+          </div>
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="surface p-5">
-          <h3 className="section-title mb-4">Latest albums</h3>
-          <div className="space-y-3">
-            {albums.slice(0, 5).map((album) => (
-              <div key={album.id} className="surface-muted flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="font-medium text-slate-900">{album.albumName}</p>
-                  <p className="text-xs text-slate-500">{album.ownerName}</p>
-                </div>
-                <span className="text-xs text-slate-400">#{album.id}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <section className="admin-content-grid">
+        <section className="surface admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <p className="dashboard-panel-kicker">
+                Collections
+              </p>
 
-        <div className="surface p-5">
-          <h3 className="section-title mb-4">Latest files</h3>
-          <div className="space-y-3">
-            {files.slice(0, 5).map((file) => (
-              <div key={file.id} className="surface-muted flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="font-medium text-slate-900">{file.originalFileName}</p>
-                  <p className="text-xs text-slate-500">{file.contentType}</p>
-                </div>
-                <span className="text-xs text-slate-400">{file.id}</span>
-              </div>
-            ))}
+              <h2 className="section-title">
+                Latest albums
+              </h2>
+            </div>
+
+            <span className="admin-panel-count">
+              {albums.length}
+            </span>
           </div>
-        </div>
-      </div>
+
+          <div className="admin-list">
+            {albums.length === 0 ? (
+              <div className="admin-empty-state">
+                <span className="admin-empty-icon">
+                  <Images
+                    aria-hidden="true"
+                    size={23}
+                    strokeWidth={1.5}
+                  />
+                </span>
+
+                <div>
+                  <strong>
+                    No albums available
+                  </strong>
+
+                  <p>
+                    There are currently no
+                    albums to display.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              albums
+                .slice(0, 5)
+                .map(
+                  (album) => (
+                    <div
+                      key={album.id}
+                      className="admin-list-row"
+                    >
+                      <span className="admin-row-icon album">
+                        <Images
+                          aria-hidden="true"
+                          size={17}
+                          strokeWidth={1.7}
+                        />
+                      </span>
+
+                      <div className="admin-row-main">
+                        <strong
+                          title={
+                            album.albumName
+                          }
+                        >
+                          {
+                            album.albumName
+                          }
+                        </strong>
+
+                        <span>
+                          Owner:{" "}
+                          {
+                            album.ownerName
+                          }
+                        </span>
+                      </div>
+
+                      <div className="admin-row-meta">
+                        <small>
+                          Created
+                        </small>
+
+                        <strong>
+                          {formatDate(
+                            album.createdAt,
+                          )}
+                        </strong>
+                      </div>
+
+                      <span className="admin-row-id">
+                        #
+                        {album.id}
+                      </span>
+
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="admin-row-arrow"
+                        size={15}
+                        strokeWidth={1.8}
+                      />
+                    </div>
+                  ),
+                )
+            )}
+          </div>
+        </section>
+
+        <section className="surface admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <p className="dashboard-panel-kicker">
+                Storage
+              </p>
+
+              <h2 className="section-title">
+                Latest files
+              </h2>
+            </div>
+
+            <span className="admin-panel-count">
+              {files.length}
+            </span>
+          </div>
+
+          <div className="admin-list">
+            {files.length === 0 ? (
+              <div className="admin-empty-state">
+                <span className="admin-empty-icon purple">
+                  <FileText
+                    aria-hidden="true"
+                    size={23}
+                    strokeWidth={1.5}
+                  />
+                </span>
+
+                <div>
+                  <strong>
+                    No files available
+                  </strong>
+
+                  <p>
+                    There are currently no
+                    files to display.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              files
+                .slice(0, 5)
+                .map(
+                  (file) => (
+                    <div
+                      key={file.id}
+                      className="admin-list-row"
+                    >
+                      <span className="admin-row-icon file">
+                        <FolderOpen
+                          aria-hidden="true"
+                          size={17}
+                          strokeWidth={1.7}
+                        />
+                      </span>
+
+                      <div className="admin-row-main">
+                        <strong
+                          title={
+                            file.originalFileName
+                          }
+                        >
+                          {
+                            file.originalFileName
+                          }
+                        </strong>
+
+                        <span>
+                          {
+                            file.contentType
+                          }
+                        </span>
+                      </div>
+
+                      <div className="admin-row-meta">
+                        <small>
+                          Size
+                        </small>
+
+                        <strong>
+                          {formatFileSize(
+                            file.fileSize,
+                          )}
+                        </strong>
+                      </div>
+
+                      <span className="admin-row-id">
+                        #
+                        {file.id}
+                      </span>
+
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="admin-row-arrow"
+                        size={15}
+                        strokeWidth={1.8}
+                      />
+                    </div>
+                  ),
+                )
+            )}
+          </div>
+        </section>
+      </section>
     </div>
   );
 }

@@ -4,8 +4,11 @@ import {
   useState,
 } from "react";
 import {
+  FilePlus2,
+  FolderOpen,
   Search,
   Star,
+  Upload,
   X,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
@@ -28,6 +31,14 @@ import type { FileResponse } from "../types/file";
 type FileView =
   | "all"
   | "favorites";
+
+function formatFileCount(
+  count: number,
+): string {
+  return `${count} ${
+    count === 1 ? "file" : "files"
+  }`;
+}
 
 export default function FilesPage() {
   const { instance } =
@@ -106,7 +117,9 @@ export default function FilesPage() {
               .includes(
                 normalizedQuery,
               ) ||
-            String(file.id).includes(
+            String(
+              file.id,
+            ).includes(
               normalizedQuery,
             ),
         )
@@ -127,7 +140,9 @@ export default function FilesPage() {
           ),
       );
 
-    if (imageFiles.length === 0) {
+    if (
+      imageFiles.length === 0
+    ) {
       setPreviewUrls({});
       return;
     }
@@ -140,7 +155,8 @@ export default function FilesPage() {
               const previewPath =
                 file.downloadUrl.startsWith(
                   "/api/albums/",
-                ) && !file.canManage
+                ) &&
+                !file.canManage
                   ? file.downloadUrl.replace(
                       /\/download$/,
                       "/preview",
@@ -214,7 +230,9 @@ export default function FilesPage() {
               account,
             );
 
-      setFiles(nextFiles);
+      setFiles(
+        nextFiles,
+      );
 
       await loadPreviewUrls(
         nextFiles,
@@ -263,7 +281,10 @@ export default function FilesPage() {
 
       event.target.value = "";
 
-      if (view === "favorites") {
+      if (
+        view ===
+        "favorites"
+      ) {
         setView("all");
       } else {
         await loadFiles(
@@ -390,9 +411,13 @@ export default function FilesPage() {
           );
 
         if (pending) {
-          next.add(fileId);
+          next.add(
+            fileId,
+          );
         } else {
-          next.delete(fileId);
+          next.delete(
+            fileId,
+          );
         }
 
         return next;
@@ -419,7 +444,9 @@ export default function FilesPage() {
       try {
         setError(null);
 
-        if (nextFavorite) {
+        if (
+          nextFavorite
+        ) {
           await addFavorite(
             instance,
             account,
@@ -436,18 +463,21 @@ export default function FilesPage() {
         setFiles(
           (previous) => {
             if (
-              view === "favorites" &&
+              view ===
+                "favorites" &&
               !nextFavorite
             ) {
               return previous.filter(
                 (item) =>
-                  item.id !== file.id,
+                  item.id !==
+                  file.id,
               );
             }
 
             return previous.map(
               (item) =>
-                item.id === file.id
+                item.id ===
+                file.id
                   ? {
                       ...item,
                       isFavorite:
@@ -473,28 +503,84 @@ export default function FilesPage() {
 
   if (loading) {
     return (
-      <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />
+      <div className="app-page">
+        <section className="files-page-header skeleton-panel">
+          <div className="skeleton-content">
+            <span className="skeleton-line skeleton-line-sm" />
+            <span className="skeleton-line skeleton-line-lg" />
+            <span className="skeleton-line skeleton-line-md" />
+          </div>
+
+          <div className="files-toolbar-skeleton">
+            <span className="skeleton-field skeleton-field-lg" />
+            <span className="skeleton-field" />
+            <span className="skeleton-button skeleton-button-wide" />
+          </div>
+        </section>
+
+        <section className="files-summary-skeleton">
+          {[1, 2, 3].map(
+            (item) => (
+              <div
+                key={item}
+                className="surface files-summary-item-skeleton"
+              >
+                <span className="skeleton-icon" />
+                <span className="skeleton-content">
+                  <span className="skeleton-line skeleton-line-xs" />
+                  <span className="skeleton-line skeleton-line-md" />
+                </span>
+              </div>
+            ),
+          )}
+        </section>
+
+        <section className="file-card-grid">
+          {[1, 2, 3, 4].map(
+            (item) => (
+              <div
+                key={item}
+                className="surface file-card-loading"
+              >
+                <div className="file-loading-preview" />
+
+                <div className="file-loading-body">
+                  <span className="skeleton-line skeleton-line-md" />
+                  <span className="skeleton-line skeleton-line-sm" />
+                  <span className="skeleton-line skeleton-line-xs" />
+                </div>
+              </div>
+            ),
+          )}
+        </section>
+      </div>
     );
   }
 
   return (
     <div className="app-page">
-      <section className="page-toolbar surface">
-        <div>
-          <p className="page-kicker">
+      <section className="files-page-header surface">
+        <div className="files-page-heading">
+          <div className="page-kicker">
+            <span className="page-kicker-dot" />
             Your library
-          </p>
+          </div>
 
-          <h2 className="page-heading">
+          <h1 className="page-heading">
             {view === "favorites"
               ? "Favorites"
               : "Files"}
-          </h2>
+          </h1>
+
+          <p className="page-description">
+            Browse, search, and manage your
+            files from one place.
+          </p>
         </div>
 
-        <div className="files-toolbar-actions">
+        <div className="files-toolbar">
           <div
-            className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1"
+            className="file-view-switcher"
             role="group"
             aria-label="File view"
           >
@@ -506,48 +592,60 @@ export default function FilesPage() {
               onClick={() =>
                 setView("all")
               }
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={
                 view === "all"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+                  ? "is-active"
+                  : ""
+              }
             >
+              <FolderOpen
+                aria-hidden="true"
+                size={15}
+                strokeWidth={1.8}
+              />
+
               All files
             </button>
 
             <button
               type="button"
               aria-pressed={
-                view === "favorites"
+                view ===
+                "favorites"
               }
               onClick={() =>
                 setView(
                   "favorites",
                 )
               }
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                view === "favorites"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={
+                view ===
+                "favorites"
+                  ? "is-active"
+                  : ""
+              }
             >
               <Star
                 aria-hidden="true"
                 size={15}
+                strokeWidth={1.8}
                 className={
-                  view === "favorites"
-                    ? "fill-current text-amber-500"
+                  view ===
+                  "favorites"
+                    ? "fill-current"
                     : ""
                 }
               />
+
               Favorites
             </button>
           </div>
 
-          <label className="search-field">
+          <label className="search-field files-search">
             <Search
               aria-hidden="true"
-              size={18}
+              size={17}
+              strokeWidth={1.8}
             />
 
             <span className="sr-only">
@@ -556,13 +654,15 @@ export default function FilesPage() {
 
             <input
               type="search"
-              value={searchQuery}
+              value={
+                searchQuery
+              }
               onChange={(event) =>
                 setSearchQuery(
                   event.target.value,
                 )
               }
-              placeholder="Search files"
+              placeholder="Search files..."
               aria-label="Search files by name, type, or ID"
             />
 
@@ -572,12 +672,15 @@ export default function FilesPage() {
                 className="search-clear"
                 aria-label="Clear file search"
                 onClick={() =>
-                  setSearchQuery("")
+                  setSearchQuery(
+                    "",
+                  )
                 }
               >
                 <X
                   aria-hidden="true"
-                  size={16}
+                  size={15}
+                  strokeWidth={1.8}
                 />
               </button>
             )}
@@ -588,12 +691,22 @@ export default function FilesPage() {
             onClick={() =>
               fileInputRef.current?.click()
             }
-            disabled={uploading}
-            className="primary-action"
+            disabled={
+              uploading
+            }
+            className="primary-action files-upload-button disabled:opacity-60 disabled:cursor-wait"
           >
-            {uploading
-              ? "Uploading..."
-              : "Upload file"}
+            <Upload
+              aria-hidden="true"
+              size={16}
+              strokeWidth={1.8}
+            />
+
+            <span>
+              {uploading
+                ? "Uploading..."
+                : "Upload file"}
+            </span>
           </button>
         </div>
 
@@ -601,85 +714,267 @@ export default function FilesPage() {
           ref={fileInputRef}
           type="file"
           className="hidden"
-          onChange={handleUpload}
+          onChange={
+            handleUpload
+          }
         />
 
         <input
-          ref={replaceInputRef}
+          ref={
+            replaceInputRef
+          }
           type="file"
           className="hidden"
-          onChange={handleReplace}
+          onChange={
+            handleReplace
+          }
         />
       </section>
 
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="error-banner"
         >
-          {error}
+          <span className="error-banner-icon">
+            !
+          </span>
+
+          <span>{error}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {filteredFiles.length === 0 ? (
-          <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-4">
-            {view === "favorites"
-              ? searchQuery
-                ? "No favorite files match your search."
-                : "You have no favorite files yet."
-              : files.length === 0
-                ? "No files uploaded yet."
-                : "No files match your search."}
+      <section className="files-overview">
+        <div className="surface files-overview-card">
+          <span className="files-overview-icon blue">
+            <FolderOpen
+              aria-hidden="true"
+              size={19}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <div>
+            <small>
+              Showing
+            </small>
+
+            <strong>
+              {formatFileCount(
+                filteredFiles.length,
+              )}
+            </strong>
           </div>
-        ) : (
-          filteredFiles.map(
-            (file) => (
-              <FileCard
-                key={file.id}
-                file={file}
-                previewUrl={
-                  previewUrls[file.id]
-                }
-                canManage={
-                  file.canManage
-                }
-                favoritePending={favoritePendingIds.has(
-                  file.id,
-                )}
-                onFavoriteToggle={() =>
-                  void handleFavoriteToggle(
-                    file,
-                  )
-                }
-                onReplace={() => {
-                  replaceTargetIdRef.current =
-                    file.id;
+        </div>
 
-                  if (
-                    replaceInputRef.current
-                  ) {
-                    replaceInputRef.current.value =
-                      "";
+        <div className="surface files-overview-card">
+          <span className="files-overview-icon purple">
+            <Search
+              aria-hidden="true"
+              size={18}
+              strokeWidth={1.8}
+            />
+          </span>
 
-                    replaceInputRef.current.click();
+          <div>
+            <small>
+              Search
+            </small>
+
+            <strong>
+              {normalizedQuery
+                ? "Filtered"
+                : "All files"}
+            </strong>
+          </div>
+        </div>
+
+        <div className="surface files-overview-card">
+          <span className="files-overview-icon amber">
+            <Star
+              aria-hidden="true"
+              size={18}
+              strokeWidth={1.8}
+              className="fill-current"
+            />
+          </span>
+
+          <div>
+            <small>
+              View
+            </small>
+
+            <strong>
+              {view ===
+              "favorites"
+                ? "Favorites"
+                : "Everything"}
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="files-section">
+        <div className="section-heading-row files-section-heading">
+          <div>
+            <p className="dashboard-panel-kicker">
+              File collection
+            </p>
+
+            <h2 className="section-title">
+              {view === "favorites"
+                ? "Favorite files"
+                : "Your files"}
+            </h2>
+          </div>
+
+          <span className="section-count">
+            {filteredFiles.length}
+          </span>
+        </div>
+
+        {filteredFiles.length ===
+        0 ? (
+          <section className="surface files-empty-state">
+            <span className="files-empty-icon">
+              {view === "favorites" ? (
+                <Star
+                  aria-hidden="true"
+                  size={29}
+                  strokeWidth={1.45}
+                />
+              ) : searchQuery ? (
+                <Search
+                  aria-hidden="true"
+                  size={29}
+                  strokeWidth={1.45}
+                />
+              ) : (
+                <FilePlus2
+                  aria-hidden="true"
+                  size={29}
+                  strokeWidth={1.45}
+                />
+              )}
+            </span>
+
+            <h3>
+              {view ===
+              "favorites"
+                ? searchQuery
+                  ? "No favorite files found"
+                  : "No favorite files yet"
+                : files.length === 0
+                  ? "No files uploaded yet"
+                  : "No files match your search"}
+            </h3>
+
+            <p>
+              {view ===
+              "favorites"
+                ? searchQuery
+                  ? "Try a different filename, type, or ID."
+                  : "Favorite a file to keep it close at hand."
+                : files.length ===
+                    0
+                  ? "Upload an image or PDF to start building your library."
+                  : "Try changing your search terms."}
+            </p>
+
+            {view ===
+              "favorites" &&
+              !searchQuery && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setView(
+                      "all",
+                    )
                   }
-                }}
-                onDownload={() =>
-                  void handleDownload(
-                    file,
-                  )
-                }
-                onDelete={() =>
-                  void handleDelete(
+                  className="secondary-action"
+                >
+                  <FolderOpen
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.8}
+                  />
+                  Browse all files
+                </button>
+              )}
+
+            {files.length ===
+              0 &&
+              !searchQuery &&
+              view ===
+                "all" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    fileInputRef.current?.click()
+                  }
+                  className="primary-action"
+                >
+                  <Upload
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={1.8}
+                  />
+                  Upload your first file
+                </button>
+              )}
+          </section>
+        ) : (
+          <div className="file-card-grid">
+            {filteredFiles.map(
+              (file) => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  previewUrl={
+                    previewUrls[
+                      file.id
+                    ]
+                  }
+                  canManage={
+                    file.canManage
+                  }
+                  favoritePending={favoritePendingIds.has(
                     file.id,
-                  )
-                }
-              />
-            ),
-          )
+                  )}
+                  onFavoriteToggle={() =>
+                    void handleFavoriteToggle(
+                      file,
+                    )
+                  }
+                  onReplace={() => {
+                    replaceTargetIdRef.current =
+                      file.id;
+
+                    if (
+                      replaceInputRef.current
+                    ) {
+                      replaceInputRef.current.value =
+                        "";
+
+                      replaceInputRef.current.click();
+                    }
+                  }}
+                  onDownload={() =>
+                    void handleDownload(
+                      file,
+                    )
+                  }
+                  onDelete={() =>
+                    void handleDelete(
+                      file.id,
+                    )
+                  }
+                />
+              ),
+            )}
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -1,11 +1,56 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  FolderOpen,
+  Images,
+  ShieldCheck,
+  Upload,
+} from "lucide-react";
 import { useMsal } from "@azure/msal-react";
+import { useNavigate } from "react-router-dom";
 
-import { getAlbums, getFiles, getAdminFiles } from "../api/apiClient";
+import {
+  getAdminFiles,
+  getAlbums,
+  getFiles,
+} from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
+
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+
+  return `${bytes} B`;
+}
+
+function getInitials(name?: string): string {
+  if (!name?.trim()) {
+    return "U";
+  }
+
+  const parts = name.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function getFileTypeLabel(contentType: string): string {
+  const [, subtype] = contentType.split("/");
+
+  return subtype
+    ? subtype.toUpperCase()
+    : "FILE";
+}
 
 export default function Dashboard() {
   const { instance } = useMsal();
@@ -27,15 +72,22 @@ export default function Dashboard() {
         setLoading(true);
         setError(null);
 
-        const [albumResult, fileResult] = await Promise.all([
-          getAlbums(instance, account),
-          user?.role === "Admin" ? getAdminFiles(instance, account) : getFiles(instance, account),
-        ]);
+        const [albumResult, fileResult] =
+          await Promise.all([
+            getAlbums(instance, account),
+            user?.role === "Admin"
+              ? getAdminFiles(instance, account)
+              : getFiles(instance, account),
+          ]);
 
         setAlbums(albumResult);
         setFiles(fileResult);
       } catch (caughtError) {
-        setError(caughtError instanceof Error ? caughtError.message : "Unable to load dashboard data.");
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load dashboard data.",
+        );
       } finally {
         setLoading(false);
       }
@@ -46,100 +98,445 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <section className="grid gap-4 md:grid-cols-3">
-        {[1, 2, 3].map((item) => (
-          <div key={item} className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />
-        ))}
-      </section>
+      <div className="app-page">
+        <section className="dashboard-hero skeleton-panel">
+          <div className="skeleton-content">
+            <span className="skeleton-line skeleton-line-sm" />
+            <span className="skeleton-line skeleton-line-lg" />
+            <span className="skeleton-line skeleton-line-md" />
+          </div>
+
+          <div className="skeleton-actions">
+            <span className="skeleton-button" />
+            <span className="skeleton-button skeleton-button-wide" />
+          </div>
+        </section>
+
+        <section className="dashboard-stat-grid">
+          {[1, 2, 3, 4].map((item) => (
+            <div
+              key={item}
+              className="dashboard-stat-card skeleton-panel"
+            >
+              <span className="skeleton-icon" />
+              <span className="skeleton-line skeleton-line-sm" />
+              <span className="skeleton-line skeleton-line-value" />
+            </div>
+          ))}
+        </section>
+
+        <section className="dashboard-content-grid">
+          <div className="dashboard-panel skeleton-panel skeleton-panel-tall" />
+          <div className="dashboard-panel skeleton-panel skeleton-panel-tall" />
+        </section>
+      </div>
     );
   }
 
   return (
     <div className="app-page">
-      <section className="page-toolbar surface">
-        <div>
-          <p className="page-kicker">Your workspace at a glance</p>
-          <h2 className="page-heading">Welcome back, {user?.name ?? "User"}</h2>
+      <section className="dashboard-hero surface">
+        <div className="dashboard-hero-glow dashboard-hero-glow-one" />
+        <div className="dashboard-hero-glow dashboard-hero-glow-two" />
+
+        <div className="dashboard-hero-content">
+          <div className="dashboard-eyebrow">
+            <span className="dashboard-eyebrow-dot" />
+            Your workspace
+          </div>
+
+          <h1 className="dashboard-hero-title">
+            Welcome back,{" "}
+            <span>
+              {user?.name ?? "User"}
+            </span>
+          </h1>
+
+          <p className="dashboard-hero-description">
+            Keep your albums organized, manage your
+            files, and access your shared collections
+            from one place.
+          </p>
+
+          <div className="dashboard-hero-actions">
+            <button
+              type="button"
+              onClick={() => navigate("/albums")}
+              className="primary-action"
+            >
+              <Images
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.8}
+              />
+              <span>Browse albums</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/files")}
+              className="secondary-action"
+            >
+              <FolderOpen
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.8}
+              />
+              <span>Open files</span>
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => navigate("/albums")} className="secondary-action">Albums</button>
-          <button type="button" onClick={() => navigate("/files")} className="primary-action">Open files</button>
+
+        <div className="dashboard-hero-profile">
+          <div className="dashboard-hero-avatar">
+            {getInitials(user?.name)}
+          </div>
+
+          <div className="dashboard-hero-profile-copy">
+            <strong>
+              {user?.name ?? "WinCapture User"}
+            </strong>
+
+            <span>
+              {user?.email ?? ""}
+            </span>
+
+            <small>
+              {user?.role ?? "User"}
+            </small>
+          </div>
         </div>
       </section>
 
       {error && (
-        <div className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div
+          role="alert"
+          className="error-banner"
+        >
+          <span className="error-banner-icon">
+            !
+          </span>
+
+          <span>{error}</span>
+        </div>
       )}
 
-      <section className="workspace-stats grid gap-3 md:grid-cols-2">
-        <div className="surface p-5">
-          <p className="text-sm font-medium text-slate-500">Albums</p>
-          <p className="metric-value mt-4">{albums.length}</p>
+      <section className="dashboard-stat-grid">
+        <button
+          type="button"
+          className="dashboard-stat-card surface"
+          onClick={() => navigate("/albums")}
+        >
+          <span className="dashboard-stat-icon blue">
+            <Images
+              aria-hidden="true"
+              size={19}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <span className="dashboard-stat-copy">
+            <small>Albums</small>
+            <strong>{albums.length}</strong>
+          </span>
+
+          <ArrowRight
+            aria-hidden="true"
+            className="dashboard-stat-arrow"
+            size={17}
+            strokeWidth={1.8}
+          />
+        </button>
+
+        <button
+          type="button"
+          className="dashboard-stat-card surface"
+          onClick={() => navigate("/files")}
+        >
+          <span className="dashboard-stat-icon purple">
+            <FolderOpen
+              aria-hidden="true"
+              size={19}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <span className="dashboard-stat-copy">
+            <small>Files</small>
+            <strong>{files.length}</strong>
+          </span>
+
+          <ArrowRight
+            aria-hidden="true"
+            className="dashboard-stat-arrow"
+            size={17}
+            strokeWidth={1.8}
+          />
+        </button>
+
+        <div className="dashboard-stat-card surface">
+          <span className="dashboard-stat-icon green">
+            <Upload
+              aria-hidden="true"
+              size={19}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <span className="dashboard-stat-copy">
+            <small>Available files</small>
+            <strong>{files.length}</strong>
+          </span>
+
+          <span className="dashboard-stat-caption">
+            In your workspace
+          </span>
         </div>
 
-        <div className="surface p-5">
-          <p className="text-sm font-medium text-slate-500">Files</p>
-          <p className="metric-value mt-4">{files.length}</p>
+        <div className="dashboard-stat-card surface">
+          <span className="dashboard-stat-icon slate">
+            <ShieldCheck
+              aria-hidden="true"
+              size={19}
+              strokeWidth={1.8}
+            />
+          </span>
+
+          <span className="dashboard-stat-copy">
+            <small>Access level</small>
+            <strong>
+              {user?.role ?? "User"}
+            </strong>
+          </span>
+
+          <span className="dashboard-stat-caption">
+            Microsoft Entra ID
+          </span>
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <div className="surface p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="section-title">Recent albums</h3>
-            <button type="button" onClick={() => navigate("/albums")} className="text-sm font-semibold text-sky-700 hover:text-sky-600">
+      <section className="dashboard-content-grid">
+        <section className="dashboard-panel surface">
+          <div className="dashboard-panel-header">
+            <div>
+              <p className="dashboard-panel-kicker">
+                Collections
+              </p>
+
+              <h2 className="dashboard-panel-title">
+                Recent albums
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/albums")}
+              className="dashboard-view-all"
+            >
               View all
+              <ArrowRight
+                aria-hidden="true"
+                size={14}
+                strokeWidth={1.8}
+              />
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="dashboard-list">
             {albums.length === 0 ? (
-              <p className="text-sm text-slate-500">No albums yet.</p>
+              <div className="dashboard-empty-state">
+                <span className="dashboard-empty-icon">
+                  <Images
+                    aria-hidden="true"
+                    size={21}
+                    strokeWidth={1.6}
+                  />
+                </span>
+
+                <div>
+                  <strong>
+                    No albums yet
+                  </strong>
+
+                  <p>
+                    Create your first album to
+                    start organizing your files.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/albums")}
+                  className="secondary-action compact-action"
+                >
+                  Open albums
+                </button>
+              </div>
             ) : (
               albums.slice(0, 4).map((album) => (
                 <button
                   key={album.id}
                   type="button"
-                  onClick={() => navigate(`/albums/${album.id}`)}
-                  className="surface-muted interactive-row flex w-full items-center justify-between px-4 py-3 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                  onClick={() =>
+                    navigate(
+                      `/albums/${album.id}`,
+                    )
+                  }
+                  className="dashboard-list-row"
                 >
-                  <div>
-                    <p className="font-medium text-slate-900">{album.albumName}</p>
-                    <p className="text-xs text-slate-500">Owner: {album.ownerName}</p>
-                  </div>
-                  <span className="text-sm text-slate-400">→</span>
+                  <span className="dashboard-list-icon album">
+                    <Images
+                      aria-hidden="true"
+                      size={18}
+                      strokeWidth={1.7}
+                    />
+                  </span>
+
+                  <span className="dashboard-list-main">
+                    <strong>
+                      {album.albumName}
+                    </strong>
+
+                    <small>
+                      Owner: {album.ownerName}
+                    </small>
+                  </span>
+
+                  <span className="dashboard-list-meta">
+                    {new Date(
+                      album.createdAt,
+                    ).toLocaleDateString()}
+                  </span>
+
+                  <ArrowRight
+                    aria-hidden="true"
+                    className="dashboard-list-arrow"
+                    size={15}
+                    strokeWidth={1.8}
+                  />
                 </button>
               ))
             )}
           </div>
-        </div>
+        </section>
 
-        <div className="surface p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="section-title">Recent files</h3>
-            <button type="button" onClick={() => navigate("/files")} className="text-sm font-semibold text-sky-700 hover:text-sky-600">
+        <section className="dashboard-panel surface">
+          <div className="dashboard-panel-header">
+            <div>
+              <p className="dashboard-panel-kicker">
+                Your library
+              </p>
+
+              <h2 className="dashboard-panel-title">
+                Recent files
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/files")}
+              className="dashboard-view-all"
+            >
               View all
+              <ArrowRight
+                aria-hidden="true"
+                size={14}
+                strokeWidth={1.8}
+              />
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="dashboard-list">
             {files.length === 0 ? (
-              <p className="text-sm text-slate-500">No files uploaded yet.</p>
+              <div className="dashboard-empty-state">
+                <span className="dashboard-empty-icon purple">
+                  <FolderOpen
+                    aria-hidden="true"
+                    size={21}
+                    strokeWidth={1.6}
+                  />
+                </span>
+
+                <div>
+                  <strong>
+                    No files uploaded yet
+                  </strong>
+
+                  <p>
+                    Upload a file to see it
+                    appear in your library.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/files")}
+                  className="secondary-action compact-action"
+                >
+                  Open files
+                </button>
+              </div>
             ) : (
               files.slice(0, 4).map((file) => (
-                <button key={file.id} type="button" onClick={() => navigate("/files")} className="surface-muted interactive-row flex w-full items-center justify-between px-4 py-3 text-left">
-                  <div>
-                    <p className="max-w-[28ch] truncate font-medium text-slate-900">{file.originalFileName}</p>
-                    <p className="text-xs text-slate-500">{file.contentType}</p>
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    {file.fileSize > 1024 * 1024 ? `${(file.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${file.fileSize} B`}
+                <button
+                  key={file.id}
+                  type="button"
+                  onClick={() =>
+                    navigate("/files")
+                  }
+                  className="dashboard-list-row"
+                >
+                  <span className="dashboard-file-icon">
+                    {file.contentType.startsWith(
+                      "image/",
+                    ) ? (
+                      <span className="dashboard-file-image-icon">
+                        IMG
+                      </span>
+                    ) : (
+                      <FolderOpen
+                        aria-hidden="true"
+                        size={18}
+                        strokeWidth={1.7}
+                      />
+                    )}
                   </span>
+
+                  <span className="dashboard-list-main">
+                    <strong>
+                      {file.originalFileName}
+                    </strong>
+
+                    <small>
+                      {getFileTypeLabel(
+                        file.contentType,
+                      )}
+                      <span aria-hidden="true">
+                        {" · "}
+                      </span>
+                      {formatFileSize(
+                        file.fileSize,
+                      )}
+                    </small>
+                  </span>
+
+                  <span className="dashboard-list-meta">
+                    {new Date(
+                      file.uploadedAt,
+                    ).toLocaleDateString()}
+                  </span>
+
+                  <ArrowRight
+                    aria-hidden="true"
+                    className="dashboard-list-arrow"
+                    size={15}
+                    strokeWidth={1.8}
+                  />
                 </button>
               ))
             )}
           </div>
-        </div>
+        </section>
       </section>
     </div>
   );

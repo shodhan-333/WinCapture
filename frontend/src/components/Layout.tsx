@@ -1,119 +1,301 @@
-import { FolderOpen, House, Images, LogOut, Shield, UserRound } from "lucide-react";
+import {
+  ChevronDown,
+  FolderOpen,
+  House,
+  Images,
+  LogOut,
+  Menu,
+  Search,
+  Shield,
+  UserRound,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 
 const navigation = [
-  { to: "/dashboard", label: "Home", icon: House },
-  { to: "/albums", label: "Albums", icon: Images },
-  { to: "/files", label: "Files", icon: FolderOpen },
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: House,
+  },
+  {
+    to: "/albums",
+    label: "Albums",
+    icon: Images,
+  },
+  {
+    to: "/files",
+    label: "Files",
+    icon: FolderOpen,
+  },
 ];
+
+function getInitials(name?: string): string {
+  if (!name?.trim()) {
+    return "U";
+  }
+
+  const parts = name.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const closeMobileNavigation = () => {
+    setMobileOpen(false);
+  };
 
   return (
     <div className="app-shell">
-      <div className="app-container py-0">
-        <header className="app-header">
-          <div className="app-header-inner">
-            <div className="app-brand flex items-center">
-              <img
-                src="/winwire-logo.png"
-                alt="WinWire logo"
-                  className="h-12 w-20 object-contain"
-              />
-            </div>
+      <aside
+        className={`sidebar ${
+          mobileOpen ? "sidebar-open" : ""
+        }`}
+        aria-label="Primary navigation"
+      >
+        <div className="sidebar-brand">
+          <NavLink
+            to="/dashboard"
+            className="brand-link"
+            onClick={closeMobileNavigation}
+            aria-label="WinCapture dashboard"
+          >
+            <span className="brand-mark" aria-hidden="true">
+              <span>W</span>
+            </span>
 
-            <nav className="app-nav">
-              {navigation.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `app-nav-link ${isActive ? "is-active" : ""}`
-                  }
-                >
-                  {item.label === "Home" ? "Dashboard" : item.label}
-                </NavLink>
-              ))}
+            <span className="brand-copy">
+              <strong>WinCapture</strong>
+              <small>WinWire</small>
+            </span>
+          </NavLink>
 
-              {user?.role === "Admin" && (
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    `app-nav-link ${isActive ? "is-active" : ""}`
-                  }
-                >
-                  Admin
-                </NavLink>
-              )}
-            </nav>
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={closeMobileNavigation}
+            aria-label="Close navigation"
+          >
+            <X aria-hidden="true" size={19} />
+          </button>
+        </div>
 
-            <div className="app-user-actions">
+        <nav className="sidebar-nav">
+          <p className="sidebar-section-label">Workspace</p>
+
+          {navigation.map((item) => {
+            const Icon = item.icon;
+
+            return (
               <NavLink
-                to="/profile"
-                aria-label={`Profile: ${user?.name ?? "User"}`}
-                className="profile-link flex items-center gap-2 px-3 py-2 text-sm font-medium transition"
+                key={item.to}
+                to={item.to}
+                onClick={closeMobileNavigation}
+                className={({ isActive }) =>
+                  `sidebar-nav-link ${
+                    isActive ? "is-active" : ""
+                  }`
+                }
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-white">
-                  {user?.name?.charAt(0).toUpperCase() ?? "U"}
+                <span className="sidebar-nav-icon">
+                  <Icon
+                    aria-hidden="true"
+                    size={18}
+                    strokeWidth={1.8}
+                  />
                 </span>
-                <span className="user-name max-w-36 truncate">{user?.name ?? "Profile"}</span>
-              </NavLink>
 
-              <button
-                type="button"
-                aria-label="Sign out"
-                onClick={() => void logout()}
-                className="quiet-button signout-button px-3 py-2 text-sm font-medium transition"
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+
+          {user?.role === "Admin" && (
+            <>
+              <div className="sidebar-divider" />
+
+              <p className="sidebar-section-label">
+                Administration
+              </p>
+
+              <NavLink
+                to="/admin"
+                onClick={closeMobileNavigation}
+                className={({ isActive }) =>
+                  `sidebar-nav-link ${
+                    isActive ? "is-active" : ""
+                  }`
+                }
               >
-                <LogOut aria-hidden="true" size={17} />
-                <span className="signout-label">Sign out</span>
-              </button>
+                <span className="sidebar-nav-icon">
+                  <Shield
+                    aria-hidden="true"
+                    size={18}
+                    strokeWidth={1.8}
+                  />
+                </span>
+
+                <span>Admin</span>
+              </NavLink>
+            </>
+          )}
+        </nav>
+
+        <div className="sidebar-footer">
+          <NavLink
+            to="/profile"
+            onClick={closeMobileNavigation}
+            className={({ isActive }) =>
+              `sidebar-nav-link ${
+                isActive ? "is-active" : ""
+              }`
+            }
+          >
+            <span className="sidebar-nav-icon">
+              <UserRound
+                aria-hidden="true"
+                size={18}
+                strokeWidth={1.8}
+              />
+            </span>
+
+            <span>Profile</span>
+          </NavLink>
+
+          <button
+            type="button"
+            className="sidebar-nav-link sidebar-signout"
+            onClick={() => void logout()}
+          >
+            <span className="sidebar-nav-icon">
+              <LogOut
+                aria-hidden="true"
+                size={18}
+                strokeWidth={1.8}
+              />
+            </span>
+
+            <span>Sign out</span>
+          </button>
+
+          <div className="sidebar-user-card">
+            <span className="sidebar-user-avatar">
+              {getInitials(user?.name)}
+            </span>
+
+            <span className="sidebar-user-copy">
+              <strong>
+                {user?.name ?? "WinCapture User"}
+              </strong>
+
+              <small>
+                {user?.role ?? "User"}
+              </small>
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      {mobileOpen && (
+        <button
+          type="button"
+          className="navigation-scrim"
+          onClick={closeMobileNavigation}
+          aria-label="Close navigation"
+        />
+      )}
+
+      <div className="workspace">
+        <header className="topbar">
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="mobile-menu-button"
+              onClick={() =>
+                setMobileOpen((current) => !current)
+              }
+              aria-label={
+                mobileOpen
+                  ? "Close navigation"
+                  : "Open navigation"
+              }
+              aria-expanded={mobileOpen}
+            >
+              <Menu
+                aria-hidden="true"
+                size={21}
+                strokeWidth={1.8}
+              />
+            </button>
+
+            <div className="mobile-brand">
+              <span className="brand-mark small" aria-hidden="true">
+                <span>W</span>
+              </span>
+
+              <span>WinCapture</span>
             </div>
+
+            <div className="topbar-search" aria-hidden="true">
+              <Search
+                aria-hidden="true"
+                size={16}
+                strokeWidth={1.8}
+              />
+
+              <span>
+                Search albums, files...
+              </span>
+
+              <kbd>⌘ K</kbd>
+            </div>
+          </div>
+
+          <div className="topbar-actions">
+            <NavLink
+              to="/profile"
+              className="topbar-user"
+              aria-label={`Open profile for ${
+                user?.name ?? "User"
+              }`}
+            >
+              <span className="topbar-avatar">
+                {getInitials(user?.name)}
+              </span>
+
+              <span className="topbar-user-copy">
+                <strong>
+                  {user?.name ?? "User"}
+                </strong>
+
+                <small>
+                  {user?.role ?? "User"}
+                </small>
+              </span>
+
+              <ChevronDown
+                aria-hidden="true"
+                size={15}
+                strokeWidth={1.8}
+              />
+            </NavLink>
           </div>
         </header>
 
-        <main className="app-main pb-8">
+        <main className="app-main">
           <Outlet />
         </main>
       </div>
-
-      <nav className="mobile-nav" aria-label="Primary navigation">
-        {navigation.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              aria-label={item.label === "Home" ? "Dashboard" : item.label}
-              className={({ isActive }) => `mobile-nav-link ${isActive ? "is-active" : ""}`}
-            >
-              <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
-              <span>{item.label}</span>
-            </NavLink>
-          );
-        })}
-        {user?.role === "Admin" && (
-          <NavLink
-            to="/admin"
-            aria-label="Admin"
-            className={({ isActive }) => `mobile-nav-link ${isActive ? "is-active" : ""}`}
-          >
-            <Shield aria-hidden="true" size={20} strokeWidth={1.8} />
-            <span>Admin</span>
-          </NavLink>
-        )}
-        <NavLink
-          to="/profile"
-          aria-label="Profile"
-          className={({ isActive }) => `mobile-nav-link ${isActive ? "is-active" : ""}`}
-        >
-          <UserRound aria-hidden="true" size={20} strokeWidth={1.8} />
-          <span>Profile</span>
-        </NavLink>
-      </nav>
     </div>
   );
 }
