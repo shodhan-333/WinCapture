@@ -796,31 +796,16 @@ builder.Services.AddOpenApi(
             });
     });
 
-var storageAccountName = configuration["Storage:AccountName"]
-    ?? throw new InvalidOperationException("Storage:AccountName is missing.");
+// ============================================================
+// Build application
+// ============================================================
 
-var storageContainerName = configuration["Storage:ContainerName"]
-    ?? throw new InvalidOperationException("Storage:ContainerName is missing.");
+var app =
+    builder.Build();
 
-var blobServiceClient = new BlobServiceClient(
-    new Uri($"https://{storageAccountName}.blob.core.windows.net"),
-    new DefaultAzureCredential());
-
-builder.Services.AddSingleton(
-    blobServiceClient.GetBlobContainerClient(storageContainerName));
-
-builder.Services.AddScoped<TokenService>();
-builder.Services.AddScoped<FileValidator>();
-builder.Services.AddScoped<IFileRepository, FileRepository>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IFileService, FileService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
-builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
-builder.Services.AddScoped<IAlbumService, AlbumService>();
-builder.Services.AddScoped<IAlbumFileService, AlbumFileService>();
-
-var app = builder.Build();
+// ============================================================
+// Swagger
+// ============================================================
 
 if (app.Environment.IsDevelopment())
 {
