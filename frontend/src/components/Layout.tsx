@@ -1,11 +1,9 @@
 import {
-  ChevronDown,
   FolderOpen,
   House,
   Images,
   LogOut,
   Menu,
-  Search,
   Shield,
   UserRound,
   X,
@@ -14,6 +12,7 @@ import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { getInitials } from "../utils/formatters";
 
 const navigation = [
   {
@@ -32,20 +31,6 @@ const navigation = [
     icon: FolderOpen,
   },
 ];
-
-function getInitials(name?: string): string {
-  if (!name?.trim()) {
-    return "U";
-  }
-
-  const parts = name.trim().split(/\s+/);
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -246,49 +231,6 @@ export default function Layout() {
               <span>WinCapture</span>
             </div>
 
-            <div className="topbar-search" aria-hidden="true">
-              <Search
-                aria-hidden="true"
-                size={16}
-                strokeWidth={1.8}
-              />
-
-              <span>
-                Search albums, files...
-              </span>
-
-              <kbd>⌘ K</kbd>
-            </div>
-          </div>
-
-          <div className="topbar-actions">
-            <NavLink
-              to="/profile"
-              className="topbar-user"
-              aria-label={`Open profile for ${
-                user?.name ?? "User"
-              }`}
-            >
-              <span className="topbar-avatar">
-                {getInitials(user?.name)}
-              </span>
-
-              <span className="topbar-user-copy">
-                <strong>
-                  {user?.name ?? "User"}
-                </strong>
-
-                <small>
-                  {user?.role ?? "User"}
-                </small>
-              </span>
-
-              <ChevronDown
-                aria-hidden="true"
-                size={15}
-                strokeWidth={1.8}
-              />
-            </NavLink>
           </div>
         </header>
 

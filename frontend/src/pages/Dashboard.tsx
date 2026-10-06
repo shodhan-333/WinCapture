@@ -3,8 +3,6 @@ import {
   ArrowRight,
   FolderOpen,
   Images,
-  ShieldCheck,
-  Upload,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
@@ -17,40 +15,11 @@ import {
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
-
-function formatFileSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  if (bytes >= 1024) {
-    return `${Math.round(bytes / 1024)} KB`;
-  }
-
-  return `${bytes} B`;
-}
-
-function getInitials(name?: string): string {
-  if (!name?.trim()) {
-    return "U";
-  }
-
-  const parts = name.trim().split(/\s+/);
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function getFileTypeLabel(contentType: string): string {
-  const [, subtype] = contentType.split("/");
-
-  return subtype
-    ? subtype.toUpperCase()
-    : "FILE";
-}
+import {
+  formatDate,
+  formatFileSize,
+  formatFileType,
+} from "../utils/formatters";
 
 export default function Dashboard() {
   const { instance } = useMsal();
@@ -187,25 +156,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="dashboard-hero-profile">
-          <div className="dashboard-hero-avatar">
-            {getInitials(user?.name)}
-          </div>
-
-          <div className="dashboard-hero-profile-copy">
-            <strong>
-              {user?.name ?? "WinCapture User"}
-            </strong>
-
-            <span>
-              {user?.email ?? ""}
-            </span>
-
-            <small>
-              {user?.role ?? "User"}
-            </small>
-          </div>
-        </div>
       </section>
 
       {error && (
@@ -274,45 +224,6 @@ export default function Dashboard() {
           />
         </button>
 
-        <div className="dashboard-stat-card surface">
-          <span className="dashboard-stat-icon green">
-            <Upload
-              aria-hidden="true"
-              size={19}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <span className="dashboard-stat-copy">
-            <small>Available files</small>
-            <strong>{files.length}</strong>
-          </span>
-
-          <span className="dashboard-stat-caption">
-            In your workspace
-          </span>
-        </div>
-
-        <div className="dashboard-stat-card surface">
-          <span className="dashboard-stat-icon slate">
-            <ShieldCheck
-              aria-hidden="true"
-              size={19}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <span className="dashboard-stat-copy">
-            <small>Access level</small>
-            <strong>
-              {user?.role ?? "User"}
-            </strong>
-          </span>
-
-          <span className="dashboard-stat-caption">
-            Microsoft Entra ID
-          </span>
-        </div>
       </section>
 
       <section className="dashboard-content-grid">
@@ -403,9 +314,7 @@ export default function Dashboard() {
                   </span>
 
                   <span className="dashboard-list-meta">
-                    {new Date(
-                      album.createdAt,
-                    ).toLocaleDateString()}
+                    {formatDate(album.createdAt)}
                   </span>
 
                   <ArrowRight
@@ -508,7 +417,7 @@ export default function Dashboard() {
                     </strong>
 
                     <small>
-                      {getFileTypeLabel(
+                      {formatFileType(
                         file.contentType,
                       )}
                       <span aria-hidden="true">

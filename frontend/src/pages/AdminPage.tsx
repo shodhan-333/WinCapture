@@ -3,8 +3,6 @@ import {
   FolderOpen,
   Images,
   ShieldCheck,
-  Users,
-  ArrowUpRight,
   AlertCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -17,36 +15,10 @@ import {
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
-}
-
-function formatFileSize(
-  bytes: number,
-): string {
-  if (bytes >= 1024 * 1024) {
-    return `${(
-      bytes /
-      (1024 * 1024)
-    ).toFixed(1)} MB`;
-  }
-
-  if (bytes >= 1024) {
-    return `${Math.round(
-      bytes / 1024,
-    )} KB`;
-  }
-
-  return `${bytes} B`;
-}
+import {
+  formatDate,
+  formatFileSize,
+} from "../utils/formatters";
 
 export default function AdminPage() {
   const { instance } = useMsal();
@@ -131,24 +103,6 @@ export default function AdminPage() {
           <span className="skeleton-icon skeleton-icon-large" />
         </section>
 
-        <section className="admin-stat-grid">
-          {[1, 2, 3].map(
-            (item) => (
-              <div
-                key={item}
-                className="surface admin-stat-skeleton"
-              >
-                <span className="skeleton-icon" />
-
-                <span className="skeleton-content">
-                  <span className="skeleton-line skeleton-line-xs" />
-                  <span className="skeleton-line skeleton-line-value" />
-                </span>
-              </div>
-            ),
-          )}
-        </section>
-
         <section className="admin-content-grid">
           {[1, 2].map(
             (item) => (
@@ -216,80 +170,6 @@ export default function AdminPage() {
           <span>{error}</span>
         </div>
       )}
-
-      <section className="admin-stat-grid">
-        <div className="surface admin-stat-card">
-          <span className="admin-stat-icon blue">
-            <Users
-              aria-hidden="true"
-              size={20}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <div className="admin-stat-copy">
-            <span>
-              Managed users
-            </span>
-
-            <strong>
-              Active
-            </strong>
-
-            <small>
-              Microsoft Entra accounts
-            </small>
-          </div>
-        </div>
-
-        <div className="surface admin-stat-card">
-          <span className="admin-stat-icon purple">
-            <Images
-              aria-hidden="true"
-              size={20}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <div className="admin-stat-copy">
-            <span>
-              Total albums
-            </span>
-
-            <strong>
-              {albums.length}
-            </strong>
-
-            <small>
-              Collections in WinCapture
-            </small>
-          </div>
-        </div>
-
-        <div className="surface admin-stat-card">
-          <span className="admin-stat-icon green">
-            <FileText
-              aria-hidden="true"
-              size={20}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <div className="admin-stat-copy">
-            <span>
-              Total files
-            </span>
-
-            <strong>
-              {files.length}
-            </strong>
-
-            <small>
-              Files across the system
-            </small>
-          </div>
-        </div>
-      </section>
 
       <section className="admin-content-grid">
         <section className="surface admin-panel">
@@ -384,12 +264,6 @@ export default function AdminPage() {
                         {album.id}
                       </span>
 
-                      <ArrowUpRight
-                        aria-hidden="true"
-                        className="admin-row-arrow"
-                        size={15}
-                        strokeWidth={1.8}
-                      />
                     </div>
                   ),
                 )
@@ -488,12 +362,6 @@ export default function AdminPage() {
                         {file.id}
                       </span>
 
-                      <ArrowUpRight
-                        aria-hidden="true"
-                        className="admin-row-arrow"
-                        size={15}
-                        strokeWidth={1.8}
-                      />
                     </div>
                   ),
                 )

@@ -394,24 +394,6 @@ export async function getAlbumFiles(
   ) as FileResponse[];
 }
 
-export async function getAlbumFile(
-  instance: IPublicClientApplication,
-  account: AccountInfo,
-  albumId: number,
-  fileId: number,
-): Promise<FileResponse> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/albums/${albumId}/files/${fileId}`,
-    );
-
-  return (
-    await response.json()
-  ) as FileResponse;
-}
-
 export async function uploadAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -605,23 +587,6 @@ export async function removeFavorite(
   );
 }
 
-export async function getFile(
-  instance: IPublicClientApplication,
-  account: AccountInfo,
-  fileId: number,
-): Promise<FileResponse> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/files/${fileId}`,
-    );
-
-  return (
-    await response.json()
-  ) as FileResponse;
-}
-
 export async function uploadFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -679,20 +644,6 @@ export async function replaceFile(
   return (
     await response.json()
   ) as FileResponse;
-}
-
-export async function downloadFile(
-  instance: IPublicClientApplication,
-  account: AccountInfo,
-  fileId: number,
-  fallbackFileName: string,
-): Promise<void> {
-  await downloadFileByPath(
-    instance,
-    account,
-    `/api/files/${fileId}/download`,
-    fallbackFileName,
-  );
 }
 
 export async function downloadFileByPath(
@@ -778,21 +729,6 @@ export async function getAdminAlbums(
 // Binary Download Utilities
 // ==========================================
 
-export async function getApiBlob(
-  instance: IPublicClientApplication,
-  account: AccountInfo,
-  path: string,
-): Promise<Blob> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      path,
-    );
-
-  return response.blob();
-}
-
 function extractFileNameFromHeaders(
   response: Response,
   fallback: string,
@@ -818,7 +754,7 @@ function extractFileNameFromHeaders(
     : fallback;
 }
 
-export function triggerBrowserDownload(
+function triggerBrowserDownload(
   blob: Blob,
   filename: string,
 ): void {

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import type { FileResponse } from "../types/file";
+import { formatFileSize, formatFileType } from "../utils/formatters";
 
 interface FileCardProps {
   file: FileResponse;
@@ -18,26 +19,6 @@ interface FileCardProps {
   onReplace: () => void;
   onDownload: () => void;
   onDelete: () => void;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  if (bytes >= 1024) {
-    return `${Math.round(bytes / 1024)} KB`;
-  }
-
-  return `${bytes} B`;
-}
-
-function formatFileType(contentType: string): string {
-  const [type, subtype] = contentType.split("/");
-
-  return subtype
-    ? subtype.toUpperCase()
-    : type.toUpperCase();
 }
 
 function getFileCategory(contentType: string): string {
@@ -248,30 +229,6 @@ export default function FileCard({
           </p>
         </div>
 
-        <div className="file-card-footer">
-          <span className="file-status">
-            <span
-              className="file-status-dot"
-              aria-hidden="true"
-            />
-
-            Available
-          </span>
-
-          <button
-            type="button"
-            className="file-download-action"
-            onClick={onDownload}
-          >
-            <Download
-              aria-hidden="true"
-              size={14}
-              strokeWidth={1.8}
-            />
-
-            <span>Download</span>
-          </button>
-        </div>
       </div>
     </article>
   );

@@ -11,17 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { createAlbum, getAlbums } from "../api/apiClient";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
-}
+import { formatDate } from "../utils/formatters";
 
 export default function AlbumsPage() {
   const { instance } = useMsal();
@@ -224,25 +214,6 @@ export default function AlbumsPage() {
       )}
 
       <section className="albums-section">
-        <div className="section-heading-row albums-section-heading">
-          <div>
-            <p className="dashboard-panel-kicker">
-              Collections
-            </p>
-
-            <h2 className="section-title">
-              Your albums
-            </h2>
-          </div>
-
-          <span className="section-count">
-            {albums.length}{" "}
-            {albums.length === 1
-              ? "album"
-              : "albums"}
-          </span>
-        </div>
-
         {albums.length === 0 ? (
           <section className="surface albums-empty-state">
             <span className="albums-empty-icon">
@@ -316,26 +287,15 @@ export default function AlbumsPage() {
                     />
                   </span>
 
-                  <span className="album-card-index">
-                    #{album.id}
-                  </span>
                 </div>
 
                 <div className="album-card-body">
-                  <div className="album-card-title-row">
-                    <div className="min-w-0">
-                      <p className="album-card-kicker">
-                        Album
-                      </p>
-
-                      <h3
-                        className="album-card-title"
-                        title={album.albumName}
-                      >
-                        {album.albumName}
-                      </h3>
-                    </div>
-                  </div>
+                  <h3
+                    className="album-card-title"
+                    title={album.albumName}
+                  >
+                    {album.albumName}
+                  </h3>
 
                   <div className="album-card-details">
                     <div className="album-detail-item">

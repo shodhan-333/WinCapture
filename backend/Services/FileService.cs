@@ -348,13 +348,10 @@ public sealed class FileService(
         return file;
     }
 
-    private async Task<(
-        bool CanView,
-        bool CanManage)>
-        GetFilePermissionsAsync(
-            FileMetadata file,
-            int userId,
-            UserRole userRole)
+    private async Task<(bool CanView, bool CanManage)> GetFilePermissionsAsync(
+        FileMetadata file,
+        int userId,
+        UserRole userRole)
     {
         if (userRole == UserRole.Admin)
         {

@@ -32,14 +32,6 @@ type FileView =
   | "all"
   | "favorites";
 
-function formatFileCount(
-  count: number,
-): string {
-  return `${count} ${
-    count === 1 ? "file" : "files"
-  }`;
-}
-
 export default function FilesPage() {
   const { instance } =
     useMsal();
@@ -518,23 +510,6 @@ export default function FilesPage() {
           </div>
         </section>
 
-        <section className="files-summary-skeleton">
-          {[1, 2, 3].map(
-            (item) => (
-              <div
-                key={item}
-                className="surface files-summary-item-skeleton"
-              >
-                <span className="skeleton-icon" />
-                <span className="skeleton-content">
-                  <span className="skeleton-line skeleton-line-xs" />
-                  <span className="skeleton-line skeleton-line-md" />
-                </span>
-              </div>
-            ),
-          )}
-        </section>
-
         <section className="file-card-grid">
           {[1, 2, 3, 4].map(
             (item) => (
@@ -744,95 +719,14 @@ export default function FilesPage() {
         </div>
       )}
 
-      <section className="files-overview">
-        <div className="surface files-overview-card">
-          <span className="files-overview-icon blue">
-            <FolderOpen
-              aria-hidden="true"
-              size={19}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <div>
-            <small>
-              Showing
-            </small>
-
-            <strong>
-              {formatFileCount(
-                filteredFiles.length,
-              )}
-            </strong>
-          </div>
-        </div>
-
-        <div className="surface files-overview-card">
-          <span className="files-overview-icon purple">
-            <Search
-              aria-hidden="true"
-              size={18}
-              strokeWidth={1.8}
-            />
-          </span>
-
-          <div>
-            <small>
-              Search
-            </small>
-
-            <strong>
-              {normalizedQuery
-                ? "Filtered"
-                : "All files"}
-            </strong>
-          </div>
-        </div>
-
-        <div className="surface files-overview-card">
-          <span className="files-overview-icon amber">
-            <Star
-              aria-hidden="true"
-              size={18}
-              strokeWidth={1.8}
-              className="fill-current"
-            />
-          </span>
-
-          <div>
-            <small>
-              View
-            </small>
-
-            <strong>
-              {view ===
-              "favorites"
-                ? "Favorites"
-                : "Everything"}
-            </strong>
-          </div>
-        </div>
-      </section>
-
-      <section className="files-section">
-        <div className="section-heading-row files-section-heading">
-          <div>
-            <p className="dashboard-panel-kicker">
-              File collection
-            </p>
-
-            <h2 className="section-title">
-              {view === "favorites"
-                ? "Favorite files"
-                : "Your files"}
-            </h2>
-          </div>
-
-          <span className="section-count">
-            {filteredFiles.length}
-          </span>
-        </div>
-
+      <section
+        className="files-section"
+        aria-label={
+          view === "favorites"
+            ? "Favorite files"
+            : "Files"
+        }
+      >
         {filteredFiles.length ===
         0 ? (
           <section className="surface files-empty-state">

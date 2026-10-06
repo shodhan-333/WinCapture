@@ -46,11 +46,14 @@ public sealed class AlbumService(
             User currentUser,
             UserRole role)
     {
+        if (role == UserRole.Admin)
+        {
+            return await GetAllForAdminAsync();
+        }
+
         var result =
-            role == UserRole.Admin
-                ? await albums.GetAllAsync()
-                : await albums.GetAccessibleByUserIdAsync(
-                    currentUser.Id);
+            await albums.GetAccessibleByUserIdAsync(
+                currentUser.Id);
 
         return result
             .Select(
@@ -130,15 +133,9 @@ public sealed class AlbumService(
                 role,
                 false);
 
-        var allFiles =
-            await files.GetAllAsync();
-
         var albumFiles =
-            allFiles
-                .Where(
-                    file =>
-                        file.AlbumId == albumId)
-                .ToList();
+            await files.GetByAlbumIdAsync(
+                albumId);
 
         await albums.DeleteAsync(
             album);

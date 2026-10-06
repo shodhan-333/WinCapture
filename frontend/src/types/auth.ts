@@ -7,10 +7,3 @@ export interface CurrentUser {
   role: UserRole;
   authenticationType: string;
 }
-
-export interface AuthState {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  user: CurrentUser | null;
-  error: string | null;
-}

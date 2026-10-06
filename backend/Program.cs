@@ -10,7 +10,7 @@ using WinCapture.Repositories;
 using WinCapture.Services;
 using WinCapture.Validators;
 
-var builder=WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<WinCaptureDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("WinCaptureDatabase")));
@@ -18,18 +18,18 @@ builder.Services.AddDbContext<WinCaptureDbContext>(options =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
-builder.Services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme,options =>
+builder.Services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
 {
-    options.MapInboundClaims=false;
-    options.TokenValidationParameters.NameClaimType="name";
-    options.TokenValidationParameters.RoleClaimType="roles";
+    options.MapInboundClaims = false;
+    options.TokenValidationParameters.NameClaimType = "name";
+    options.TokenValidationParameters.RoleClaimType = "roles";
 });
 
 builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DevelopmentCors",policy =>
+    options.AddPolicy("DevelopmentCors", policy =>
     {
         policy.WithOrigins("https://localhost:5173").AllowAnyHeader().AllowAnyMethod();
     });
@@ -38,17 +38,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddScoped<IClaimsTransformation,MicrosoftIdentityClaimsTransformation>();
+builder.Services.AddScoped<IClaimsTransformation, MicrosoftIdentityClaimsTransformation>();
 
-builder.Services.AddScoped<IUserRepository,UserRepository>();
-builder.Services.AddScoped<IFileRepository,FileRepository>();
-builder.Services.AddScoped<IAlbumRepository,AlbumRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IFileRepository, FileRepository>();
+builder.Services.AddScoped<IAlbumRepository, AlbumRepository>();
 
 builder.Services.AddScoped<MicrosoftUserService>();
 builder.Services.AddScoped<FileValidator>();
-builder.Services.AddScoped<IFileService,FileService>();
-builder.Services.AddScoped<IAlbumService,AlbumService>();
-builder.Services.AddScoped<IAlbumFileService,AlbumFileService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IAlbumService, AlbumService>();
+builder.Services.AddScoped<IAlbumFileService, AlbumFileService>();
 
 var storageConnectionString =
     builder.Configuration["Storage:ConnectionString"]
@@ -68,25 +68,25 @@ var containerClient =
     blobServiceClient.GetBlobContainerClient(
         storageContainerName);
 builder.Services.AddSingleton(containerClient);
-builder.Services.AddSingleton<IStorageService,AzureBlobStorageService>();
+builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
 
 builder.Services.AddOpenApi(options =>
 {
-    options.AddDocumentTransformer((document,_,_) =>
+    options.AddDocumentTransformer((document, _, _) =>
     {
-        document.Components??=new OpenApiComponents();
-        document.Components.SecuritySchemes??=new Dictionary<string,IOpenApiSecurityScheme>();
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
 
-        document.Components.SecuritySchemes["oauth2"]=new OpenApiSecurityScheme
+        document.Components.SecuritySchemes["oauth2"] = new OpenApiSecurityScheme
         {
-            Type=SecuritySchemeType.OAuth2,
-            Flows=new OpenApiOAuthFlows
+            Type = SecuritySchemeType.OAuth2,
+            Flows = new OpenApiOAuthFlows
             {
-                AuthorizationCode=new OpenApiOAuthFlow
+                AuthorizationCode = new OpenApiOAuthFlow
                 {
-                    AuthorizationUrl=new Uri($"https://login.microsoftonline.com/{builder.Configuration["AzureAd:TenantId"]}/oauth2/v2.0/authorize"),
-                    TokenUrl=new Uri($"https://login.microsoftonline.com/{builder.Configuration["AzureAd:TenantId"]}/oauth2/v2.0/token"),
-                    Scopes=new Dictionary<string,string>
+                    AuthorizationUrl = new Uri($"https://login.microsoftonline.com/{builder.Configuration["AzureAd:TenantId"]}/oauth2/v2.0/authorize"),
+                    TokenUrl = new Uri($"https://login.microsoftonline.com/{builder.Configuration["AzureAd:TenantId"]}/oauth2/v2.0/token"),
+                    Scopes = new Dictionary<string, string>
                     {
                         {
                             $"api://{builder.Configuration["AzureAd:ClientId"]}/access_as_user",
@@ -97,13 +97,13 @@ builder.Services.AddOpenApi(options =>
             }
         };
 
-        foreach(var operation in document.Paths.Values.SelectMany(path=>path.Operations))
+        foreach (var operation in document.Paths.Values.SelectMany(path => path.Operations))
         {
-            operation.Value.Security??=new List<OpenApiSecurityRequirement>();
+            operation.Value.Security ??= new List<OpenApiSecurityRequirement>();
 
             operation.Value.Security.Add(new OpenApiSecurityRequirement
             {
-                [new OpenApiSecuritySchemeReference("oauth2",document)]=[]
+                [new OpenApiSecuritySchemeReference("oauth2", document)] = []
             });
         }
 
@@ -111,15 +111,15 @@ builder.Services.AddOpenApi(options =>
     });
 });
 
-var app=builder.Build();
+var app = builder.Build();
 
-if(app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
 
     app.UseSwaggerUI(options =>
     {
-        options.SwaggerEndpoint("/openapi/v1.json","WinCapture API v1");
+        options.SwaggerEndpoint("/openapi/v1.json", "WinCapture API v1");
         options.OAuthClientId(builder.Configuration["AzureAd:ClientId"]);
         options.OAuthUsePkce();
         options.OAuthScopes($"api://{builder.Configuration["AzureAd:ClientId"]}/access_as_user");

@@ -11,10 +11,8 @@ import {
   ChevronDown,
   Download,
   Edit3,
-  FolderOpen,
   Images,
   Link2,
-  MoreHorizontal,
   Save,
   Share2,
   Trash2,
@@ -56,30 +54,7 @@ import type {
 import type {
   FileResponse,
 } from "../types/file";
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
-}
-
-function formatDateTime(
-  value: string,
-): string {
-  return new Date(value).toLocaleDateString(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
-}
+import { formatDate } from "../utils/formatters";
 
 export default function AlbumDetailPage() {
   const { instance } = useMsal();
@@ -752,18 +727,6 @@ export default function AlbumDetailPage() {
           </div>
         </section>
 
-        <section className="album-detail-info-grid">
-          {[1, 2, 3].map((item) => (
-            <div
-              key={item}
-              className="surface album-info-skeleton"
-            >
-              <span className="skeleton-line skeleton-line-xs" />
-              <span className="skeleton-line skeleton-line-md" />
-            </div>
-          ))}
-        </section>
-
         <section className="album-detail-loading-files">
           {[1, 2, 3].map((item) => (
             <div
@@ -935,13 +898,6 @@ export default function AlbumDetailPage() {
             {files.length === 1
               ? "file"
               : "files"}{" "}
-            <span aria-hidden="true">
-              ·
-            </span>{" "}
-            Created{" "}
-            {formatDate(
-              album.createdAt,
-            )}
           </p>
 
           <div className="album-detail-meta">
@@ -965,14 +921,14 @@ export default function AlbumDetailPage() {
               )}
             </span>
 
-            <span>
-              <FolderOpen
-                aria-hidden="true"
-                size={14}
-                strokeWidth={1.8}
-              />
-              #{album.id}
-            </span>
+            {album.updatedAt && (
+              <span>
+                Updated{" "}
+                {formatDate(
+                  album.updatedAt,
+                )}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1027,58 +983,6 @@ export default function AlbumDetailPage() {
         </div>
       )}
 
-      <section className="album-detail-info-grid">
-        <div className="album-detail-info-card surface">
-          <span className="album-info-label">
-            Owner
-          </span>
-
-          <strong className="album-info-value">
-            {album.ownerName}
-          </strong>
-
-          <span className="album-info-subvalue">
-            Album owner
-          </span>
-        </div>
-
-        <div className="album-detail-info-card surface">
-          <span className="album-info-label">
-            Created
-          </span>
-
-          <strong className="album-info-value">
-            {formatDateTime(
-              album.createdAt,
-            )}
-          </strong>
-
-          <span className="album-info-subvalue">
-            Original album date
-          </span>
-        </div>
-
-        <div className="album-detail-info-card surface">
-          <span className="album-info-label">
-            Last updated
-          </span>
-
-          <strong className="album-info-value">
-            {album.updatedAt
-              ? formatDateTime(
-                  album.updatedAt,
-                )
-              : "Never"}
-          </strong>
-
-          <span className="album-info-subvalue">
-            {album.updatedAt
-              ? "Album metadata updated"
-              : "No updates yet"}
-          </span>
-        </div>
-      </section>
-
       <section className="album-files-section">
         <div className="section-heading-row album-files-heading">
           <div>
@@ -1090,15 +994,7 @@ export default function AlbumDetailPage() {
               Files
             </h2>
 
-            <p className="section-description">
-              Images and documents stored in
-              this album.
-            </p>
           </div>
-
-          <span className="section-count">
-            {files.length}
-          </span>
         </div>
 
         {files.length === 0 ? (
@@ -1556,12 +1452,6 @@ export default function AlbumDetailPage() {
                           </button>
                         </div>
 
-                        <MoreHorizontal
-                          aria-hidden="true"
-                          className="member-more-icon"
-                          size={17}
-                          strokeWidth={1.8}
-                        />
                       </div>
                     ),
                   )}

@@ -493,8 +493,7 @@ img {
     0 6px 15px rgba(48, 103, 151, 0.04);
 }
 
-.sidebar-user-avatar,
-.topbar-avatar {
+.sidebar-user-avatar {
   display: grid;
   place-items: center;
 
@@ -801,6 +800,8 @@ img {
 }
 
 .topbar {
+  display: none;
+
   position: sticky;
   top: 0;
   z-index: 40;
@@ -832,120 +833,6 @@ img {
   gap: 15px;
 }
 
-.topbar-search {
-  width: min(440px, 43vw);
-  height: 40px;
-
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  padding: 0 12px;
-
-  border: 1px solid rgba(210, 228, 242, 0.9);
-  border-radius: 11px;
-
-  color: #8ca1b3;
-
-  background: rgba(255, 255, 255, 0.64);
-
-  box-shadow:
-    0 6px 18px rgba(46, 100, 145, 0.035),
-    inset 0 1px rgba(255, 255, 255, 0.74);
-}
-
-.topbar-search > span {
-  min-width: 0;
-
-  overflow: hidden;
-
-  font-size: 12px;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.topbar-search kbd {
-  margin-left: auto;
-
-  flex: 0 0 auto;
-
-  padding: 3px 6px;
-
-  color: #8ea4b6;
-
-  font-size: 10px;
-  line-height: 1;
-
-  border: 1px solid #e4edf4;
-  border-radius: 6px;
-
-  background: #f7fbff;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.topbar-user {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  min-width: 0;
-
-  padding: 5px 7px 5px 5px;
-
-  border: 1px solid transparent;
-  border-radius: 12px;
-
-  transition:
-    background 180ms ease,
-    border-color 180ms ease;
-}
-
-.topbar-user:hover {
-  background: rgba(231, 242, 252, 0.66);
-  border-color: rgba(195, 219, 236, 0.45);
-}
-
-.topbar-avatar {
-  width: 35px;
-  height: 35px;
-
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.topbar-user-copy {
-  min-width: 0;
-
-  display: grid;
-  gap: 2px;
-}
-
-.topbar-user-copy strong {
-  max-width: 155px;
-
-  overflow: hidden;
-
-  color: #274763;
-
-  font-size: 11px;
-  font-weight: 600;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.topbar-user-copy small {
-  color: #7b91a5;
-
-  font-size: 9px;
-}
-
 .mobile-menu-button,
 .mobile-brand {
   display: none;
@@ -960,7 +847,7 @@ img {
    ========================================================= */
 
 .app-main {
-  min-height: calc(100vh - 76px);
+  min-height: 100vh;
 }
 
 .app-page {
@@ -1397,112 +1284,10 @@ img {
   margin-top: 20px;
 }
 
-.dashboard-hero-profile {
-  position: relative;
-  z-index: 1;
-
-  align-self: center;
-
-  min-width: 240px;
-
-  display: flex;
-  align-items: center;
-  gap: 13px;
-
-  padding: 14px;
-
-  border: 1px solid rgba(197, 220, 237, 0.46);
-  border-radius: 15px;
-
-  background: rgba(255, 255, 255, 0.4);
-
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.73),
-    0 10px 22px rgba(52, 103, 148, 0.045);
-
-  backdrop-filter: blur(10px);
-}
-
-.dashboard-hero-avatar {
-  width: 48px;
-  height: 48px;
-
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 auto;
-
-  color: #ffffff;
-
-  border-radius: 50%;
-
-  background:
-    linear-gradient(
-      145deg,
-      #7ac1ff,
-      #377bd4
-    );
-
-  box-shadow:
-    0 8px 18px rgba(47, 116, 209, 0.2),
-    inset 0 1px rgba(255, 255, 255, 0.26);
-
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.dashboard-hero-profile-copy {
-  min-width: 0;
-
-  display: grid;
-  gap: 3px;
-}
-
-.dashboard-hero-profile-copy strong {
-  overflow: hidden;
-
-  color: #274561;
-
-  font-size: 12px;
-  font-weight: 600;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dashboard-hero-profile-copy span {
-  overflow: hidden;
-
-  color: #71879a;
-
-  font-size: 10px;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dashboard-hero-profile-copy small {
-  width: fit-content;
-
-  padding: 3px 7px;
-
-  color: #2272c9;
-
-  border-radius: 999px;
-
-  background: #e5f2ff;
-
-  font-size: 8px;
-  font-weight: 700;
-
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 .dashboard-stat-grid {
   display: grid;
 
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
   gap: 14px;
 }
@@ -1941,29 +1726,6 @@ button.dashboard-stat-card {
   line-height: 1.5;
 }
 
-.section-count {
-  flex: 0 0 auto;
-
-  min-width: 28px;
-  height: 27px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 0 9px;
-
-  color: #607a90;
-
-  border: 1px solid #dce9f2;
-  border-radius: 999px;
-
-  background: rgba(255, 255, 255, 0.64);
-
-  font-size: 9px;
-  font-weight: 600;
-}
-
 .albums-grid {
   display: grid;
 
@@ -2112,47 +1874,8 @@ button.dashboard-stat-card {
   backdrop-filter: blur(8px);
 }
 
-.album-card-index {
-  position: absolute;
-  left: 11px;
-  top: 11px;
-
-  padding: 4px 7px;
-
-  color: rgba(255, 255, 255, 0.92);
-
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-
-  background: rgba(18, 58, 91, 0.24);
-
-  backdrop-filter: blur(8px);
-
-  font-size: 8px;
-  font-weight: 600;
-}
-
 .album-card-body {
   padding: 15px 15px 13px;
-}
-
-.album-card-title-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.album-card-kicker {
-  margin: 0 0 3px;
-
-  color: #8a9dae;
-
-  font-size: 8px;
-  line-height: 1.2;
-  font-weight: 600;
-
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
 }
 
 .album-card-title {
@@ -2545,59 +2268,6 @@ button.dashboard-stat-card {
   align-self: center;
 }
 
-.album-detail-info-grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-
-  gap: 13px;
-}
-
-.album-detail-info-card {
-  min-height: 104px;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-
-  padding: 16px 17px;
-
-  border-radius: 16px;
-}
-
-.album-info-label {
-  color: #8ca0b0;
-
-  font-size: 9px;
-  font-weight: 600;
-
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.album-info-value {
-  margin-top: 7px;
-
-  overflow: hidden;
-
-  color: #284761;
-
-  font-size: 14px;
-  font-weight: 650;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.album-info-subvalue {
-  margin-top: 4px;
-
-  color: #92a3af;
-
-  font-size: 8px;
-}
-
 .album-files-heading {
   align-items: flex-end;
 }
@@ -2941,70 +2611,6 @@ button.dashboard-stat-card {
   font-size: 8px;
 }
 
-.file-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 10px;
-
-  margin-top: 10px;
-  padding-top: 9px;
-
-  border-top: 1px solid #e7eef4;
-}
-
-.file-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-
-  color: #7f95a5;
-
-  font-size: 8px;
-}
-
-.file-status-dot {
-  width: 5px;
-  height: 5px;
-
-  border-radius: 50%;
-
-  background: #1ab48b;
-
-  box-shadow:
-    0 0 0 3px rgba(26, 180, 139, 0.08);
-}
-
-.file-download-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-
-  padding: 5px 7px;
-
-  color: #3179c4;
-
-  border: 0;
-  border-radius: 7px;
-
-  background: transparent;
-
-  font-size: 8px;
-  font-weight: 600;
-
-  cursor: pointer;
-
-  transition:
-    background 180ms ease,
-    color 180ms ease;
-}
-
-.file-download-action:hover {
-  color: #1565b2;
-  background: #edf6fe;
-}
-
 /* =========================================================
    FILE MENU
    ========================================================= */
@@ -3130,9 +2736,7 @@ button.dashboard-stat-card {
   padding: 4px 3px;
 }
 
-.profile-identity-card,
-.profile-settings-card,
-.profile-security-card {
+.profile-identity-card {
   position: relative;
 
   overflow: hidden;
@@ -3282,312 +2886,6 @@ button.dashboard-stat-card {
   line-height: 1.55;
 }
 
-.profile-identity-status {
-  position: relative;
-  z-index: 1;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  padding: 6px 8px;
-
-  color: #258d72;
-
-  border: 1px solid #d5eee6;
-  border-radius: 999px;
-
-  background: #eefaf6;
-
-  font-size: 8px;
-  font-weight: 600;
-}
-
-.profile-status-dot {
-  width: 6px;
-  height: 6px;
-
-  border-radius: 50%;
-
-  background: #1bb488;
-
-  box-shadow:
-    0 0 0 3px rgba(27, 180, 136, 0.08);
-}
-
-.profile-settings-card,
-.profile-security-card {
-  padding: 21px;
-}
-
-.profile-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 14px;
-
-  margin-bottom: 15px;
-}
-
-.profile-section-icon {
-  width: 36px;
-  height: 36px;
-
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 auto;
-
-  color: #337ec9;
-
-  border-radius: 11px;
-
-  background: #e9f4ff;
-}
-
-.profile-section-icon.microsoft {
-  color: #1d77d5;
-  background: #e6f2ff;
-}
-
-.profile-settings-list {
-  overflow: hidden;
-
-  border: 1px solid #e6eef4;
-  border-radius: 13px;
-
-  background: rgba(255, 255, 255, 0.34);
-}
-
-.profile-setting-row {
-  min-height: 65px;
-
-  display: flex;
-  align-items: center;
-  gap: 11px;
-
-  padding: 11px 13px;
-
-  border-bottom: 1px solid #e8eef3;
-}
-
-.profile-setting-row:last-child {
-  border-bottom: 0;
-}
-
-.profile-setting-icon {
-  width: 34px;
-  height: 34px;
-
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 auto;
-
-  border-radius: 10px;
-}
-
-.profile-setting-icon.blue {
-  color: #2b7ed6;
-  background: #e8f3ff;
-}
-
-.profile-setting-icon.purple {
-  color: #7167cb;
-  background: #eeeaff;
-}
-
-.profile-setting-icon.green {
-  color: #1b9e7e;
-  background: #e2f8f1;
-}
-
-.profile-setting-copy {
-  min-width: 0;
-
-  display: grid;
-  gap: 3px;
-}
-
-.profile-setting-copy span {
-  color: #91a2af;
-
-  font-size: 8px;
-  font-weight: 600;
-
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.profile-setting-copy strong {
-  overflow: hidden;
-
-  color: #35536b;
-
-  font-size: 10px;
-  font-weight: 600;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-setting-trailing {
-  margin-left: auto;
-
-  color: #a0afba;
-}
-
-.profile-authentication-row {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-
-  padding: 14px;
-
-  border: 1px solid #e3edf4;
-  border-radius: 13px;
-
-  background: rgba(255, 255, 255, 0.34);
-}
-
-.profile-authentication-icon {
-  width: 42px;
-  height: 42px;
-
-  display: grid;
-
-  grid-template-columns: repeat(2, 9px);
-  grid-template-rows: repeat(2, 9px);
-
-  align-content: center;
-  justify-content: center;
-
-  gap: 2px;
-
-  flex: 0 0 auto;
-
-  border-radius: 11px;
-
-  background: #edf6ff;
-}
-
-.profile-authentication-icon span {
-  display: block;
-
-  border-radius: 1px;
-}
-
-.profile-authentication-icon span:nth-child(1) {
-  background: #f4511e;
-}
-
-.profile-authentication-icon span:nth-child(2) {
-  background: #7fba00;
-}
-
-.profile-authentication-icon span:nth-child(3) {
-  background: #00a4ef;
-}
-
-.profile-authentication-icon span:nth-child(4) {
-  background: #ffb900;
-}
-
-.profile-authentication-copy {
-  min-width: 0;
-  flex: 1;
-}
-
-.profile-authentication-copy strong {
-  display: block;
-
-  color: #38566e;
-
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.profile-authentication-copy p {
-  margin: 4px 0 0;
-
-  color: #8799a8;
-
-  font-size: 9px;
-  line-height: 1.55;
-}
-
-.profile-authentication-badge {
-  flex: 0 0 auto;
-
-  padding: 5px 7px;
-
-  color: #238770;
-
-  border-radius: 999px;
-
-  background: #e9f8f3;
-
-  font-size: 8px;
-  font-weight: 700;
-}
-
-.profile-signout-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  gap: 18px;
-
-  padding: 15px 17px;
-
-  border: 1px solid #f0dadd;
-  border-radius: 15px;
-
-  background: rgba(255, 246, 247, 0.65);
-}
-
-.profile-signout-copy {
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.profile-signout-icon {
-  width: 34px;
-  height: 34px;
-
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 auto;
-
-  color: #dc555d;
-
-  border-radius: 10px;
-
-  background: #ffecee;
-}
-
-.profile-signout-copy strong {
-  display: block;
-
-  color: #8b5055;
-
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.profile-signout-copy p {
-  margin: 3px 0 0;
-
-  color: #a27e82;
-
-  font-size: 8px;
-}
-
 /* =========================================================
    ADMIN
    ========================================================= */
@@ -3655,90 +2953,6 @@ button.dashboard-stat-card {
   box-shadow:
     0 12px 26px rgba(46, 101, 150, 0.075),
     inset 0 1px rgba(255, 255, 255, 0.8);
-}
-
-.admin-stat-grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-
-  gap: 14px;
-}
-
-.admin-stat-card {
-  min-height: 106px;
-
-  display: flex;
-  align-items: center;
-
-  gap: 13px;
-
-  padding: 17px;
-
-  border-radius: 16px;
-}
-
-.admin-stat-icon {
-  width: 43px;
-  height: 43px;
-
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 auto;
-
-  border-radius: 13px;
-}
-
-.admin-stat-icon.blue {
-  color: #277fd8;
-  background: #e8f3ff;
-}
-
-.admin-stat-icon.purple {
-  color: #7164d0;
-  background: #eeebff;
-}
-
-.admin-stat-icon.green {
-  color: #129a79;
-  background: #e1f8f1;
-}
-
-.admin-stat-copy {
-  min-width: 0;
-
-  display: grid;
-  gap: 3px;
-}
-
-.admin-stat-copy > span {
-  color: #889ba9;
-
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.admin-stat-copy strong {
-  color: #25435d;
-
-  font-size: 20px;
-  line-height: 1.15;
-  font-weight: 700;
-
-  letter-spacing: -0.03em;
-}
-
-.admin-stat-copy small {
-  overflow: hidden;
-
-  color: #9aaab6;
-
-  font-size: 8px;
-
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .admin-content-grid {
@@ -3906,12 +3120,6 @@ button.dashboard-stat-card {
   color: #9baab6;
 
   font-size: 8px;
-}
-
-.admin-row-arrow {
-  flex: 0 0 auto;
-
-  color: #a5b3bf;
 }
 
 .admin-empty-state {
@@ -4450,10 +3658,6 @@ button.dashboard-stat-card {
   background: #ffe9eb;
 }
 
-.member-more-icon {
-  display: none;
-}
-
 /* =========================================================
    SEARCH / FILE CONTROLS
    ========================================================= */
@@ -4605,75 +3809,6 @@ button.dashboard-stat-card {
 
 .files-upload-button {
   flex: 0 0 auto;
-}
-
-.files-overview {
-  display: grid;
-
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-
-  gap: 12px;
-}
-
-.files-overview-card {
-  min-height: 74px;
-
-  display: flex;
-  align-items: center;
-
-  gap: 10px;
-
-  padding: 13px 14px;
-
-  border-radius: 14px;
-}
-
-.files-overview-icon {
-  width: 35px;
-  height: 35px;
-
-  display: grid;
-  place-items: center;
-
-  flex: 0 0 auto;
-
-  border-radius: 10px;
-}
-
-.files-overview-icon.blue {
-  color: #267ace;
-  background: #e8f3ff;
-}
-
-.files-overview-icon.purple {
-  color: #7065ce;
-  background: #eeecff;
-}
-
-.files-overview-icon.amber {
-  color: #d4951e;
-  background: #fff5df;
-}
-
-.files-overview-card > div {
-  min-width: 0;
-
-  display: grid;
-  gap: 2px;
-}
-
-.files-overview-card small {
-  color: #93a4b1;
-
-  font-size: 8px;
-}
-
-.files-overview-card strong {
-  color: #466075;
-
-  font-size: 10px;
-  font-weight: 650;
 }
 
 /* =========================================================
@@ -4910,28 +4045,6 @@ button.dashboard-stat-card {
   padding: 16px;
 }
 
-.files-summary-skeleton {
-  display: grid;
-
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-
-  gap: 12px;
-}
-
-.files-summary-item-skeleton {
-  min-height: 74px;
-
-  display: flex;
-  align-items: center;
-
-  gap: 10px;
-
-  padding: 13px;
-
-  border-radius: 14px;
-}
-
 .file-card-loading {
   overflow: hidden;
 
@@ -4950,19 +4063,6 @@ button.dashboard-stat-card {
 .file-loading-body {
   display: grid;
   gap: 4px;
-}
-
-.album-info-skeleton {
-  min-height: 104px;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-
-  gap: 10px;
-
-  padding: 16px;
-  border-radius: 16px;
 }
 
 .album-detail-loading-files {
@@ -5022,11 +4122,6 @@ button.dashboard-stat-card {
       repeat(2, minmax(0, 1fr));
   }
 
-  .album-detail-info-grid {
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-  }
-
   .topbar {
     padding-right: 28px;
     padding-left: 28px;
@@ -5045,18 +4140,9 @@ button.dashboard-stat-card {
     margin-left: 224px;
   }
 
-  .topbar-search {
-    width: min(380px, 40vw);
-  }
-
   .dashboard-hero {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .dashboard-hero-profile {
-    align-self: stretch;
-    min-width: 0;
   }
 
   .dashboard-content-grid,
@@ -5136,6 +4222,8 @@ button.dashboard-stat-card {
   }
 
   .topbar {
+    display: flex;
+
     height: 68px;
 
     padding: 0 17px;
@@ -5175,24 +4263,6 @@ button.dashboard-stat-card {
     min-width: 0;
 
     gap: 9px;
-  }
-
-  .topbar-search {
-    display: none;
-  }
-
-  .topbar-user-copy,
-  .topbar-user > svg {
-    display: none;
-  }
-
-  .topbar-user {
-    padding: 2px;
-  }
-
-  .topbar-avatar {
-    width: 34px;
-    height: 34px;
   }
 
   .app-main {
@@ -5320,10 +4390,6 @@ button.dashboard-stat-card {
     font-size: 21px;
   }
 
-  .album-detail-info-grid {
-    grid-template-columns: 1fr;
-  }
-
   .album-title-edit {
     flex-wrap: wrap;
   }
@@ -5358,10 +4424,6 @@ button.dashboard-stat-card {
     justify-content: flex-start;
   }
 
-  .member-more-icon {
-    display: none;
-  }
-
   .files-toolbar {
     display: grid;
 
@@ -5382,37 +4444,11 @@ button.dashboard-stat-card {
     min-height: 42px;
   }
 
-  .files-overview {
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-
-    gap: 8px;
-  }
-
-  .files-overview-card {
-    min-height: 67px;
-
-    padding: 10px;
-  }
-
-  .files-overview-icon {
-    width: 30px;
-    height: 30px;
-  }
-
-  .files-overview-card strong {
-    font-size: 9px;
-  }
-
   .profile-identity-card {
     align-items: flex-start;
     flex-direction: column;
 
     padding: 21px;
-  }
-
-  .profile-identity-status {
-    align-self: flex-start;
   }
 
   .profile-name-row h2 {
@@ -5422,24 +4458,6 @@ button.dashboard-stat-card {
   .profile-avatar-large {
     width: 70px;
     height: 70px;
-  }
-
-  .profile-authentication-row {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .profile-authentication-badge {
-    margin-left: 55px;
-  }
-
-  .profile-signout-card {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .profile-signout-card .danger-action {
-    width: 100%;
   }
 
   .admin-hero {
@@ -5455,9 +4473,6 @@ button.dashboard-stat-card {
     border-radius: 15px;
   }
 
-  .admin-stat-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 520px) {
@@ -5513,14 +4528,6 @@ button.dashboard-stat-card {
 
   .file-card-preview {
     height: 190px;
-  }
-
-  .files-overview {
-    grid-template-columns: 1fr;
-  }
-
-  .files-overview-card {
-    min-height: 61px;
   }
 
   .album-detail-cover {
@@ -5590,8 +4597,7 @@ button.dashboard-stat-card {
   }
 
   .admin-row-meta,
-  .admin-row-id,
-  .admin-row-arrow {
+  .admin-row-id {
     display: none;
   }
 
