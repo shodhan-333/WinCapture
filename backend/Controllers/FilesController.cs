@@ -103,6 +103,51 @@ public sealed class FilesController(
                 UserId));
     }
 
+    [HttpGet("favorites")]
+    [ProducesResponseType<
+        IReadOnlyList<FileResponse>>(
+            StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
+        GetFavorites()
+    {
+        return Ok(
+            await fileService.GetFavoritesAsync(
+                UserId,
+                UserRole));
+    }
+
+    [HttpPut("{id:long}/favorite")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddFavorite(
+        long id)
+    {
+        await fileService.AddFavoriteAsync(
+            id,
+            UserId,
+            UserRole);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id:long}/favorite")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemoveFavorite(
+        long id)
+    {
+        await fileService.RemoveFavoriteAsync(
+            id,
+            UserId);
+
+        return NoContent();
+    }
+
     [HttpGet("{id:long}")]
     [ProducesResponseType<FileResponse>(
         StatusCodes.Status200OK)]

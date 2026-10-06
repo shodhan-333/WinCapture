@@ -7,4 +7,6 @@ public sealed record FileResponse(
     long FileSize,
     DateTime UploadedAt,
     string Url,
-    string DownloadUrl);
+    string DownloadUrl,
+    bool IsFavorite = false,
+    bool CanManage = false);

@@ -561,6 +561,51 @@ public sealed class FilesController(
                 UserId));
     }
 
+    [HttpGet("favorites")]
+    [ProducesResponseType<
+        IReadOnlyList<FileResponse>>(
+            StatusCodes.Status200OK)]
+    public async Task<ActionResult<
+        IReadOnlyList<FileResponse>>>
+        GetFavorites()
+    {
+        return Ok(
+            await fileService.GetFavoritesAsync(
+                UserId,
+                UserRole));
+    }
+
+    [HttpPut("{id:long}/favorite")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    [ProducesResponseType(
+        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddFavorite(
+        long id)
+    {
+        await fileService.AddFavoriteAsync(
+            id,
+            UserId,
+            UserRole);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id:long}/favorite")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemoveFavorite(
+        long id)
+    {
+        await fileService.RemoveFavoriteAsync(
+            id,
+            UserId);
+
+        return NoContent();
+    }
+
     [HttpGet("{id:long}")]
     [ProducesResponseType<FileResponse>(
         StatusCodes.Status200OK)]
@@ -983,7 +1028,9 @@ public sealed record FileResponse(
     long FileSize,
     DateTime UploadedAt,
     string Url,
-    string DownloadUrl);
+    string DownloadUrl,
+    bool IsFavorite = false,
+    bool CanManage = false);
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\BadRequestException.cs
@@ -2337,6 +2384,63 @@ public sealed class FileRepository(
 
         await db.SaveChangesAsync();
     }
+
+    public async Task<IReadOnlyList<long>>
+        GetFavoriteFileIdsByUserIdAsync(
+            int userId) =>
+        await db.Favorites
+            .AsNoTracking()
+            .Where(
+                favorite =>
+                    favorite.UserId == userId)
+            .Select(
+                favorite =>
+                    favorite.FileId)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<FileMetadata>>
+        GetFavoriteFilesByUserIdAsync(
+            int userId) =>
+        await db.Favorites
+            .AsNoTracking()
+            .Include(
+                favorite =>
+                    favorite.File)
+            .Where(
+                favorite =>
+                    favorite.UserId == userId)
+            .OrderByDescending(
+                favorite =>
+                    favorite.FavoritedAt)
+            .Select(
+                favorite =>
+                    favorite.File)
+            .ToListAsync();
+
+    public async Task<Favorite?> GetFavoriteAsync(
+        int userId,
+        long fileId) =>
+        await db.Favorites
+            .SingleOrDefaultAsync(
+                favorite =>
+                    favorite.UserId == userId &&
+                    favorite.FileId == fileId);
+
+    public async Task AddFavoriteAsync(
+        Favorite favorite)
+    {
+        db.Favorites.Add(favorite);
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteFavoriteAsync(
+        Favorite favorite)
+    {
+        db.Favorites.Remove(favorite);
+
+        await db.SaveChangesAsync();
+    }
 }
 
 ============================================================
@@ -2407,6 +2511,24 @@ public interface IFileRepository
 
     Task DeleteAsync(
         FileMetadata file);
+
+    Task<IReadOnlyList<long>>
+        GetFavoriteFileIdsByUserIdAsync(
+            int userId);
+
+    Task<IReadOnlyList<FileMetadata>>
+        GetFavoriteFilesByUserIdAsync(
+            int userId);
+
+    Task<Favorite?> GetFavoriteAsync(
+        int userId,
+        long fileId);
+
+    Task AddFavoriteAsync(
+        Favorite favorite);
+
+    Task DeleteFavoriteAsync(
+        Favorite favorite);
 }
 
 ============================================================
@@ -2499,10 +2621,11 @@ public sealed class AlbumFileService(
         User currentUser,
         UserRole role)
     {
-        await albumService.GetForUploadAsync(
-            albumId,
-            currentUser,
-            role);
+        var album =
+            await albumService.GetForUploadAsync(
+                albumId,
+                currentUser,
+                role);
 
         await validator.ValidateAsync(
             file);
@@ -2549,9 +2672,15 @@ public sealed class AlbumFileService(
             throw;
         }
 
+        var canManage =
+            role == UserRole.Admin ||
+            album.CreatedBy == currentUser.Id;
+
         return ToResponse(
             metadata,
-            albumId);
+            albumId,
+            false,
+            canManage);
     }
 
     public async Task<IReadOnlyList<FileResponse>>
@@ -2560,21 +2689,36 @@ public sealed class AlbumFileService(
             User currentUser,
             UserRole role)
     {
-        await albumService.GetAsync(
-            albumId,
-            currentUser,
-            role);
+        var album =
+            await albumService.GetAsync(
+                albumId,
+                currentUser,
+                role);
 
         var albumFiles =
             await files.GetByAlbumIdAsync(
                 albumId);
+
+        var favoriteIds =
+            await files.GetFavoriteFileIdsByUserIdAsync(
+                currentUser.Id);
+
+        var favoriteIdSet =
+            favoriteIds.ToHashSet();
+
+        var canManage =
+            role == UserRole.Admin ||
+            album.OwnerId == currentUser.Id;
 
         return albumFiles
             .Select(
                 file =>
                     ToResponse(
                         file,
-                        albumId))
+                        albumId,
+                        favoriteIdSet.Contains(
+                            file.Id),
+                        canManage))
             .ToList();
     }
 
@@ -2584,10 +2728,11 @@ public sealed class AlbumFileService(
         User currentUser,
         UserRole role)
     {
-        await albumService.GetAsync(
-            albumId,
-            currentUser,
-            role);
+        var album =
+            await albumService.GetAsync(
+                albumId,
+                currentUser,
+                role);
 
         var file =
             await files.GetByIdAsync(
@@ -2601,9 +2746,20 @@ public sealed class AlbumFileService(
                 "The requested file was not found in this album.");
         }
 
+        var isFavorite =
+            await files.GetFavoriteAsync(
+                currentUser.Id,
+                fileId) is not null;
+
+        var canManage =
+            role == UserRole.Admin ||
+            album.OwnerId == currentUser.Id;
+
         return ToResponse(
             file,
-            albumId);
+            albumId,
+            isFavorite,
+            canManage);
     }
 
     public async Task<FileDownloadResult>
@@ -2693,7 +2849,9 @@ public sealed class AlbumFileService(
 
     private static FileResponse ToResponse(
         FileMetadata file,
-        long albumId) =>
+        long albumId,
+        bool isFavorite,
+        bool canManage) =>
         new(
             file.Id,
             file.OriginalFileName,
@@ -2701,7 +2859,9 @@ public sealed class AlbumFileService(
             file.FileSize,
             file.UploadedAt,
             $"/api/albums/{albumId}/files/{file.Id}",
-            $"/api/albums/{albumId}/files/{file.Id}/download");
+            $"/api/albums/{albumId}/files/{file.Id}/download",
+            isFavorite,
+            canManage);
 }
 
 ============================================================
@@ -3267,35 +3427,57 @@ public sealed class FileService(
     FileValidator validator,
     IStorageService storage,
     IFileRepository files,
+    IAlbumRepository albums,
     ILogger<FileService> logger) : IFileService
 {
-    public async Task<FileResponse> UploadAsync(IFormFile file, int userId)
+    public async Task<FileResponse> UploadAsync(
+        IFormFile file,
+        int userId)
     {
         await validator.ValidateAsync(file);
 
-        var storedFileName = await storage.SaveAsync(file);
+        var storedFileName =
+            await storage.SaveAsync(file);
 
         var metadata = new FileMetadata
         {
-            OriginalFileName = Path.GetFileName(file.FileName),
-            StoredFileName = storedFileName,
-            ContentType = file.ContentType,
-            FileSize = file.Length,
-            UploadedBy = userId,
-            UploadedAt = DateTime.UtcNow
+            OriginalFileName =
+                Path.GetFileName(
+                    file.FileName),
+
+            StoredFileName =
+                storedFileName,
+
+            ContentType =
+                file.ContentType,
+
+            FileSize =
+                file.Length,
+
+            UploadedBy =
+                userId,
+
+            UploadedAt =
+                DateTime.UtcNow
         };
 
         try
         {
-            await files.AddAsync(metadata);
+            await files.AddAsync(
+                metadata);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(storedFileName);
+            await TryDeleteStoredFileAsync(
+                storedFileName);
+
             throw;
         }
 
-        return ToResponse(metadata);
+        return ToResponse(
+            metadata,
+            false,
+            true);
     }
 
     public async Task<FileResponse> ReplaceAsync(
@@ -3306,49 +3488,124 @@ public sealed class FileService(
     {
         await validator.ValidateAsync(file);
 
-        var existing = await GetAuthorizedFileAsync(fileId, userId, userRole);
-        var oldStoredFileName = existing.StoredFileName;
-        var newStoredFileName = await storage.SaveAsync(file);
+        var existing =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
 
-        existing.OriginalFileName = Path.GetFileName(file.FileName);
-        existing.StoredFileName = newStoredFileName;
-        existing.ContentType = file.ContentType;
-        existing.FileSize = file.Length;
-        existing.UploadedAt = DateTime.UtcNow;
+        var oldStoredFileName =
+            existing.StoredFileName;
+
+        var newStoredFileName =
+            await storage.SaveAsync(file);
+
+        existing.OriginalFileName =
+            Path.GetFileName(
+                file.FileName);
+
+        existing.StoredFileName =
+            newStoredFileName;
+
+        existing.ContentType =
+            file.ContentType;
+
+        existing.FileSize =
+            file.Length;
+
+        existing.UploadedAt =
+            DateTime.UtcNow;
 
         try
         {
-            await files.UpdateAsync(existing);
+            await files.UpdateAsync(
+                existing);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(newStoredFileName);
+            await TryDeleteStoredFileAsync(
+                newStoredFileName);
+
             throw;
         }
 
-        await TryDeleteStoredFileAsync(oldStoredFileName);
+        await TryDeleteStoredFileAsync(
+            oldStoredFileName);
 
-        return ToResponse(existing);
+        var isFavorite =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId) is not null;
+
+        return ToResponse(
+            existing,
+            isFavorite,
+            true);
     }
 
-    public async Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId) =>
-        (await files.GetByUserIdAsync(userId))
-            .Select(ToResponse)
+    public async Task<IReadOnlyList<FileResponse>>
+        GetGalleryAsync(
+            int userId)
+    {
+        var galleryFiles =
+            await files.GetByUserIdAsync(
+                userId);
+
+        var favoriteIds =
+            await files.GetFavoriteFileIdsByUserIdAsync(
+                userId);
+
+        var favoriteIdSet =
+            favoriteIds.ToHashSet();
+
+        return galleryFiles
+            .Select(
+                file =>
+                    ToResponse(
+                        file,
+                        favoriteIdSet.Contains(
+                            file.Id),
+                        true))
             .ToList();
+    }
 
     public async Task<FileResponse> GetAsync(
         long fileId,
         int userId,
-        UserRole userRole) =>
-        ToResponse(await GetAuthorizedFileAsync(fileId, userId, userRole));
-
-    public async Task<FileDownloadResult> DownloadAsync(
-        long fileId,
-        int userId,
         UserRole userRole)
     {
-        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
-        var content = await storage.GetAsync(file.StoredFileName);
+        var file =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
+
+        var isFavorite =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId) is not null;
+
+        return ToResponse(
+            file,
+            isFavorite,
+            true);
+    }
+
+    public async Task<FileDownloadResult>
+        DownloadAsync(
+            long fileId,
+            int userId,
+            UserRole userRole)
+    {
+        var file =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
+
+        var content =
+            await storage.GetAsync(
+                file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -3361,42 +3618,206 @@ public sealed class FileService(
         int userId,
         UserRole userRole)
     {
-        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
+        var file =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
 
-        await files.DeleteAsync(file);
+        await files.DeleteAsync(
+            file);
 
-        // SQL is treated as the source of truth for the gallery.
-        // If Blob deletion fails, the database record is already gone.
-        // The cleanup error is logged without changing the successful response.
-        await TryDeleteStoredFileAsync(file.StoredFileName);
+        await TryDeleteStoredFileAsync(
+            file.StoredFileName);
     }
 
-    public async Task<IReadOnlyList<FileResponse>> GetAllAsync() =>
+    public async Task<IReadOnlyList<FileResponse>>
+        GetAllAsync() =>
         (await files.GetAllAsync())
-            .Select(ToResponse)
+            .Select(
+                file =>
+                    ToResponse(
+                        file,
+                        false,
+                        true))
             .ToList();
 
-    private async Task<FileMetadata> GetAuthorizedFileAsync(
+    public async Task<IReadOnlyList<FileResponse>>
+        GetFavoritesAsync(
+            int userId,
+            UserRole userRole)
+    {
+        var favoriteFiles =
+            await files.GetFavoriteFilesByUserIdAsync(
+                userId);
+
+        var result =
+            new List<FileResponse>();
+
+        foreach (var file in favoriteFiles)
+        {
+            var permissions =
+                await GetFilePermissionsAsync(
+                    file,
+                    userId,
+                    userRole);
+
+            if (!permissions.CanView)
+            {
+                continue;
+            }
+
+            result.Add(
+                ToResponse(
+                    file,
+                    true,
+                    permissions.CanManage));
+        }
+
+        return result;
+    }
+
+    public async Task AddFavoriteAsync(
         long fileId,
         int userId,
         UserRole userRole)
     {
-        var file = await files.GetByIdAsync(fileId)
-            ?? throw new NotFoundException("The requested file was not found.");
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
 
-        if (userRole != UserRole.Admin && file.UploadedBy != userId)
+        var permissions =
+            await GetFilePermissionsAsync(
+                file,
+                userId,
+                userRole);
+
+        if (!permissions.CanView)
         {
-            throw new ForbiddenException("You are not allowed to access this file.");
+            throw new ForbiddenException(
+                "You are not allowed to favorite this file.");
+        }
+
+        var existing =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId);
+
+        if (existing is not null)
+        {
+            return;
+        }
+
+        await files.AddFavoriteAsync(
+            new Favorite
+            {
+                UserId =
+                    userId,
+
+                FileId =
+                    fileId,
+
+                FavoritedAt =
+                    DateTime.UtcNow
+            });
+    }
+
+    public async Task RemoveFavoriteAsync(
+        long fileId,
+        int userId)
+    {
+        var favorite =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId);
+
+        if (favorite is null)
+        {
+            return;
+        }
+
+        await files.DeleteFavoriteAsync(
+            favorite);
+    }
+
+    private async Task<FileMetadata>
+        GetAuthorizedFileAsync(
+            long fileId,
+            int userId,
+            UserRole userRole)
+    {
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
+
+        if (userRole != UserRole.Admin &&
+            file.UploadedBy != userId)
+        {
+            throw new ForbiddenException(
+                "You are not allowed to access this file.");
         }
 
         return file;
     }
 
-    private async Task TryDeleteStoredFileAsync(string storedFileName)
+    private async Task<(
+        bool CanView,
+        bool CanManage)>
+        GetFilePermissionsAsync(
+            FileMetadata file,
+            int userId,
+            UserRole userRole)
+    {
+        if (userRole == UserRole.Admin)
+        {
+            return (true, true);
+        }
+
+        if (file.AlbumId is null)
+        {
+            var ownsFile =
+                file.UploadedBy == userId;
+
+            return (
+                ownsFile,
+                ownsFile);
+        }
+
+        var album =
+            await albums.GetByIdAsync(
+                file.AlbumId.Value);
+
+        if (album is null)
+        {
+            return (false, false);
+        }
+
+        if (album.CreatedBy == userId)
+        {
+            return (true, true);
+        }
+
+        var access =
+            await albums.GetAccessAsync(
+                file.AlbumId.Value,
+                userId);
+
+        return (
+            access?.CanView == true,
+            false);
+    }
+
+    private async Task TryDeleteStoredFileAsync(
+        string storedFileName)
     {
         try
         {
-            await storage.DeleteAsync(storedFileName);
+            await storage.DeleteAsync(
+                storedFileName);
         }
         catch (Exception exception)
         {
@@ -3407,7 +3828,10 @@ public sealed class FileService(
         }
     }
 
-    private static FileResponse ToResponse(FileMetadata file) =>
+    private static FileResponse ToResponse(
+        FileMetadata file,
+        bool isFavorite,
+        bool canManage) =>
         new(
             file.Id,
             file.OriginalFileName,
@@ -3415,9 +3839,10 @@ public sealed class FileService(
             file.FileSize,
             file.UploadedAt,
             $"/api/files/{file.Id}",
-            $"/api/files/{file.Id}/download");
+            $"/api/files/{file.Id}/download",
+            isFavorite,
+            canManage);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IAlbumFileService.cs
@@ -3545,15 +3970,52 @@ namespace WinCapture.Services;
 
 public interface IFileService
 {
-    Task<FileResponse> UploadAsync(IFormFile file, int userId);
-    Task<FileResponse> ReplaceAsync(long fileId, IFormFile file, int userId, UserRole userRole);
-    Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId);
-    Task<FileResponse> GetAsync(long fileId, int userId, UserRole userRole);
-    Task<FileDownloadResult> DownloadAsync(long fileId, int userId, UserRole userRole);
-    Task DeleteAsync(long fileId, int userId, UserRole userRole);
-    Task<IReadOnlyList<FileResponse>> GetAllAsync();
-}
+    Task<FileResponse> UploadAsync(
+        IFormFile file,
+        int userId);
 
+    Task<FileResponse> ReplaceAsync(
+        long fileId,
+        IFormFile file,
+        int userId,
+        UserRole userRole);
+
+    Task<IReadOnlyList<FileResponse>>
+        GetGalleryAsync(
+            int userId);
+
+    Task<FileResponse> GetAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task<FileDownloadResult> DownloadAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task DeleteAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task<IReadOnlyList<FileResponse>>
+        GetAllAsync();
+
+    Task<IReadOnlyList<FileResponse>>
+        GetFavoritesAsync(
+            int userId,
+            UserRole userRole);
+
+    Task AddFavoriteAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task RemoveFavoriteAsync(
+        long fileId,
+        int userId);
+}
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IStorageService.cs
@@ -3598,6 +4060,13 @@ public sealed class MicrosoftIdentityClaimsTransformation(
             return principal;
         }
 
+        var existingUserId=principal.FindFirst("wincapture_user_id")?.Value;
+
+        if(!string.IsNullOrWhiteSpace(existingUserId))
+        {
+            return principal;
+        }
+
         var objectId=principal.FindFirst("oid")?.Value;
         var email=principal.FindFirst("preferred_username")?.Value
             ?? principal.FindFirst("email")?.Value
@@ -3621,7 +4090,7 @@ public sealed class MicrosoftIdentityClaimsTransformation(
 
         var user=await microsoftUserService.GetOrCreateAsync(
             name,
-            email,
+            email.Trim().ToLowerInvariant(),
             objectId,
             role.Value);
 
@@ -3636,12 +4105,16 @@ public sealed class MicrosoftIdentityClaimsTransformation(
 
     private static UserRole? GetRole(ClaimsPrincipal principal)
     {
-        if(principal.IsInRole("WinCapture.Admin"))
+        var roles=principal.FindAll("roles")
+            .Select(claim=>claim.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if(roles.Contains("WinCapture.Admin"))
         {
             return UserRole.Admin;
         }
 
-        if(principal.IsInRole("WinCapture.User"))
+        if(roles.Contains("WinCapture.User"))
         {
             return UserRole.User;
         }
@@ -4006,7 +4479,9 @@ async function acquireAccessToken(
   }
 }
 
-async function extractErrorMessage(response: Response): Promise<string> {
+async function extractErrorMessage(
+  response: Response,
+): Promise<string> {
   try {
     const data = (await response.json()) as {
       message?: string;
@@ -4014,7 +4489,11 @@ async function extractErrorMessage(response: Response): Promise<string> {
       status?: number;
     };
 
-    return data.message || data.error || `Backend returned HTTP ${response.status}.`;
+    return (
+      data.message ||
+      data.error ||
+      `Backend returned HTTP ${response.status}.`
+    );
   } catch {
     return `Backend returned HTTP ${response.status}.`;
   }
@@ -4026,22 +4505,40 @@ export async function callApi(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const accessToken = await acquireAccessToken(instance, account);
+  const accessToken =
+    await acquireAccessToken(
+      instance,
+      account,
+    );
 
-  const headers = new Headers(options.headers);
-  headers.set("Authorization", `Bearer ${accessToken}`);
+  const headers =
+    new Headers(options.headers);
 
-  if (options.body && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
+  headers.set(
+    "Authorization",
+    `Bearer ${accessToken}`,
+  );
+
+  if (
+    options.body &&
+    !(options.body instanceof FormData)
+  ) {
+    headers.set(
+      "Content-Type",
+      "application/json",
+    );
   }
 
   let response: Response;
 
   try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
-      ...options,
-      headers,
-    });
+    response = await fetch(
+      `${apiBaseUrl}${path}`,
+      {
+        ...options,
+        headers,
+      },
+    );
   } catch {
     throw new ApiError(
       "The WinCapture API could not be reached. Ensure the backend is running and reachable.",
@@ -4050,26 +4547,52 @@ export async function callApi(
   }
 
   if (!response.ok) {
-    const serverMessage = await extractErrorMessage(response);
+    const serverMessage =
+      await extractErrorMessage(
+        response,
+      );
+
     let message = serverMessage;
 
     if (response.status === 400) {
-      message = `Validation failed: ${serverMessage}`;
-    } else if (response.status === 401) {
-      message = `Authentication expired or invalid: ${serverMessage}`;
-    } else if (response.status === 403) {
-      message = `Access denied: ${serverMessage}`;
-    } else if (response.status === 404) {
-      message = `Resource not found: ${serverMessage}`;
-    } else if (response.status === 409) {
-      message = `Conflict: ${serverMessage}`;
-    } else if (response.status === 413) {
-      message = `File too large: ${serverMessage}`;
-    } else if (response.status >= 500) {
-      message = "An unexpected server error occurred. Please try again later.";
+      message =
+        `Validation failed: ${serverMessage}`;
+    } else if (
+      response.status === 401
+    ) {
+      message =
+        `Authentication expired or invalid: ${serverMessage}`;
+    } else if (
+      response.status === 403
+    ) {
+      message =
+        `Access denied: ${serverMessage}`;
+    } else if (
+      response.status === 404
+    ) {
+      message =
+        `Resource not found: ${serverMessage}`;
+    } else if (
+      response.status === 409
+    ) {
+      message =
+        `Conflict: ${serverMessage}`;
+    } else if (
+      response.status === 413
+    ) {
+      message =
+        `File too large: ${serverMessage}`;
+    } else if (
+      response.status >= 500
+    ) {
+      message =
+        "An unexpected server error occurred. Please try again later.";
     }
 
-    throw new ApiError(message, response.status);
+    throw new ApiError(
+      message,
+      response.status,
+    );
   }
 
   return response;
@@ -4083,8 +4606,16 @@ export async function getCurrentUser(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<CurrentUser> {
-  const response = await callApi(instance, account, "/api/auth/me");
-  return (await response.json()) as CurrentUser;
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/auth/me",
+    );
+
+  return (
+    await response.json()
+  ) as CurrentUser;
 }
 
 // ==========================================
@@ -4095,8 +4626,16 @@ export async function getAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<AlbumResponse[]> {
-  const response = await callApi(instance, account, "/api/albums");
-  return (await response.json()) as AlbumResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/albums",
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse[];
 }
 
 export async function getAlbum(
@@ -4104,8 +4643,16 @@ export async function getAlbum(
   account: AccountInfo,
   albumId: number,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}`);
-  return (await response.json()) as AlbumResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}`,
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse;
 }
 
 export async function createAlbum(
@@ -4113,11 +4660,22 @@ export async function createAlbum(
   account: AccountInfo,
   request: CreateAlbumRequest,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, "/api/albums", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-  return (await response.json()) as AlbumResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/albums",
+      {
+        method: "POST",
+        body: JSON.stringify(
+          request,
+        ),
+      },
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse;
 }
 
 export async function updateAlbum(
@@ -4126,11 +4684,22 @@ export async function updateAlbum(
   albumId: number,
   request: UpdateAlbumRequest,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}`, {
-    method: "PUT",
-    body: JSON.stringify(request),
-  });
-  return (await response.json()) as AlbumResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(
+          request,
+        ),
+      },
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse;
 }
 
 export async function deleteAlbum(
@@ -4138,9 +4707,14 @@ export async function deleteAlbum(
   account: AccountInfo,
   albumId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function getAlbumMembers(
@@ -4148,8 +4722,16 @@ export async function getAlbumMembers(
   account: AccountInfo,
   albumId: number,
 ): Promise<AlbumMemberResponse[]> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/members`);
-  return (await response.json()) as AlbumMemberResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/members`,
+    );
+
+  return (
+    await response.json()
+  ) as AlbumMemberResponse[];
 }
 
 export async function addAlbumMember(
@@ -4158,10 +4740,17 @@ export async function addAlbumMember(
   albumId: number,
   request: AddAlbumMemberRequest,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/members`, {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members`,
+    {
+      method: "POST",
+      body: JSON.stringify(
+        request,
+      ),
+    },
+  );
 }
 
 export async function updateAlbumMember(
@@ -4171,10 +4760,17 @@ export async function updateAlbumMember(
   userId: number,
   request: UpdateAlbumMemberRequest,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
-    method: "PUT",
-    body: JSON.stringify(request),
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members/${userId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(
+        request,
+      ),
+    },
+  );
 }
 
 export async function removeAlbumMember(
@@ -4183,9 +4779,14 @@ export async function removeAlbumMember(
   albumId: number,
   userId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members/${userId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 // ==========================================
@@ -4197,8 +4798,16 @@ export async function getAlbumFiles(
   account: AccountInfo,
   albumId: number,
 ): Promise<FileResponse[]> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/files`);
-  return (await response.json()) as FileResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files`,
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
 }
 
 export async function getAlbumFile(
@@ -4207,12 +4816,16 @@ export async function getAlbumFile(
   albumId: number,
   fileId: number,
 ): Promise<FileResponse> {
-  const response = await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files/${fileId}`,
-  );
-  return (await response.json()) as FileResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files/${fileId}`,
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function uploadAlbumFile(
@@ -4221,19 +4834,28 @@ export async function uploadAlbumFile(
   albumId: number,
   file: File,
 ): Promise<FileResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData =
+    new FormData();
 
-  const response = await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files`,
-    {
-      method: "POST",
-      body: formData,
-    },
+  formData.append(
+    "file",
+    file,
   );
-  return (await response.json()) as FileResponse;
+
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function downloadAlbumFile(
@@ -4243,14 +4865,26 @@ export async function downloadAlbumFile(
   fileId: number,
   fallbackFileName: string,
 ): Promise<void> {
-  const response = await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files/${fileId}/download`,
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files/${fileId}/download`,
+    );
+
+  const blob =
+    await response.blob();
+
+  const fileName =
+    extractFileNameFromHeaders(
+      response,
+      fallbackFileName,
+    );
+
+  triggerBrowserDownload(
+    blob,
+    fileName,
   );
-  const blob = await response.blob();
-  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
-  triggerBrowserDownload(blob, fileName);
 }
 
 export async function getFilePreviewUrl(
@@ -4259,11 +4893,33 @@ export async function getFilePreviewUrl(
   fileId: number,
   albumId?: number,
 ): Promise<string> {
-  const path = albumId
-    ? `/api/albums/${albumId}/files/${fileId}/download`
-    : `/api/files/${fileId}/download`;
-  const response = await callApi(instance, account, path);
-  return URL.createObjectURL(await response.blob());
+  const path =
+    albumId
+      ? `/api/albums/${albumId}/files/${fileId}/download`
+      : `/api/files/${fileId}/download`;
+
+  return getFilePreviewUrlByPath(
+    instance,
+    account,
+    path,
+  );
+}
+
+export async function getFilePreviewUrlByPath(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+): Promise<string> {
+  const response =
+    await callApi(
+      instance,
+      account,
+      path,
+    );
+
+  return URL.createObjectURL(
+    await response.blob(),
+  );
 }
 
 export async function deleteAlbumFile(
@@ -4290,8 +4946,62 @@ export async function getFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<FileResponse[]> {
-  const response = await callApi(instance, account, "/api/files");
-  return (await response.json()) as FileResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/files",
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
+}
+
+export async function getFavorites(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<FileResponse[]> {
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/files/favorites",
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
+}
+
+export async function addFavorite(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<void> {
+  await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}/favorite`,
+    {
+      method: "PUT",
+    },
+  );
+}
+
+export async function removeFavorite(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<void> {
+  await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}/favorite`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function getFile(
@@ -4299,8 +5009,16 @@ export async function getFile(
   account: AccountInfo,
   fileId: number,
 ): Promise<FileResponse> {
-  const response = await callApi(instance, account, `/api/files/${fileId}`);
-  return (await response.json()) as FileResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/files/${fileId}`,
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function uploadFile(
@@ -4308,14 +5026,28 @@ export async function uploadFile(
   account: AccountInfo,
   file: File,
 ): Promise<FileResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData =
+    new FormData();
 
-  const response = await callApi(instance, account, "/api/files", {
-    method: "POST",
-    body: formData,
-  });
-  return (await response.json()) as FileResponse;
+  formData.append(
+    "file",
+    file,
+  );
+
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/files",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function replaceFile(
@@ -4324,14 +5056,28 @@ export async function replaceFile(
   fileId: number,
   file: File,
 ): Promise<FileResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData =
+    new FormData();
 
-  const response = await callApi(instance, account, `/api/files/${fileId}`, {
-    method: "PUT",
-    body: formData,
-  });
-  return (await response.json()) as FileResponse;
+  formData.append(
+    "file",
+    file,
+  );
+
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/files/${fileId}`,
+      {
+        method: "PUT",
+        body: formData,
+      },
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function downloadFile(
@@ -4340,14 +5086,40 @@ export async function downloadFile(
   fileId: number,
   fallbackFileName: string,
 ): Promise<void> {
-  const response = await callApi(
+  await downloadFileByPath(
     instance,
     account,
     `/api/files/${fileId}/download`,
+    fallbackFileName,
   );
-  const blob = await response.blob();
-  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
-  triggerBrowserDownload(blob, fileName);
+}
+
+export async function downloadFileByPath(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+  fallbackFileName: string,
+): Promise<void> {
+  const response =
+    await callApi(
+      instance,
+      account,
+      path,
+    );
+
+  const blob =
+    await response.blob();
+
+  const fileName =
+    extractFileNameFromHeaders(
+      response,
+      fallbackFileName,
+    );
+
+  triggerBrowserDownload(
+    blob,
+    fileName,
+  );
 }
 
 export async function deleteFile(
@@ -4355,9 +5127,14 @@ export async function deleteFile(
   account: AccountInfo,
   fileId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/files/${fileId}`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 // ==========================================
@@ -4368,16 +5145,32 @@ export async function getAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<FileResponse[]> {
-  const response = await callApi(instance, account, "/api/admin/files");
-  return (await response.json()) as FileResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/admin/files",
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
 }
 
 export async function getAdminAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<AlbumResponse[]> {
-  const response = await callApi(instance, account, "/api/admin/albums");
-  return (await response.json()) as AlbumResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/admin/albums",
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse[];
 }
 
 // ==========================================
@@ -4389,7 +5182,13 @@ export async function getApiBlob(
   account: AccountInfo,
   path: string,
 ): Promise<Blob> {
-  const response = await callApi(instance, account, path);
+  const response =
+    await callApi(
+      instance,
+      account,
+      path,
+    );
+
   return response.blob();
 }
 
@@ -4397,30 +5196,69 @@ function extractFileNameFromHeaders(
   response: Response,
   fallback: string,
 ): string {
-  const disposition = response.headers.get("content-disposition");
-  if (!disposition) return fallback;
+  const disposition =
+    response.headers.get(
+      "content-disposition",
+    );
 
-  const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
-  return match?.[1] ? decodeURIComponent(match[1]) : fallback;
+  if (!disposition) {
+    return fallback;
+  }
+
+  const match =
+    disposition.match(
+      /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i,
+    );
+
+  return match?.[1]
+    ? decodeURIComponent(
+        match[1],
+      )
+    : fallback;
 }
 
-export function triggerBrowserDownload(blob: Blob, filename: string): void {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+export function triggerBrowserDownload(
+  blob: Blob,
+  filename: string,
+): void {
+  const url =
+    window.URL.createObjectURL(
+      blob,
+    );
+
+  const anchor =
+    document.createElement("a");
+
   anchor.href = url;
   anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  window.URL.revokeObjectURL(url);
-}
 
+  document.body.appendChild(
+    anchor,
+  );
+
+  anchor.click();
+
+  document.body.removeChild(
+    anchor,
+  );
+
+  window.URL.revokeObjectURL(
+    url,
+  );
+}
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\components\FileCard.tsx
 ============================================================
 
-import { FileText, MoreHorizontal, Replace, Trash2, Download } from "lucide-react";
+import {
+  Download,
+  FileText,
+  MoreHorizontal,
+  Replace,
+  Star,
+  Trash2,
+} from "lucide-react";
 
 import type { FileResponse } from "../types/file";
 
@@ -4428,41 +5266,66 @@ interface FileCardProps {
   file: FileResponse;
   previewUrl?: string;
   canManage?: boolean;
+  favoritePending?: boolean;
+  onFavoriteToggle: () => void;
   onReplace: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }
 
-function formatFileSize(bytes: number): string {
+function formatFileSize(
+  bytes: number,
+): string {
   if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(
+      bytes /
+      (1024 * 1024)
+    ).toFixed(1)} MB`;
   }
 
   if (bytes >= 1024) {
-    return `${Math.round(bytes / 1024)} KB`;
+    return `${Math.round(
+      bytes / 1024,
+    )} KB`;
   }
 
   return `${bytes} B`;
 }
 
-function formatFileType(contentType: string): string {
-  const [type, subtype] = contentType.split("/");
-  return subtype ? subtype.toUpperCase() : type.toUpperCase();
+function formatFileType(
+  contentType: string,
+): string {
+  const [
+    type,
+    subtype,
+  ] = contentType.split("/");
+
+  return subtype
+    ? subtype.toUpperCase()
+    : type.toUpperCase();
 }
 
 export default function FileCard({
   file,
   previewUrl,
-  canManage = true,
+  canManage,
+  favoritePending = false,
+  onFavoriteToggle,
   onReplace,
   onDownload,
   onDelete,
 }: FileCardProps) {
-  const isImage = file.contentType.startsWith("image/");
+  const isImage =
+    file.contentType.startsWith(
+      "image/",
+    );
+
+  const effectiveCanManage =
+    canManage ?? file.canManage;
 
   return (
     <article className="surface file-card min-w-0 p-3">
-      <div className="file-card-preview media-preview mb-3">
+      <div className="file-card-preview media-preview relative mb-3">
         {isImage && previewUrl ? (
           <img
             src={previewUrl}
@@ -4471,66 +5334,155 @@ export default function FileCard({
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-500">
-            <FileText aria-hidden="true" size={34} strokeWidth={1.5} />
-            <span className="text-xs font-semibold tracking-wide">{formatFileType(file.contentType)}</span>
+            <FileText
+              aria-hidden="true"
+              size={34}
+              strokeWidth={1.5}
+            />
+            <span className="text-xs font-semibold tracking-wide">
+              {formatFileType(
+                file.contentType,
+              )}
+            </span>
           </div>
         )}
+
+        <button
+          type="button"
+          aria-label={
+            file.isFavorite
+              ? `Remove ${file.originalFileName} from favorites`
+              : `Add ${file.originalFileName} to favorites`
+          }
+          aria-pressed={file.isFavorite}
+          title={
+            file.isFavorite
+              ? "Remove from favorites"
+              : "Add to favorites"
+          }
+          disabled={favoritePending}
+          onClick={onFavoriteToggle}
+          className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/90 text-slate-500 shadow-sm backdrop-blur transition hover:scale-105 hover:text-amber-500 disabled:cursor-wait disabled:opacity-60"
+        >
+          <Star
+            aria-hidden="true"
+            size={18}
+            strokeWidth={1.8}
+            className={
+              file.isFavorite
+                ? "fill-current text-amber-500"
+                : ""
+            }
+          />
+        </button>
       </div>
 
       <div className="flex min-w-0 items-start justify-between gap-3 px-1">
         <div className="min-w-0">
-          <h3 className="truncate text-[15px] font-semibold text-slate-900" title={file.originalFileName}>
+          <h3
+            className="truncate text-[15px] font-semibold text-slate-900"
+            title={file.originalFileName}
+          >
             {file.originalFileName}
           </h3>
+
           <p className="mt-1 text-xs text-slate-500">
-            {formatFileType(file.contentType)} <span aria-hidden="true">Â·</span> {formatFileSize(file.fileSize)}
+            {formatFileType(
+              file.contentType,
+            )}{" "}
+            <span aria-hidden="true">
+              Â·
+            </span>{" "}
+            {formatFileSize(
+              file.fileSize,
+            )}
           </p>
         </div>
 
         <details className="file-menu shrink-0">
-          <summary aria-label={`Actions for ${file.originalFileName}`} title="File actions">
-            <MoreHorizontal aria-hidden="true" size={20} />
+          <summary
+            aria-label={`Actions for ${file.originalFileName}`}
+            title="File actions"
+          >
+            <MoreHorizontal
+              aria-hidden="true"
+              size={20}
+            />
           </summary>
+
           <div className="file-menu-popover">
-            {canManage && (
+            {effectiveCanManage && (
               <button
                 type="button"
                 className="file-menu-action"
                 onClick={(event) => {
-                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute(
+                      "open",
+                    );
+
                   onReplace();
                 }}
               >
-                <Replace aria-hidden="true" size={16} /> Replace
+                <Replace
+                  aria-hidden="true"
+                  size={16}
+                />{" "}
+                Replace
               </button>
             )}
+
             <button
               type="button"
               className="file-menu-action"
               onClick={(event) => {
-                event.currentTarget.closest("details")?.removeAttribute("open");
+                event.currentTarget
+                  .closest("details")
+                  ?.removeAttribute(
+                    "open",
+                  );
+
                 onDownload();
               }}
             >
-              <Download aria-hidden="true" size={16} /> Download
+              <Download
+                aria-hidden="true"
+                size={16}
+              />{" "}
+              Download
             </button>
-            {canManage && (
+
+            {effectiveCanManage && (
               <button
                 type="button"
                 className="file-menu-action is-danger"
                 onClick={(event) => {
-                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute(
+                      "open",
+                    );
+
                   onDelete();
                 }}
               >
-                <Trash2 aria-hidden="true" size={16} /> Delete
+                <Trash2
+                  aria-hidden="true"
+                  size={16}
+                />{" "}
+                Delete
               </button>
             )}
           </div>
         </details>
       </div>
+
       <p className="mt-3 truncate border-t border-slate-100 px-1 pt-2 text-[11px] text-slate-400">
-        Added {new Date(file.uploadedAt).toLocaleDateString()}
+        Added{" "}
+        {new Date(
+          file.uploadedAt,
+        ).toLocaleDateString()}
       </p>
     </article>
   );
@@ -5709,15 +6661,26 @@ export default function Dashboard() {
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\FilesPage.tsx
 ============================================================
 
-import { useEffect, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  Search,
+  Star,
+  X,
+} from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 
 import {
+  addFavorite,
   deleteFile,
-  downloadFile,
-  getFilePreviewUrl,
+  downloadFileByPath,
+  getFavorites,
+  getFilePreviewUrlByPath,
   getFiles,
+  removeFavorite,
   replaceFile,
   uploadFile,
 } from "../api/apiClient";
@@ -5725,57 +6688,165 @@ import FileCard from "../components/FileCard";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
 
+type FileView =
+  | "all"
+  | "favorites";
+
 export default function FilesPage() {
-  const { instance } = useMsal();
-  const { account } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const replaceInputRef = useRef<HTMLInputElement | null>(null);
-  const replaceTargetIdRef = useRef<number | null>(null);
+  const { instance } =
+    useMsal();
 
-  const [files, setFiles] = useState<FileResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
-  const [searchQuery, setSearchQuery] = useState("");
+  const { account } =
+    useAuth();
 
-  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-  const filteredFiles = normalizedQuery
-    ? files.filter((file) =>
-        file.originalFileName.toLocaleLowerCase().includes(normalizedQuery) ||
-        file.contentType.toLocaleLowerCase().includes(normalizedQuery) ||
-        String(file.id).includes(normalizedQuery),
-      )
-    : files;
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(
+      null,
+    );
 
-  const loadPreviewUrls = async (nextFiles: FileResponse[]) => {
+  const replaceInputRef =
+    useRef<HTMLInputElement | null>(
+      null,
+    );
+
+  const replaceTargetIdRef =
+    useRef<number | null>(
+      null,
+    );
+
+  const [files, setFiles] =
+    useState<FileResponse[]>(
+      [],
+    );
+
+  const [view, setView] =
+    useState<FileView>(
+      "all",
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(
+      null,
+    );
+
+  const [uploading, setUploading] =
+    useState(false);
+
+  const [previewUrls, setPreviewUrls] =
+    useState<Record<number, string>>(
+      {},
+    );
+
+  const [searchQuery, setSearchQuery] =
+    useState("");
+
+  const [
+    favoritePendingIds,
+    setFavoritePendingIds,
+  ] = useState<Set<number>>(
+    new Set(),
+  );
+
+  const normalizedQuery =
+    searchQuery
+      .trim()
+      .toLocaleLowerCase();
+
+  const filteredFiles =
+    normalizedQuery
+      ? files.filter(
+          (file) =>
+            file.originalFileName
+              .toLocaleLowerCase()
+              .includes(
+                normalizedQuery,
+              ) ||
+            file.contentType
+              .toLocaleLowerCase()
+              .includes(
+                normalizedQuery,
+              ) ||
+            String(file.id).includes(
+              normalizedQuery,
+            ),
+        )
+      : files;
+
+  const loadPreviewUrls = async (
+    nextFiles: FileResponse[],
+  ) => {
     if (!account) {
       return;
     }
 
-    const imageFiles = nextFiles.filter((file) => file.contentType.startsWith("image/"));
+    const imageFiles =
+      nextFiles.filter(
+        (file) =>
+          file.contentType.startsWith(
+            "image/",
+          ),
+      );
 
     if (imageFiles.length === 0) {
       setPreviewUrls({});
       return;
     }
 
-    const urls = await Promise.all(imageFiles.map(async (file) => {
-      try {
-        return [file.id, await getFilePreviewUrl(instance, account, file.id)] as const;
-      } catch {
-        return null;
-      }
-    }));
+    const urls =
+      await Promise.all(
+        imageFiles.map(
+          async (file) => {
+            try {
+              return [
+                file.id,
+                await getFilePreviewUrlByPath(
+                  instance,
+                  account,
+                  file.downloadUrl,
+                ),
+              ] as const;
+            } catch {
+              return null;
+            }
+          },
+        ),
+      );
 
-    setPreviewUrls(Object.fromEntries(urls.filter((entry) => entry !== null)));
+    setPreviewUrls(
+      Object.fromEntries(
+        urls.filter(
+          (
+            entry,
+          ): entry is readonly [
+            number,
+            string,
+          ] =>
+            entry !== null,
+        ),
+      ),
+    );
   };
 
-  useEffect(() => () => {
-    Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
-  }, [previewUrls]);
+  useEffect(
+    () => () => {
+      Object.values(
+        previewUrls,
+      ).forEach(
+        (url) =>
+          URL.revokeObjectURL(
+            url,
+          ),
+      );
+    },
+    [previewUrls],
+  );
 
-  const loadFiles = async () => {
+  const loadFiles = async (
+    nextView: FileView = view,
+  ) => {
     if (!account) {
       return;
     }
@@ -5783,164 +6854,487 @@ export default function FilesPage() {
     try {
       setLoading(true);
       setError(null);
-      const nextFiles = await getFiles(instance, account);
+
+      const nextFiles =
+        nextView === "favorites"
+          ? await getFavorites(
+              instance,
+              account,
+            )
+          : await getFiles(
+              instance,
+              account,
+            );
+
       setFiles(nextFiles);
-      await loadPreviewUrls(nextFiles);
+
+      await loadPreviewUrls(
+        nextFiles,
+      );
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to load files.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load files.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadFiles();
-  }, [account, instance]);
+    void loadFiles(view);
+  }, [
+    account,
+    instance,
+    view,
+  ]);
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (!selectedFile || !account) {
+  const handleUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFile =
+      event.target.files?.[0];
+
+    if (
+      !selectedFile ||
+      !account
+    ) {
       return;
     }
 
     try {
       setUploading(true);
       setError(null);
-      await uploadFile(instance, account, selectedFile);
+
+      await uploadFile(
+        instance,
+        account,
+        selectedFile,
+      );
+
       event.target.value = "";
-      await loadFiles();
+
+      if (view === "favorites") {
+        setView("all");
+      } else {
+        await loadFiles(
+          "all",
+        );
+      }
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Upload failed.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Upload failed.",
+      );
     } finally {
       setUploading(false);
     }
   };
 
-  const handleReplace = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    const fileId = replaceTargetIdRef.current;
+  const handleReplace = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFile =
+      event.target.files?.[0];
 
-    if (!selectedFile || !account || fileId === null) {
+    const fileId =
+      replaceTargetIdRef.current;
+
+    if (
+      !selectedFile ||
+      !account ||
+      fileId === null
+    ) {
       return;
     }
 
     try {
       setError(null);
-      await replaceFile(instance, account, fileId, selectedFile);
-      await loadFiles();
+
+      await replaceFile(
+        instance,
+        account,
+        fileId,
+        selectedFile,
+      );
+
+      await loadFiles(
+        view,
+      );
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Replace failed.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Replace failed.",
+      );
     } finally {
-      replaceTargetIdRef.current = null;
+      replaceTargetIdRef.current =
+        null;
+
       event.target.value = "";
     }
   };
 
-  const handleDownload = async (file: FileResponse) => {
+  const handleDownload = async (
+    file: FileResponse,
+  ) => {
     if (!account) {
       return;
     }
 
     try {
       setError(null);
-      await downloadFile(instance, account, file.id, file.originalFileName);
+
+      await downloadFileByPath(
+        instance,
+        account,
+        file.downloadUrl,
+        file.originalFileName,
+      );
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Download failed.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Download failed.",
+      );
     }
   };
 
-  const handleDelete = async (fileId: number) => {
+  const handleDelete = async (
+    fileId: number,
+  ) => {
     if (!account) {
       return;
     }
 
     try {
       setError(null);
-      await deleteFile(instance, account, fileId);
-      await loadFiles();
+
+      await deleteFile(
+        instance,
+        account,
+        fileId,
+      );
+
+      await loadFiles(
+        view,
+      );
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Delete failed.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Delete failed.",
+      );
     }
   };
+
+  const setFavoritePending = (
+    fileId: number,
+    pending: boolean,
+  ) => {
+    setFavoritePendingIds(
+      (previous) => {
+        const next =
+          new Set(
+            previous,
+          );
+
+        if (pending) {
+          next.add(fileId);
+        } else {
+          next.delete(fileId);
+        }
+
+        return next;
+      },
+    );
+  };
+
+  const handleFavoriteToggle =
+    async (
+      file: FileResponse,
+    ) => {
+      if (!account) {
+        return;
+      }
+
+      const nextFavorite =
+        !file.isFavorite;
+
+      setFavoritePending(
+        file.id,
+        true,
+      );
+
+      try {
+        setError(null);
+
+        if (nextFavorite) {
+          await addFavorite(
+            instance,
+            account,
+            file.id,
+          );
+        } else {
+          await removeFavorite(
+            instance,
+            account,
+            file.id,
+          );
+        }
+
+        setFiles(
+          (previous) => {
+            if (
+              view === "favorites" &&
+              !nextFavorite
+            ) {
+              return previous.filter(
+                (item) =>
+                  item.id !== file.id,
+              );
+            }
+
+            return previous.map(
+              (item) =>
+                item.id === file.id
+                  ? {
+                      ...item,
+                      isFavorite:
+                        nextFavorite,
+                    }
+                  : item,
+            );
+          },
+        );
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to update favorite.",
+        );
+      } finally {
+        setFavoritePending(
+          file.id,
+          false,
+        );
+      }
+    };
 
   if (loading) {
-    return <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />;
+    return (
+      <div className="h-40 animate-pulse rounded-[26px] border border-slate-200 bg-white" />
+    );
   }
 
   return (
     <div className="app-page">
       <section className="page-toolbar surface">
         <div>
-          <p className="page-kicker">Your library</p>
-          <h2 className="page-heading">Files</h2>
+          <p className="page-kicker">
+            Your library
+          </p>
+
+          <h2 className="page-heading">
+            {view === "favorites"
+              ? "Favorites"
+              : "Files"}
+          </h2>
         </div>
 
         <div className="files-toolbar-actions">
+          <div
+            className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1"
+            role="group"
+            aria-label="File view"
+          >
+            <button
+              type="button"
+              aria-pressed={
+                view === "all"
+              }
+              onClick={() =>
+                setView("all")
+              }
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                view === "all"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              All files
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={
+                view === "favorites"
+              }
+              onClick={() =>
+                setView(
+                  "favorites",
+                )
+              }
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                view === "favorites"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Star
+                aria-hidden="true"
+                size={15}
+                className={
+                  view === "favorites"
+                    ? "fill-current text-amber-500"
+                    : ""
+                }
+              />
+              Favorites
+            </button>
+          </div>
+
           <label className="search-field">
-            <Search aria-hidden="true" size={18} />
-            <span className="sr-only">Search files</span>
+            <Search
+              aria-hidden="true"
+              size={18}
+            />
+
+            <span className="sr-only">
+              Search files
+            </span>
+
             <input
               type="search"
               value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
+              onChange={(event) =>
+                setSearchQuery(
+                  event.target.value,
+                )
+              }
               placeholder="Search files"
               aria-label="Search files by name, type, or ID"
             />
+
             {searchQuery && (
               <button
                 type="button"
                 className="search-clear"
                 aria-label="Clear file search"
-                onClick={() => setSearchQuery("")}
+                onClick={() =>
+                  setSearchQuery("")
+                }
               >
-                <X aria-hidden="true" size={16} />
+                <X
+                  aria-hidden="true"
+                  size={16}
+                />
               </button>
             )}
           </label>
+
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
             disabled={uploading}
             className="primary-action"
           >
-            {uploading ? "Uploading..." : "Upload file"}
+            {uploading
+              ? "Uploading..."
+              : "Upload file"}
           </button>
         </div>
 
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
-        <input ref={replaceInputRef} type="file" className="hidden" onChange={handleReplace} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleUpload}
+        />
+
+        <input
+          ref={replaceInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleReplace}
+        />
       </section>
 
-      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {filteredFiles.length === 0 ? (
           <div className="surface p-8 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-4">
-            {files.length === 0 ? "No files uploaded yet." : "No files match your search."}
+            {view === "favorites"
+              ? searchQuery
+                ? "No favorite files match your search."
+                : "You have no favorite files yet."
+              : files.length === 0
+                ? "No files uploaded yet."
+                : "No files match your search."}
           </div>
         ) : (
-          filteredFiles.map((file) => (
-            <FileCard
-              key={file.id}
-              file={file}
-              previewUrl={previewUrls[file.id]}
-              onReplace={() => {
-                replaceTargetIdRef.current = file.id;
-                if (replaceInputRef.current) {
-                  replaceInputRef.current.value = "";
-                  replaceInputRef.current.click();
+          filteredFiles.map(
+            (file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                previewUrl={
+                  previewUrls[file.id]
                 }
-              }}
-              onDownload={() => void handleDownload(file)}
-              onDelete={() => void handleDelete(file.id)}
-            />
-          ))
+                canManage={
+                  file.canManage
+                }
+                favoritePending={favoritePendingIds.has(
+                  file.id,
+                )}
+                onFavoriteToggle={() =>
+                  void handleFavoriteToggle(
+                    file,
+                  )
+                }
+                onReplace={() => {
+                  replaceTargetIdRef.current =
+                    file.id;
+
+                  if (
+                    replaceInputRef.current
+                  ) {
+                    replaceInputRef.current.value =
+                      "";
+
+                    replaceInputRef.current.click();
+                  }
+                }}
+                onDownload={() =>
+                  void handleDownload(
+                    file,
+                  )
+                }
+                onDelete={() =>
+                  void handleDelete(
+                    file.id,
+                  )
+                }
+              />
+            ),
+          )
         )}
       </div>
     </div>
   );
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\ProfilePage.tsx
@@ -6096,10 +7490,20 @@ export interface FileResponse {
   uploadedAt: string;
   url: string;
   downloadUrl: string;
+  isFavorite: boolean;
+  canManage: boolean;
 }
 
-export const ALLOWED_FILE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".pdf"] as const;
-export type AllowedFileExtension = (typeof ALLOWED_FILE_EXTENSIONS)[number];
+export const ALLOWED_FILE_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".pdf",
+] as const;
+
+export type AllowedFileExtension =
+  (typeof ALLOWED_FILE_EXTENSIONS)[number];
 
 export const ALLOWED_MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -6109,13 +7513,13 @@ export const ALLOWED_MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
-export const MAXIMUM_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAXIMUM_FILE_SIZE_BYTES =
+  10 * 1024 * 1024;
 
 export interface FileValidationResult {
   isValid: boolean;
   error?: string;
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\types\user.ts

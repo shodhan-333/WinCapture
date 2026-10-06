@@ -20,10 +20,11 @@ public sealed class AlbumFileService(
         User currentUser,
         UserRole role)
     {
-        await albumService.GetForUploadAsync(
-            albumId,
-            currentUser,
-            role);
+        var album =
+            await albumService.GetForUploadAsync(
+                albumId,
+                currentUser,
+                role);
 
         await validator.ValidateAsync(
             file);
@@ -70,9 +71,15 @@ public sealed class AlbumFileService(
             throw;
         }
 
+        var canManage =
+            role == UserRole.Admin ||
+            album.CreatedBy == currentUser.Id;
+
         return ToResponse(
             metadata,
-            albumId);
+            albumId,
+            false,
+            canManage);
     }
 
     public async Task<IReadOnlyList<FileResponse>>
@@ -81,21 +88,36 @@ public sealed class AlbumFileService(
             User currentUser,
             UserRole role)
     {
-        await albumService.GetAsync(
-            albumId,
-            currentUser,
-            role);
+        var album =
+            await albumService.GetAsync(
+                albumId,
+                currentUser,
+                role);
 
         var albumFiles =
             await files.GetByAlbumIdAsync(
                 albumId);
+
+        var favoriteIds =
+            await files.GetFavoriteFileIdsByUserIdAsync(
+                currentUser.Id);
+
+        var favoriteIdSet =
+            favoriteIds.ToHashSet();
+
+        var canManage =
+            role == UserRole.Admin ||
+            album.OwnerId == currentUser.Id;
 
         return albumFiles
             .Select(
                 file =>
                     ToResponse(
                         file,
-                        albumId))
+                        albumId,
+                        favoriteIdSet.Contains(
+                            file.Id),
+                        canManage))
             .ToList();
     }
 
@@ -104,6 +126,47 @@ public sealed class AlbumFileService(
         long fileId,
         User currentUser,
         UserRole role)
+    {
+        var album =
+            await albumService.GetAsync(
+                albumId,
+                currentUser,
+                role);
+
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
+
+        if (file.AlbumId != albumId)
+        {
+            throw new NotFoundException(
+                "The requested file was not found in this album.");
+        }
+
+        var isFavorite =
+            await files.GetFavoriteAsync(
+                currentUser.Id,
+                fileId) is not null;
+
+        var canManage =
+            role == UserRole.Admin ||
+            album.OwnerId == currentUser.Id;
+
+        return ToResponse(
+            file,
+            albumId,
+            isFavorite,
+            canManage);
+    }
+
+    public async Task<FileDownloadResult>
+        PreviewAsync(
+            long albumId,
+            long fileId,
+            User currentUser,
+            UserRole role)
     {
         await albumService.GetAsync(
             albumId,
@@ -122,9 +185,14 @@ public sealed class AlbumFileService(
                 "The requested file was not found in this album.");
         }
 
-        return ToResponse(
-            file,
-            albumId);
+        var content =
+            await storage.GetAsync(
+                file.StoredFileName);
+
+        return new FileDownloadResult(
+            content,
+            file.ContentType,
+            file.OriginalFileName);
     }
 
     public async Task<FileDownloadResult>
@@ -214,7 +282,9 @@ public sealed class AlbumFileService(
 
     private static FileResponse ToResponse(
         FileMetadata file,
-        long albumId) =>
+        long albumId,
+        bool isFavorite,
+        bool canManage) =>
         new(
             file.Id,
             file.OriginalFileName,
@@ -222,5 +292,7 @@ public sealed class AlbumFileService(
             file.FileSize,
             file.UploadedAt,
             $"/api/albums/{albumId}/files/{file.Id}",
-            $"/api/albums/{albumId}/files/{file.Id}/download");
+            $"/api/albums/{albumId}/files/{file.Id}/download",
+            isFavorite,
+            canManage);
 }

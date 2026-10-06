@@ -6,11 +6,49 @@ namespace WinCapture.Services;
 
 public interface IFileService
 {
-    Task<FileResponse> UploadAsync(IFormFile file, int userId);
-    Task<FileResponse> ReplaceAsync(long fileId, IFormFile file, int userId, UserRole userRole);
-    Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId);
-    Task<FileResponse> GetAsync(long fileId, int userId, UserRole userRole);
-    Task<FileDownloadResult> DownloadAsync(long fileId, int userId, UserRole userRole);
-    Task DeleteAsync(long fileId, int userId, UserRole userRole);
-    Task<IReadOnlyList<FileResponse>> GetAllAsync();
+    Task<FileResponse> UploadAsync(
+        IFormFile file,
+        int userId);
+
+    Task<FileResponse> ReplaceAsync(
+        long fileId,
+        IFormFile file,
+        int userId,
+        UserRole userRole);
+
+    Task<IReadOnlyList<FileResponse>>
+        GetGalleryAsync(
+            int userId);
+
+    Task<FileResponse> GetAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task<FileDownloadResult> DownloadAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task DeleteAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task<IReadOnlyList<FileResponse>>
+        GetAllAsync();
+
+    Task<IReadOnlyList<FileResponse>>
+        GetFavoritesAsync(
+            int userId,
+            UserRole userRole);
+
+    Task AddFavoriteAsync(
+        long fileId,
+        int userId,
+        UserRole userRole);
+
+    Task RemoveFavoriteAsync(
+        long fileId,
+        int userId);
 }

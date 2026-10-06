@@ -1,4 +1,3 @@
-using Azure.Identity;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -51,14 +50,24 @@ builder.Services.AddScoped<IFileService,FileService>();
 builder.Services.AddScoped<IAlbumService,AlbumService>();
 builder.Services.AddScoped<IAlbumFileService,AlbumFileService>();
 
-var storageAccountName=builder.Configuration["Storage:AccountName"];
-var storageContainerName=builder.Configuration["Storage:ContainerName"];
+var storageConnectionString =
+    builder.Configuration["Storage:ConnectionString"]
+    ?? throw new InvalidOperationException(
+        "Azure Storage connection string is missing.");
 
-var blobServiceClient=new BlobServiceClient(
-    new Uri($"https://{storageAccountName}.blob.core.windows.net"),
-    new DefaultAzureCredential());
+var storageContainerName =
+    builder.Configuration["Storage:ContainerName"]
+    ?? throw new InvalidOperationException(
+        "Storage container name is missing.");
 
-builder.Services.AddSingleton(blobServiceClient.GetBlobContainerClient(storageContainerName));
+var blobServiceClient =
+    new BlobServiceClient(
+        storageConnectionString);
+
+var containerClient =
+    blobServiceClient.GetBlobContainerClient(
+        storageContainerName);
+builder.Services.AddSingleton(containerClient);
 builder.Services.AddSingleton<IStorageService,AzureBlobStorageService>();
 
 builder.Services.AddOpenApi(options =>

@@ -69,4 +69,61 @@ public sealed class FileRepository(
 
         await db.SaveChangesAsync();
     }
+
+    public async Task<IReadOnlyList<long>>
+        GetFavoriteFileIdsByUserIdAsync(
+            int userId) =>
+        await db.Favorites
+            .AsNoTracking()
+            .Where(
+                favorite =>
+                    favorite.UserId == userId)
+            .Select(
+                favorite =>
+                    favorite.FileId)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<FileMetadata>>
+        GetFavoriteFilesByUserIdAsync(
+            int userId) =>
+        await db.Favorites
+            .AsNoTracking()
+            .Include(
+                favorite =>
+                    favorite.File)
+            .Where(
+                favorite =>
+                    favorite.UserId == userId)
+            .OrderByDescending(
+                favorite =>
+                    favorite.FavoritedAt)
+            .Select(
+                favorite =>
+                    favorite.File)
+            .ToListAsync();
+
+    public async Task<Favorite?> GetFavoriteAsync(
+        int userId,
+        long fileId) =>
+        await db.Favorites
+            .SingleOrDefaultAsync(
+                favorite =>
+                    favorite.UserId == userId &&
+                    favorite.FileId == fileId);
+
+    public async Task AddFavoriteAsync(
+        Favorite favorite)
+    {
+        db.Favorites.Add(favorite);
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteFavoriteAsync(
+        Favorite favorite)
+    {
+        db.Favorites.Remove(favorite);
+
+        await db.SaveChangesAsync();
+    }
 }

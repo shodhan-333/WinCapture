@@ -25,10 +25,11 @@ async function acquireAccessToken(
   account: AccountInfo,
 ): Promise<string> {
   try {
-    const result = await instance.acquireTokenSilent({
-      account,
-      scopes: [apiScope],
-    });
+    const result =
+      await instance.acquireTokenSilent({
+        account,
+        scopes: [apiScope],
+      });
 
     if (!result.accessToken) {
       throw new ApiError(
@@ -43,7 +44,10 @@ async function acquireAccessToken(
       throw error;
     }
 
-    if (error instanceof InteractionRequiredAuthError) {
+    if (
+      error instanceof
+      InteractionRequiredAuthError
+    ) {
       throw new ApiError(
         "Microsoft sign-in is required again before a WinCapture API access token can be acquired.",
         401,
@@ -57,15 +61,22 @@ async function acquireAccessToken(
   }
 }
 
-async function extractErrorMessage(response: Response): Promise<string> {
+async function extractErrorMessage(
+  response: Response,
+): Promise<string> {
   try {
-    const data = (await response.json()) as {
-      message?: string;
-      error?: string;
-      status?: number;
-    };
+    const data =
+      (await response.json()) as {
+        message?: string;
+        error?: string;
+        status?: number;
+      };
 
-    return data.message || data.error || `Backend returned HTTP ${response.status}.`;
+    return (
+      data.message ||
+      data.error ||
+      `Backend returned HTTP ${response.status}.`
+    );
   } catch {
     return `Backend returned HTTP ${response.status}.`;
   }
@@ -77,22 +88,40 @@ export async function callApi(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const accessToken = await acquireAccessToken(instance, account);
+  const accessToken =
+    await acquireAccessToken(
+      instance,
+      account,
+    );
 
-  const headers = new Headers(options.headers);
-  headers.set("Authorization", `Bearer ${accessToken}`);
+  const headers =
+    new Headers(options.headers);
 
-  if (options.body && !(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
+  headers.set(
+    "Authorization",
+    `Bearer ${accessToken}`,
+  );
+
+  if (
+    options.body &&
+    !(options.body instanceof FormData)
+  ) {
+    headers.set(
+      "Content-Type",
+      "application/json",
+    );
   }
 
   let response: Response;
 
   try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
-      ...options,
-      headers,
-    });
+    response = await fetch(
+      `${apiBaseUrl}${path}`,
+      {
+        ...options,
+        headers,
+      },
+    );
   } catch {
     throw new ApiError(
       "The WinCapture API could not be reached. Ensure the backend is running and reachable.",
@@ -101,26 +130,53 @@ export async function callApi(
   }
 
   if (!response.ok) {
-    const serverMessage = await extractErrorMessage(response);
-    let message = serverMessage;
+    const serverMessage =
+      await extractErrorMessage(
+        response,
+      );
+
+    let message =
+      serverMessage;
 
     if (response.status === 400) {
-      message = `Validation failed: ${serverMessage}`;
-    } else if (response.status === 401) {
-      message = `Authentication expired or invalid: ${serverMessage}`;
-    } else if (response.status === 403) {
-      message = `Access denied: ${serverMessage}`;
-    } else if (response.status === 404) {
-      message = `Resource not found: ${serverMessage}`;
-    } else if (response.status === 409) {
-      message = `Conflict: ${serverMessage}`;
-    } else if (response.status === 413) {
-      message = `File too large: ${serverMessage}`;
-    } else if (response.status >= 500) {
-      message = "An unexpected server error occurred. Please try again later.";
+      message =
+        `Validation failed: ${serverMessage}`;
+    } else if (
+      response.status === 401
+    ) {
+      message =
+        `Authentication expired or invalid: ${serverMessage}`;
+    } else if (
+      response.status === 403
+    ) {
+      message =
+        `Access denied: ${serverMessage}`;
+    } else if (
+      response.status === 404
+    ) {
+      message =
+        `Resource not found: ${serverMessage}`;
+    } else if (
+      response.status === 409
+    ) {
+      message =
+        `Conflict: ${serverMessage}`;
+    } else if (
+      response.status === 413
+    ) {
+      message =
+        `File too large: ${serverMessage}`;
+    } else if (
+      response.status >= 500
+    ) {
+      message =
+        "An unexpected server error occurred. Please try again later.";
     }
 
-    throw new ApiError(message, response.status);
+    throw new ApiError(
+      message,
+      response.status,
+    );
   }
 
   return response;
@@ -134,8 +190,16 @@ export async function getCurrentUser(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<CurrentUser> {
-  const response = await callApi(instance, account, "/api/auth/me");
-  return (await response.json()) as CurrentUser;
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/auth/me",
+    );
+
+  return (
+    await response.json()
+  ) as CurrentUser;
 }
 
 // ==========================================
@@ -146,8 +210,16 @@ export async function getAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<AlbumResponse[]> {
-  const response = await callApi(instance, account, "/api/albums");
-  return (await response.json()) as AlbumResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/albums",
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse[];
 }
 
 export async function getAlbum(
@@ -155,8 +227,16 @@ export async function getAlbum(
   account: AccountInfo,
   albumId: number,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}`);
-  return (await response.json()) as AlbumResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}`,
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse;
 }
 
 export async function createAlbum(
@@ -164,11 +244,22 @@ export async function createAlbum(
   account: AccountInfo,
   request: CreateAlbumRequest,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, "/api/albums", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-  return (await response.json()) as AlbumResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/albums",
+      {
+        method: "POST",
+        body: JSON.stringify(
+          request,
+        ),
+      },
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse;
 }
 
 export async function updateAlbum(
@@ -177,11 +268,22 @@ export async function updateAlbum(
   albumId: number,
   request: UpdateAlbumRequest,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}`, {
-    method: "PUT",
-    body: JSON.stringify(request),
-  });
-  return (await response.json()) as AlbumResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(
+          request,
+        ),
+      },
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse;
 }
 
 export async function deleteAlbum(
@@ -189,9 +291,14 @@ export async function deleteAlbum(
   account: AccountInfo,
   albumId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function getAlbumMembers(
@@ -199,8 +306,16 @@ export async function getAlbumMembers(
   account: AccountInfo,
   albumId: number,
 ): Promise<AlbumMemberResponse[]> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/members`);
-  return (await response.json()) as AlbumMemberResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/members`,
+    );
+
+  return (
+    await response.json()
+  ) as AlbumMemberResponse[];
 }
 
 export async function addAlbumMember(
@@ -209,10 +324,17 @@ export async function addAlbumMember(
   albumId: number,
   request: AddAlbumMemberRequest,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/members`, {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members`,
+    {
+      method: "POST",
+      body: JSON.stringify(
+        request,
+      ),
+    },
+  );
 }
 
 export async function updateAlbumMember(
@@ -222,10 +344,17 @@ export async function updateAlbumMember(
   userId: number,
   request: UpdateAlbumMemberRequest,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
-    method: "PUT",
-    body: JSON.stringify(request),
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members/${userId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(
+        request,
+      ),
+    },
+  );
 }
 
 export async function removeAlbumMember(
@@ -234,9 +363,14 @@ export async function removeAlbumMember(
   albumId: number,
   userId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members/${userId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 // ==========================================
@@ -248,8 +382,16 @@ export async function getAlbumFiles(
   account: AccountInfo,
   albumId: number,
 ): Promise<FileResponse[]> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/files`);
-  return (await response.json()) as FileResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files`,
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
 }
 
 export async function getAlbumFile(
@@ -258,12 +400,16 @@ export async function getAlbumFile(
   albumId: number,
   fileId: number,
 ): Promise<FileResponse> {
-  const response = await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files/${fileId}`,
-  );
-  return (await response.json()) as FileResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files/${fileId}`,
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function uploadAlbumFile(
@@ -272,19 +418,28 @@ export async function uploadAlbumFile(
   albumId: number,
   file: File,
 ): Promise<FileResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData =
+    new FormData();
 
-  const response = await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files`,
-    {
-      method: "POST",
-      body: formData,
-    },
+  formData.append(
+    "file",
+    file,
   );
-  return (await response.json()) as FileResponse;
+
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function downloadAlbumFile(
@@ -294,14 +449,26 @@ export async function downloadAlbumFile(
   fileId: number,
   fallbackFileName: string,
 ): Promise<void> {
-  const response = await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files/${fileId}/download`,
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/albums/${albumId}/files/${fileId}/download`,
+    );
+
+  const blob =
+    await response.blob();
+
+  const fileName =
+    extractFileNameFromHeaders(
+      response,
+      fallbackFileName,
+    );
+
+  triggerBrowserDownload(
+    blob,
+    fileName,
   );
-  const blob = await response.blob();
-  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
-  triggerBrowserDownload(blob, fileName);
 }
 
 export async function getFilePreviewUrl(
@@ -309,12 +476,51 @@ export async function getFilePreviewUrl(
   account: AccountInfo,
   fileId: number,
   albumId?: number,
+  canManage = false,
 ): Promise<string> {
-  const path = albumId
-    ? `/api/albums/${albumId}/files/${fileId}/download`
-    : `/api/files/${fileId}/download`;
-  const response = await callApi(instance, account, path);
-  return URL.createObjectURL(await response.blob());
+  const path =
+    albumId
+      ? canManage
+        ? `/api/albums/${albumId}/files/${fileId}/download`
+        : `/api/albums/${albumId}/files/${fileId}/preview`
+      : `/api/files/${fileId}/download`;
+
+  return getFilePreviewUrlByPath(
+    instance,
+    account,
+    path,
+  );
+}
+
+export async function getFilePreviewUrlByPath(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+  contentType?: string,
+): Promise<string> {
+  const response =
+    await callApi(
+      instance,
+      account,
+      path,
+    );
+
+  const responseBlob =
+    await response.blob();
+
+  const previewBlob =
+    contentType
+      ? new Blob(
+          [responseBlob],
+          {
+            type: contentType,
+          },
+        )
+      : responseBlob;
+
+  return URL.createObjectURL(
+    previewBlob,
+  );
 }
 
 export async function deleteAlbumFile(
@@ -341,8 +547,62 @@ export async function getFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<FileResponse[]> {
-  const response = await callApi(instance, account, "/api/files");
-  return (await response.json()) as FileResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/files",
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
+}
+
+export async function getFavorites(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<FileResponse[]> {
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/files/favorites",
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
+}
+
+export async function addFavorite(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<void> {
+  await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}/favorite`,
+    {
+      method: "PUT",
+    },
+  );
+}
+
+export async function removeFavorite(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<void> {
+  await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}/favorite`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function getFile(
@@ -350,8 +610,16 @@ export async function getFile(
   account: AccountInfo,
   fileId: number,
 ): Promise<FileResponse> {
-  const response = await callApi(instance, account, `/api/files/${fileId}`);
-  return (await response.json()) as FileResponse;
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/files/${fileId}`,
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function uploadFile(
@@ -359,14 +627,28 @@ export async function uploadFile(
   account: AccountInfo,
   file: File,
 ): Promise<FileResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData =
+    new FormData();
 
-  const response = await callApi(instance, account, "/api/files", {
-    method: "POST",
-    body: formData,
-  });
-  return (await response.json()) as FileResponse;
+  formData.append(
+    "file",
+    file,
+  );
+
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/files",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function replaceFile(
@@ -375,14 +657,28 @@ export async function replaceFile(
   fileId: number,
   file: File,
 ): Promise<FileResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData =
+    new FormData();
 
-  const response = await callApi(instance, account, `/api/files/${fileId}`, {
-    method: "PUT",
-    body: formData,
-  });
-  return (await response.json()) as FileResponse;
+  formData.append(
+    "file",
+    file,
+  );
+
+  const response =
+    await callApi(
+      instance,
+      account,
+      `/api/files/${fileId}`,
+      {
+        method: "PUT",
+        body: formData,
+      },
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse;
 }
 
 export async function downloadFile(
@@ -391,14 +687,40 @@ export async function downloadFile(
   fileId: number,
   fallbackFileName: string,
 ): Promise<void> {
-  const response = await callApi(
+  await downloadFileByPath(
     instance,
     account,
     `/api/files/${fileId}/download`,
+    fallbackFileName,
   );
-  const blob = await response.blob();
-  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
-  triggerBrowserDownload(blob, fileName);
+}
+
+export async function downloadFileByPath(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  path: string,
+  fallbackFileName: string,
+): Promise<void> {
+  const response =
+    await callApi(
+      instance,
+      account,
+      path,
+    );
+
+  const blob =
+    await response.blob();
+
+  const fileName =
+    extractFileNameFromHeaders(
+      response,
+      fallbackFileName,
+    );
+
+  triggerBrowserDownload(
+    blob,
+    fileName,
+  );
 }
 
 export async function deleteFile(
@@ -406,9 +728,14 @@ export async function deleteFile(
   account: AccountInfo,
   fileId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/files/${fileId}`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 // ==========================================
@@ -419,16 +746,32 @@ export async function getAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<FileResponse[]> {
-  const response = await callApi(instance, account, "/api/admin/files");
-  return (await response.json()) as FileResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/admin/files",
+    );
+
+  return (
+    await response.json()
+  ) as FileResponse[];
 }
 
 export async function getAdminAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<AlbumResponse[]> {
-  const response = await callApi(instance, account, "/api/admin/albums");
-  return (await response.json()) as AlbumResponse[];
+  const response =
+    await callApi(
+      instance,
+      account,
+      "/api/admin/albums",
+    );
+
+  return (
+    await response.json()
+  ) as AlbumResponse[];
 }
 
 // ==========================================
@@ -440,7 +783,13 @@ export async function getApiBlob(
   account: AccountInfo,
   path: string,
 ): Promise<Blob> {
-  const response = await callApi(instance, account, path);
+  const response =
+    await callApi(
+      instance,
+      account,
+      path,
+    );
+
   return response.blob();
 }
 
@@ -448,20 +797,53 @@ function extractFileNameFromHeaders(
   response: Response,
   fallback: string,
 ): string {
-  const disposition = response.headers.get("content-disposition");
-  if (!disposition) return fallback;
+  const disposition =
+    response.headers.get(
+      "content-disposition",
+    );
 
-  const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
-  return match?.[1] ? decodeURIComponent(match[1]) : fallback;
+  if (!disposition) {
+    return fallback;
+  }
+
+  const match =
+    disposition.match(
+      /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i,
+    );
+
+  return match?.[1]
+    ? decodeURIComponent(
+        match[1],
+      )
+    : fallback;
 }
 
-export function triggerBrowserDownload(blob: Blob, filename: string): void {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+export function triggerBrowserDownload(
+  blob: Blob,
+  filename: string,
+): void {
+  const url =
+    window.URL.createObjectURL(
+      blob,
+    );
+
+  const anchor =
+    document.createElement("a");
+
   anchor.href = url;
   anchor.download = filename;
-  document.body.appendChild(anchor);
+
+  document.body.appendChild(
+    anchor,
+  );
+
   anchor.click();
-  document.body.removeChild(anchor);
-  window.URL.revokeObjectURL(url);
+
+  document.body.removeChild(
+    anchor,
+  );
+
+  window.URL.revokeObjectURL(
+    url,
+  );
 }

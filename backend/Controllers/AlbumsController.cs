@@ -211,6 +211,27 @@ public sealed class AlbumsController(
     }
 
     [HttpGet(
+        "{id:long}/files/{fileId:long}/preview")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> PreviewFile(
+        long id,
+        long fileId)
+    {
+        var user = CurrentUser;
+
+        var result =
+            await albumFileService.PreviewAsync(
+                id,
+                fileId,
+                user,
+                CurrentUserRole);
+
+        return File(
+            result.Content,
+            result.ContentType);
+    }
+
+    [HttpGet(
         "{id:long}/files/{fileId:long}/download")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     public async Task<IActionResult> DownloadFile(

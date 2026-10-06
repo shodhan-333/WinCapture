@@ -23,6 +23,12 @@ public interface IAlbumFileService
         User currentUser,
         UserRole role);
 
+    Task<FileDownloadResult> PreviewAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role);
+
     Task<FileDownloadResult> DownloadAsync(
         long albumId,
         long fileId,

@@ -11,35 +11,57 @@ public sealed class FileService(
     FileValidator validator,
     IStorageService storage,
     IFileRepository files,
+    IAlbumRepository albums,
     ILogger<FileService> logger) : IFileService
 {
-    public async Task<FileResponse> UploadAsync(IFormFile file, int userId)
+    public async Task<FileResponse> UploadAsync(
+        IFormFile file,
+        int userId)
     {
         await validator.ValidateAsync(file);
 
-        var storedFileName = await storage.SaveAsync(file);
+        var storedFileName =
+            await storage.SaveAsync(file);
 
         var metadata = new FileMetadata
         {
-            OriginalFileName = Path.GetFileName(file.FileName),
-            StoredFileName = storedFileName,
-            ContentType = file.ContentType,
-            FileSize = file.Length,
-            UploadedBy = userId,
-            UploadedAt = DateTime.UtcNow
+            OriginalFileName =
+                Path.GetFileName(
+                    file.FileName),
+
+            StoredFileName =
+                storedFileName,
+
+            ContentType =
+                file.ContentType,
+
+            FileSize =
+                file.Length,
+
+            UploadedBy =
+                userId,
+
+            UploadedAt =
+                DateTime.UtcNow
         };
 
         try
         {
-            await files.AddAsync(metadata);
+            await files.AddAsync(
+                metadata);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(storedFileName);
+            await TryDeleteStoredFileAsync(
+                storedFileName);
+
             throw;
         }
 
-        return ToResponse(metadata);
+        return ToResponse(
+            metadata,
+            false,
+            true);
     }
 
     public async Task<FileResponse> ReplaceAsync(
@@ -50,49 +72,124 @@ public sealed class FileService(
     {
         await validator.ValidateAsync(file);
 
-        var existing = await GetAuthorizedFileAsync(fileId, userId, userRole);
-        var oldStoredFileName = existing.StoredFileName;
-        var newStoredFileName = await storage.SaveAsync(file);
+        var existing =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
 
-        existing.OriginalFileName = Path.GetFileName(file.FileName);
-        existing.StoredFileName = newStoredFileName;
-        existing.ContentType = file.ContentType;
-        existing.FileSize = file.Length;
-        existing.UploadedAt = DateTime.UtcNow;
+        var oldStoredFileName =
+            existing.StoredFileName;
+
+        var newStoredFileName =
+            await storage.SaveAsync(file);
+
+        existing.OriginalFileName =
+            Path.GetFileName(
+                file.FileName);
+
+        existing.StoredFileName =
+            newStoredFileName;
+
+        existing.ContentType =
+            file.ContentType;
+
+        existing.FileSize =
+            file.Length;
+
+        existing.UploadedAt =
+            DateTime.UtcNow;
 
         try
         {
-            await files.UpdateAsync(existing);
+            await files.UpdateAsync(
+                existing);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(newStoredFileName);
+            await TryDeleteStoredFileAsync(
+                newStoredFileName);
+
             throw;
         }
 
-        await TryDeleteStoredFileAsync(oldStoredFileName);
+        await TryDeleteStoredFileAsync(
+            oldStoredFileName);
 
-        return ToResponse(existing);
+        var isFavorite =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId) is not null;
+
+        return ToResponse(
+            existing,
+            isFavorite,
+            true);
     }
 
-    public async Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId) =>
-        (await files.GetByUserIdAsync(userId))
-            .Select(ToResponse)
+    public async Task<IReadOnlyList<FileResponse>>
+        GetGalleryAsync(
+            int userId)
+    {
+        var galleryFiles =
+            await files.GetByUserIdAsync(
+                userId);
+
+        var favoriteIds =
+            await files.GetFavoriteFileIdsByUserIdAsync(
+                userId);
+
+        var favoriteIdSet =
+            favoriteIds.ToHashSet();
+
+        return galleryFiles
+            .Select(
+                file =>
+                    ToResponse(
+                        file,
+                        favoriteIdSet.Contains(
+                            file.Id),
+                        true))
             .ToList();
+    }
 
     public async Task<FileResponse> GetAsync(
         long fileId,
         int userId,
-        UserRole userRole) =>
-        ToResponse(await GetAuthorizedFileAsync(fileId, userId, userRole));
-
-    public async Task<FileDownloadResult> DownloadAsync(
-        long fileId,
-        int userId,
         UserRole userRole)
     {
-        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
-        var content = await storage.GetAsync(file.StoredFileName);
+        var file =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
+
+        var isFavorite =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId) is not null;
+
+        return ToResponse(
+            file,
+            isFavorite,
+            true);
+    }
+
+    public async Task<FileDownloadResult>
+        DownloadAsync(
+            long fileId,
+            int userId,
+            UserRole userRole)
+    {
+        var file =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
+
+        var content =
+            await storage.GetAsync(
+                file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -105,42 +202,206 @@ public sealed class FileService(
         int userId,
         UserRole userRole)
     {
-        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
+        var file =
+            await GetAuthorizedFileAsync(
+                fileId,
+                userId,
+                userRole);
 
-        await files.DeleteAsync(file);
+        await files.DeleteAsync(
+            file);
 
-        // SQL is treated as the source of truth for the gallery.
-        // If Blob deletion fails, the database record is already gone.
-        // The cleanup error is logged without changing the successful response.
-        await TryDeleteStoredFileAsync(file.StoredFileName);
+        await TryDeleteStoredFileAsync(
+            file.StoredFileName);
     }
 
-    public async Task<IReadOnlyList<FileResponse>> GetAllAsync() =>
+    public async Task<IReadOnlyList<FileResponse>>
+        GetAllAsync() =>
         (await files.GetAllAsync())
-            .Select(ToResponse)
+            .Select(
+                file =>
+                    ToResponse(
+                        file,
+                        false,
+                        true))
             .ToList();
 
-    private async Task<FileMetadata> GetAuthorizedFileAsync(
+    public async Task<IReadOnlyList<FileResponse>>
+        GetFavoritesAsync(
+            int userId,
+            UserRole userRole)
+    {
+        var favoriteFiles =
+            await files.GetFavoriteFilesByUserIdAsync(
+                userId);
+
+        var result =
+            new List<FileResponse>();
+
+        foreach (var file in favoriteFiles)
+        {
+            var permissions =
+                await GetFilePermissionsAsync(
+                    file,
+                    userId,
+                    userRole);
+
+            if (!permissions.CanView)
+            {
+                continue;
+            }
+
+            result.Add(
+                ToResponse(
+                    file,
+                    true,
+                    permissions.CanManage));
+        }
+
+        return result;
+    }
+
+    public async Task AddFavoriteAsync(
         long fileId,
         int userId,
         UserRole userRole)
     {
-        var file = await files.GetByIdAsync(fileId)
-            ?? throw new NotFoundException("The requested file was not found.");
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
 
-        if (userRole != UserRole.Admin && file.UploadedBy != userId)
+        var permissions =
+            await GetFilePermissionsAsync(
+                file,
+                userId,
+                userRole);
+
+        if (!permissions.CanView)
         {
-            throw new ForbiddenException("You are not allowed to access this file.");
+            throw new ForbiddenException(
+                "You are not allowed to favorite this file.");
+        }
+
+        var existing =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId);
+
+        if (existing is not null)
+        {
+            return;
+        }
+
+        await files.AddFavoriteAsync(
+            new Favorite
+            {
+                UserId =
+                    userId,
+
+                FileId =
+                    fileId,
+
+                FavoritedAt =
+                    DateTime.UtcNow
+            });
+    }
+
+    public async Task RemoveFavoriteAsync(
+        long fileId,
+        int userId)
+    {
+        var favorite =
+            await files.GetFavoriteAsync(
+                userId,
+                fileId);
+
+        if (favorite is null)
+        {
+            return;
+        }
+
+        await files.DeleteFavoriteAsync(
+            favorite);
+    }
+
+    private async Task<FileMetadata>
+        GetAuthorizedFileAsync(
+            long fileId,
+            int userId,
+            UserRole userRole)
+    {
+        var file =
+            await files.GetByIdAsync(
+                fileId)
+            ?? throw new NotFoundException(
+                "The requested file was not found.");
+
+        if (userRole != UserRole.Admin &&
+            file.UploadedBy != userId)
+        {
+            throw new ForbiddenException(
+                "You are not allowed to access this file.");
         }
 
         return file;
     }
 
-    private async Task TryDeleteStoredFileAsync(string storedFileName)
+    private async Task<(
+        bool CanView,
+        bool CanManage)>
+        GetFilePermissionsAsync(
+            FileMetadata file,
+            int userId,
+            UserRole userRole)
+    {
+        if (userRole == UserRole.Admin)
+        {
+            return (true, true);
+        }
+
+        if (file.AlbumId is null)
+        {
+            var ownsFile =
+                file.UploadedBy == userId;
+
+            return (
+                ownsFile,
+                ownsFile);
+        }
+
+        var album =
+            await albums.GetByIdAsync(
+                file.AlbumId.Value);
+
+        if (album is null)
+        {
+            return (false, false);
+        }
+
+        if (album.CreatedBy == userId)
+        {
+            return (true, true);
+        }
+
+        var access =
+            await albums.GetAccessAsync(
+                file.AlbumId.Value,
+                userId);
+
+        return (
+            access?.CanView == true,
+            false);
+    }
+
+    private async Task TryDeleteStoredFileAsync(
+        string storedFileName)
     {
         try
         {
-            await storage.DeleteAsync(storedFileName);
+            await storage.DeleteAsync(
+                storedFileName);
         }
         catch (Exception exception)
         {
@@ -151,13 +412,30 @@ public sealed class FileService(
         }
     }
 
-    private static FileResponse ToResponse(FileMetadata file) =>
-        new(
+    private static FileResponse ToResponse(
+        FileMetadata file,
+        bool isFavorite,
+        bool canManage)
+    {
+        var url =
+            file.AlbumId.HasValue
+                ? $"/api/albums/{file.AlbumId.Value}/files/{file.Id}"
+                : $"/api/files/{file.Id}";
+
+        var downloadUrl =
+            file.AlbumId.HasValue
+                ? $"/api/albums/{file.AlbumId.Value}/files/{file.Id}/download"
+                : $"/api/files/{file.Id}/download";
+
+        return new FileResponse(
             file.Id,
             file.OriginalFileName,
             file.ContentType,
             file.FileSize,
             file.UploadedAt,
-            $"/api/files/{file.Id}",
-            $"/api/files/{file.Id}/download");
+            url,
+            downloadUrl,
+            isFavorite,
+            canManage);
+    }
 }

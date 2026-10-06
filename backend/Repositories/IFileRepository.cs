@@ -25,4 +25,22 @@ public interface IFileRepository
 
     Task DeleteAsync(
         FileMetadata file);
+
+    Task<IReadOnlyList<long>>
+        GetFavoriteFileIdsByUserIdAsync(
+            int userId);
+
+    Task<IReadOnlyList<FileMetadata>>
+        GetFavoriteFilesByUserIdAsync(
+            int userId);
+
+    Task<Favorite?> GetFavoriteAsync(
+        int userId,
+        long fileId);
+
+    Task AddFavoriteAsync(
+        Favorite favorite);
+
+    Task DeleteFavoriteAsync(
+        Favorite favorite);
 }
