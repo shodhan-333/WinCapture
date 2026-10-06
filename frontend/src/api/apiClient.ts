@@ -17,7 +17,6 @@ import type {
 } from "../types/album";
 import type { FileResponse } from "../types/file";
 
-
 async function acquireAccessToken(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -407,6 +406,22 @@ export async function uploadAlbumFile(
   );
 }
 
+export async function replaceAlbumFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  fileId: number,
+  file: File,
+): Promise<FileResponse> {
+  return uploadMultipartFile<FileResponse>(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}`,
+    "PUT",
+    file,
+  );
+}
+
 export async function downloadAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -752,4 +767,3 @@ function triggerBrowserDownload(
     url,
   );
 }
-
