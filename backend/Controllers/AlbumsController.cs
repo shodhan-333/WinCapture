@@ -27,8 +27,8 @@ public sealed class AlbumsController(
     {
         get
         {
-            var value =User.FindFirst("wincapture_user_id")?.Value
-                ?? User.FindFirst("sub")?.Value;
+            var value =
+                User.FindFirst("sub")?.Value;
 
             if (!int.TryParse(
                     value,
