@@ -215,15 +215,16 @@ public sealed class FileService(
             file.StoredFileName);
     }
 
-    public async Task<IReadOnlyList<FileResponse>>
+    public async Task<IReadOnlyList<AdminFileResponse>>
         GetAllAsync() =>
         (await files.GetAllAsync())
-            .Select(
-                file =>
-                    ToResponse(
-                        file,
-                        false,
-                        true))
+            .Select(ToAdminResponse)
+            .ToList();
+
+    public async Task<IReadOnlyList<AdminFileResponse>>
+        GetAdminFilesByUploaderIdAsync(int userId) =>
+        (await files.GetAdminFilesByUploaderIdAsync(userId))
+            .Select(ToAdminResponse)
             .ToList();
 
     public async Task<IReadOnlyList<FileResponse>>
@@ -435,4 +436,17 @@ public sealed class FileService(
             isFavorite,
             canManage);
     }
+
+    private static AdminFileResponse ToAdminResponse(
+        FileMetadata file) =>
+        new(
+            file.Id,
+            file.OriginalFileName,
+            file.ContentType,
+            file.FileSize,
+            file.UploadedAt,
+            file.UploadedBy,
+            file.User.Name,
+            file.AlbumId,
+            file.Album?.AlbumName);
 }

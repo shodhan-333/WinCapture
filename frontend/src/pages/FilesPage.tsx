@@ -19,6 +19,7 @@ import {
   deleteFile,
   downloadFileByPath,
   getFavorites,
+  getFile,
   getFilePreviewUrlByPath,
   getFiles,
   replaceFile,
@@ -30,6 +31,7 @@ import {
   pageHeaderSkeletonClass,
 } from "../components/ui/uiClasses";
 import FileCardGrid from "../components/files/FileCardGrid";
+import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
@@ -73,6 +75,8 @@ export default function FilesPage() {
     useState(false);
   const [searchQuery, setSearchQuery] =
     useState("");
+  const [fileDetails, setFileDetails] =
+    useState<FileResponse | null>(null);
 
   const loadPreview = useCallback(
     async (file: FileResponse) => {
@@ -311,6 +315,21 @@ export default function FilesPage() {
     onError: handleFavoriteError,
   });
 
+  const handleShowFileDetails = async (file: FileResponse) => {
+    if (!account) return;
+
+    try {
+      setError(null);
+      setFileDetails(await getFile(instance, account, file.id));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load file details.",
+      );
+    }
+  };
+
   const openReplace = (file: FileResponse) => {
     replaceTargetIdRef.current = file.id;
 
@@ -401,9 +420,7 @@ export default function FilesPage() {
               type="button"
               aria-pressed={view === "favorites"}
               onClick={() => setView("favorites")}
-              className={
-                view === "favorites" ? "bg-[rgba(255,255,255,0.8)] text-[#b47818] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""
-              }
+              className={`${viewButtonClass} ${view === "favorites" ? "bg-[rgba(255,255,255,0.8)] text-[#b47818] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""}`}
             >
               <Star
                 aria-hidden="true"
@@ -411,7 +428,7 @@ export default function FilesPage() {
                 strokeWidth={1.8}
                 className={
                   view === "favorites"
-                    ? "fill-current"
+                  ? "fill-current text-[#e79a1b]"
                     : ""
                 }
               />
@@ -585,6 +602,7 @@ export default function FilesPage() {
               void toggleFavorite(file)
             }
             onReplace={openReplace}
+            onDetails={(file) => void handleShowFileDetails(file)}
             onDownload={(file) =>
               void handleDownload(file)
             }
@@ -594,6 +612,12 @@ export default function FilesPage() {
           />
         )}
       </section>
+      {fileDetails && (
+        <FileDetailsDialog
+          file={fileDetails}
+          onClose={() => setFileDetails(null)}
+        />
+      )}
     </div>
   );
 }

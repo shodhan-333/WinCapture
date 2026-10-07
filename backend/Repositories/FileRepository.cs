@@ -50,8 +50,20 @@ public sealed class FileRepository(
         GetAllAsync() =>
         await db.Files
             .AsNoTracking()
+            .Include(file => file.User)
+            .Include(file => file.Album)
             .OrderByDescending(
                 file => file.UploadedAt)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<FileMetadata>>
+        GetAdminFilesByUploaderIdAsync(int userId) =>
+        await db.Files
+            .AsNoTracking()
+            .Include(file => file.User)
+            .Include(file => file.Album)
+            .Where(file => file.UploadedBy == userId)
+            .OrderByDescending(file => file.UploadedAt)
             .ToListAsync();
 
     public async Task UpdateAsync(

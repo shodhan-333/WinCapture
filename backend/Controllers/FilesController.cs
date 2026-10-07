@@ -65,7 +65,7 @@ public sealed class FilesController(
     }
 
     [HttpPost]
-    [Authorize(Roles = "WinCapture.User")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestSize)]
     [RequestFormLimits(

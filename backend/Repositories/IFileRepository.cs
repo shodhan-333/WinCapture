@@ -20,6 +20,9 @@ public interface IFileRepository
     Task<IReadOnlyList<FileMetadata>>
         GetAllAsync();
 
+    Task<IReadOnlyList<FileMetadata>>
+        GetAdminFilesByUploaderIdAsync(int userId);
+
     Task UpdateAsync(
         FileMetadata file);
 

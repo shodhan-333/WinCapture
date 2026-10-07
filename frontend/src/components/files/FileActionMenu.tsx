@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   Download,
+  Info,
   MoreHorizontal,
   Replace,
   Trash2,
@@ -17,6 +18,7 @@ interface FileActionMenuProps {
   fileName: string;
   canManage: boolean;
   onReplace: () => void;
+  onDetails: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }
@@ -33,6 +35,7 @@ export default function FileActionMenu({
   fileName,
   canManage,
   onReplace,
+  onDetails,
   onDownload,
   onDelete,
 }: FileActionMenuProps) {
@@ -224,6 +227,16 @@ export default function FileActionMenu({
               left: position.left,
             }}
           >
+            <button
+              type="button"
+              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5]"
+              role="menuitem"
+              onClick={() => runAction(onDetails)}
+            >
+              <Info aria-hidden="true" size={16} strokeWidth={1.8} />
+              <span>Details</span>
+            </button>
+
             {canManage && (
               <button
                 type="button"

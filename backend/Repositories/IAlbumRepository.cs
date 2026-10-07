@@ -10,6 +10,8 @@ public interface IAlbumRepository
 
     Task<IReadOnlyList<Album>> GetAccessibleByUserIdAsync(int userId);
 
+    Task<IReadOnlyList<Album>> GetOwnedByUserIdAsync(int userId);
+
     Task<IReadOnlyList<Album>> GetAllAsync();
 
     Task UpdateAsync(Album album);

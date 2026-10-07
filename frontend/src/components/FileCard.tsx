@@ -1,12 +1,9 @@
 import {
-  Download,
   FileText,
-  MoreHorizontal,
-  Replace,
   Star,
-  Trash2,
 } from "lucide-react";
 
+import FileActionMenu from "./files/FileActionMenu";
 import type { FileResponse } from "../types/file";
 import {
   formatDate,
@@ -21,6 +18,7 @@ interface FileCardProps {
   favoritePending?: boolean;
   onFavoriteToggle: () => void;
   onReplace: () => void;
+  onDetails: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }
@@ -44,6 +42,7 @@ export default function FileCard({
   favoritePending = false,
   onFavoriteToggle,
   onReplace,
+  onDetails,
   onDownload,
   onDelete,
 }: FileCardProps) {
@@ -112,7 +111,7 @@ export default function FileCard({
             strokeWidth={1.8}
             className={
               file.isFavorite
-                ? "fill-current"
+                ? "fill-current text-[#e79a1b]"
                 : ""
             }
           />
@@ -145,85 +144,14 @@ export default function FileCard({
               </p>
             </div>
 
-            <details className="group relative flex-none">
-              <summary
-                aria-label={`Actions for ${file.originalFileName}`}
-                title="File actions"
-                className="grid h-[30px] w-[30px] cursor-pointer list-none place-items-center rounded-[9px] text-[#8297a8] transition-[color,background] duration-[180ms] hover:bg-[#edf6fd] hover:text-[#2b73bf] group-open:bg-[#eaf4fc] group-open:text-[#2876c7] [&::-webkit-details-marker]:hidden"
-              >
-                <MoreHorizontal
-                  aria-hidden="true"
-                  size={19}
-                  strokeWidth={1.8}
-                />
-              </summary>
-
-              <div className="absolute top-[calc(100%+6px)] right-0 z-[30] w-[148px] rounded-[11px] border border-[rgba(199,222,239,0.86)] bg-[rgba(255,255,255,0.92)] p-[5px] shadow-[0_16px_34px_rgba(37,78,111,0.13),inset_0_1px_rgba(255,255,255,0.88)] backdrop-blur-[16px]">
-                {effectiveCanManage && (
-                  <button
-                    type="button"
-                    className="flex min-h-[34px] w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] hover:bg-[#edf6fd] hover:text-[#1c68b5]"
-                    onClick={(event) => {
-                      event.currentTarget
-                        .closest("details")
-                        ?.removeAttribute("open");
-
-                      onReplace();
-                    }}
-                  >
-                    <Replace
-                      aria-hidden="true"
-                      size={16}
-                      strokeWidth={1.8}
-                    />
-
-                    <span>Replace</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  className="flex min-h-[34px] w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] hover:bg-[#edf6fd] hover:text-[#1c68b5]"
-                  onClick={(event) => {
-                    event.currentTarget
-                      .closest("details")
-                      ?.removeAttribute("open");
-
-                    onDownload();
-                  }}
-                >
-                  <Download
-                    aria-hidden="true"
-                    size={16}
-                    strokeWidth={1.8}
-                  />
-
-                  <span>Download</span>
-                </button>
-
-                {effectiveCanManage && (
-                  <button
-                    type="button"
-                    className="flex min-h-[34px] w-full cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#d85059] transition-[color,background] duration-[160ms] hover:bg-[#fff0f1] hover:text-[#c33d46]"
-                    onClick={(event) => {
-                      event.currentTarget
-                        .closest("details")
-                        ?.removeAttribute("open");
-
-                      onDelete();
-                    }}
-                  >
-                    <Trash2
-                      aria-hidden="true"
-                      size={16}
-                      strokeWidth={1.8}
-                    />
-
-                    <span>Delete</span>
-                  </button>
-                )}
-              </div>
-            </details>
+            <FileActionMenu
+              fileName={file.originalFileName}
+              canManage={effectiveCanManage}
+              onDetails={onDetails}
+              onReplace={onReplace}
+              onDownload={onDownload}
+              onDelete={onDelete}
+            />
           </div>
 
           <p className="mt-[10px] mb-0 border-t border-[#ebf1f5] pt-[9px] text-[8px] text-[#9aaab7]">

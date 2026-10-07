@@ -35,8 +35,11 @@ public interface IFileService
         int userId,
         UserRole userRole);
 
-    Task<IReadOnlyList<FileResponse>>
+    Task<IReadOnlyList<AdminFileResponse>>
         GetAllAsync();
+
+    Task<IReadOnlyList<AdminFileResponse>>
+        GetAdminFilesByUploaderIdAsync(int userId);
 
     Task<IReadOnlyList<FileResponse>>
         GetFavoritesAsync(

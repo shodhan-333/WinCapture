@@ -14,13 +14,14 @@ import {
   pageHeaderClass,
   pageHeaderSkeletonClass,
 } from "../components/ui/uiClasses";
+import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import { formatDate } from "../utils/formatters";
 
 export default function AlbumsPage() {
   const { instance } = useMsal();
-  const { account } = useAuth();
+  const { account, user } = useAuth();
   const navigate = useNavigate();
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
@@ -30,6 +31,13 @@ export default function AlbumsPage() {
   );
   const [creating, setCreating] = useState(false);
   const [albumName, setAlbumName] = useState("");
+  const coverUrls = useAlbumCoverPreviews(
+    albums,
+    instance,
+    account,
+    user?.userId,
+    user?.role === "Admin",
+  );
 
   const loadAlbums = async () => {
     if (!account) {
@@ -249,28 +257,39 @@ export default function AlbumsPage() {
         ) : (
           <div className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
             {albums.map((album) => (
-              <button
-                key={album.id}
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/albums/${album.id}`,
-                  )
-                }
-                className="surface w-full min-w-0 cursor-pointer overflow-hidden rounded-[18px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
-              >
+                <button
+                  key={album.id}
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/albums/${album.id}`,
+                    )
+                  }
+                  className="surface w-full min-w-0 cursor-pointer overflow-hidden rounded-[18px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
+                >
                 <div className="relative h-[188px] overflow-hidden max-[760px]:h-[148px] max-[520px]:h-[181px]">
                   <div className="relative grid h-full w-full place-items-center overflow-hidden bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.62),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b8ddfa_48%,#d8eaf8_100%)]">
-                    <span className="absolute right-[-22px] top-[-92px] h-[170px] w-[170px] rounded-full bg-[rgba(75,158,237,0.24)] blur-[1px]" />
-                    <span className="absolute bottom-[-78px] left-[-23px] h-[125px] w-[125px] rounded-full bg-[rgba(255,255,255,0.36)] blur-[1px]" />
-
-                    <span className="relative z-[1] grid h-[61px] w-[61px] place-items-center rounded-[18px] border border-[rgba(255,255,255,0.72)] bg-[rgba(255,255,255,0.5)] text-[#1c7bde] shadow-[0_12px_27px_rgba(49,110,169,0.11),inset_0_1px_rgba(255,255,255,0.7)] backdrop-blur-[11px]">
-                      <Images
+                    {coverUrls[album.id] ? (
+                      <img
+                        src={coverUrls[album.id]}
+                        alt=""
                         aria-hidden="true"
-                        size={28}
-                        strokeWidth={1.45}
+                        className="absolute inset-0 h-full w-full object-cover"
                       />
-                    </span>
+                    ) : (
+                      <>
+                        <span className="absolute right-[-22px] top-[-92px] h-[170px] w-[170px] rounded-full bg-[rgba(75,158,237,0.24)] blur-[1px]" />
+                        <span className="absolute bottom-[-78px] left-[-23px] h-[125px] w-[125px] rounded-full bg-[rgba(255,255,255,0.36)] blur-[1px]" />
+
+                        <span className="relative z-[1] grid h-[61px] w-[61px] place-items-center rounded-[18px] border border-[rgba(255,255,255,0.72)] bg-[rgba(255,255,255,0.5)] text-[#1c7bde] shadow-[0_12px_27px_rgba(49,110,169,0.11),inset_0_1px_rgba(255,255,255,0.7)] backdrop-blur-[11px]">
+                          <Images
+                            aria-hidden="true"
+                            size={28}
+                            strokeWidth={1.45}
+                          />
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   <span className="absolute top-[11px] right-[11px] grid h-[31px] w-[31px] place-items-center rounded-[9px] border border-[rgba(255,255,255,0.26)] bg-[rgba(17,59,92,0.32)] text-white backdrop-blur-[8px]">
@@ -352,7 +371,7 @@ export default function AlbumsPage() {
                     </span>
                   </div>
                 </div>
-              </button>
+                </button>
             ))}
           </div>
         )}

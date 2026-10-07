@@ -106,8 +106,16 @@ public sealed class AlbumsController(
 
         return Ok(
             await albumService.GetAccessibleAsync(
-                user,
-                CurrentUserRole));
+                user));
+    }
+
+    [HttpGet("mine")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>>
+        GetOwnedByCurrentUser()
+    {
+        return Ok(
+            await albumService.GetOwnedByUserAsync(UserId));
     }
 
     [HttpGet("{id:long}")]

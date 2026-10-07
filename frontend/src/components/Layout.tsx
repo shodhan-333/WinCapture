@@ -5,19 +5,15 @@ import {
   LogOut,
   Menu,
   Shield,
-  UserRound,
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { getInitials } from "../utils/formatters";
 import {
   brandMarkClass,
   brandMarkLetterClass,
-  brandMarkSmallClass,
-  brandMarkSmallLetterClass,
   appShellClass,
 } from "./ui/uiClasses";
 
@@ -48,6 +44,11 @@ const navigation = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { pathname } = useLocation();
+  const pageTitle = pathname.startsWith("/albums/")
+    ? "Album details"
+    : navigation.find((item) => item.to === pathname)?.label ??
+      (pathname === "/admin" ? "Admin" : "Dashboard");
 
   const closeMobileNavigation = () => {
     setMobileOpen(false);
@@ -139,55 +140,6 @@ export default function Layout() {
           )}
         </nav>
 
-        <div className="mt-auto flex flex-col gap-[5px]">
-          <NavLink
-            to="/profile"
-            onClick={closeMobileNavigation}
-            className={({ isActive }) => navLinkClass(isActive)}
-          >
-            <span className={navIconClass}>
-              <UserRound
-                aria-hidden="true"
-                size={18}
-                strokeWidth={1.8}
-              />
-            </span>
-
-            <span>Profile</span>
-          </NavLink>
-
-          <button
-            type="button"
-            className={`${navLinkClass(false)} text-[#6b8297]`}
-            onClick={() => void logout()}
-          >
-            <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-[rgba(231,241,250,0.58)] text-current transition-[background,color] duration-[180ms]">
-              <LogOut
-                aria-hidden="true"
-                size={18}
-                strokeWidth={1.8}
-              />
-            </span>
-
-            <span>Sign out</span>
-          </button>
-
-          <div className="mt-[7px] flex min-h-[58px] items-center gap-[10px] rounded-[13px] border border-[rgba(189,216,237,0.48)] bg-[rgba(255,255,255,0.42)] px-[10px] py-[9px] shadow-[inset_0_1px_rgba(255,255,255,0.68),0_6px_15px_rgba(48,103,151,0.04)]">
-            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-[linear-gradient(145deg,#74bdff,#4687db)] text-[10px] font-bold text-white shadow-[0_6px_17px_rgba(52,120,215,0.18),inset_0_1px_rgba(255,255,255,0.23)]">
-              {getInitials(user?.name)}
-            </span>
-
-            <span className="grid min-w-0 gap-[3px]">
-              <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#284763]">
-                {user?.name ?? "WinCapture User"}
-              </strong>
-
-              <small className="text-[9px] text-[#8299ab]">
-                {user?.role ?? "User"}
-              </small>
-            </span>
-          </div>
-        </div>
       </aside>
 
       {mobileOpen && (
@@ -222,14 +174,30 @@ export default function Layout() {
               />
             </button>
 
-            <div className="hidden items-center gap-2 text-[12px] font-[650] text-[#22425d] max-[760px]:flex">
-              <span className={`${brandMarkClass} ${brandMarkSmallClass}`} aria-hidden="true">
-                <span className={`${brandMarkLetterClass} ${brandMarkSmallLetterClass}`}>W</span>
-              </span>
+            <h1 className="m-0 truncate text-[16px] font-[650] tracking-[-0.02em] text-[#22425d] max-[760px]:text-[14px]">
+              {pageTitle}
+            </h1>
 
-              <span>WinCapture</span>
-            </div>
+          </div>
 
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-[linear-gradient(145deg,#74bdff,#4687db)] text-[10px] font-bold text-white">
+              {user?.name?.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() ?? "U"}
+            </span>
+            <span className="grid min-w-0 gap-[2px] max-[520px]:hidden">
+              <strong className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-[#284763]">
+                {user?.name ?? "WinCapture User"}
+              </strong>
+              <small className="text-[9px] text-[#8299ab]">{user?.role ?? "User"}</small>
+            </span>
+            <button
+              type="button"
+              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] border border-[rgba(189,211,229,0.68)] bg-[rgba(255,255,255,0.38)] px-[11px] text-[11px] font-medium text-[#6b8297] transition-[color,background,border-color] duration-[180ms] hover:border-[rgba(221,150,150,0.48)] hover:bg-[rgba(255,245,245,0.62)] hover:text-[#b84d55]"
+              onClick={() => void logout()}
+            >
+              <LogOut aria-hidden="true" size={15} strokeWidth={1.8} />
+              <span>Sign out</span>
+            </button>
           </div>
         </header>
 

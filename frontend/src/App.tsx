@@ -14,7 +14,6 @@ import Dashboard from "./pages/Dashboard";
 import AlbumsPage from "./pages/AlbumsPage";
 import AlbumDetailPage from "./pages/AlbumDetailPage";
 import FilesPage from "./pages/FilesPage";
-import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 
 function AuthGate() {
@@ -177,11 +176,6 @@ export default function App() {
         <Route
           path="/files"
           element={<FilesPage />}
-        />
-
-        <Route
-          path="/profile"
-          element={<ProfilePage />}
         />
 
         {user.role === "Admin" && (

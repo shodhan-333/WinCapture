@@ -43,14 +43,8 @@ public sealed class AlbumService(
 
     public async Task<IReadOnlyList<AlbumResponse>>
         GetAccessibleAsync(
-            User currentUser,
-            UserRole role)
+            User currentUser)
     {
-        if (role == UserRole.Admin)
-        {
-            return await GetAllForAdminAsync();
-        }
-
         var result =
             await albums.GetAccessibleByUserIdAsync(
                 currentUser.Id);
@@ -58,6 +52,16 @@ public sealed class AlbumService(
         return result
             .Select(
                 ToResponse)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<AlbumResponse>>
+        GetOwnedByUserAsync(int userId)
+    {
+        var result = await albums.GetOwnedByUserIdAsync(userId);
+
+        return result
+            .Select(ToResponse)
             .ToList();
     }
 

@@ -10,8 +10,9 @@ public interface IAlbumService
         User currentUser);
 
     Task<IReadOnlyList<AlbumResponse>> GetAccessibleAsync(
-        User currentUser,
-        UserRole role);
+        User currentUser);
+
+    Task<IReadOnlyList<AlbumResponse>> GetOwnedByUserAsync(int userId);
 
     Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync();
 

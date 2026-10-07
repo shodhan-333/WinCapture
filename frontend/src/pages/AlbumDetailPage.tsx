@@ -24,14 +24,17 @@ import {
 import { useMsal } from "@azure/msal-react";
 import {
   Link,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 
 import {
   addAlbumMember,
+  deleteAlbum,
   deleteAlbumFile,
   downloadAlbumFile,
   getAlbum,
+  getAlbumFile,
   getAlbumFiles,
   getAlbumMembers,
   getFilePreviewUrl,
@@ -43,6 +46,7 @@ import {
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import FileCardGrid from "../components/files/FileCardGrid";
+import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
@@ -63,6 +67,7 @@ const memberPermissionClass =
 
 export default function AlbumDetailPage() {
   const { instance } = useMsal();
+  const navigate = useNavigate();
 
   const {
     account,
@@ -87,6 +92,9 @@ export default function AlbumDetailPage() {
   const [files, setFiles] =
     useState<FileResponse[]>([]);
 
+  const [fileDetails, setFileDetails] =
+    useState<FileResponse | null>(null);
+
   const [members, setMembers] =
     useState<AlbumMemberResponse[]>([]);
 
@@ -97,6 +105,9 @@ export default function AlbumDetailPage() {
     useState<string | null>(null);
 
   const [uploading, setUploading] =
+    useState(false);
+
+  const [deletingAlbum, setDeletingAlbum] =
     useState(false);
 
   const [memberEmail, setMemberEmail] =
@@ -156,6 +167,11 @@ export default function AlbumDetailPage() {
   } = useFilePreviews(
     files,
     loadPreview,
+  );
+  const albumCoverPreview = files.find(
+    (file) =>
+      file.contentType.startsWith("image/") &&
+      previewUrls[file.id],
   );
 
   const loadAlbumData = async () => {
@@ -489,6 +505,53 @@ export default function AlbumDetailPage() {
       }
     };
 
+  const handleDeleteAlbum = async () => {
+    if (!account || !album || deletingAlbum) {
+      return;
+    }
+
+    if (!window.confirm(`Delete “${album.albumName}”? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeletingAlbum(true);
+      setError(null);
+      await deleteAlbum(instance, account, album.id);
+      navigate("/albums", { replace: true });
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to delete album.",
+      );
+    } finally {
+      setDeletingAlbum(false);
+    }
+  };
+
+  const handleShowFileDetails = async (file: FileResponse) => {
+    if (!account) return;
+
+    try {
+      setError(null);
+      setFileDetails(
+        await getAlbumFile(
+          instance,
+          account,
+          numericAlbumId,
+          file.id,
+        ),
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load file details.",
+      );
+    }
+  };
+
   const handleAddMember =
     async () => {
       if (
@@ -702,16 +765,27 @@ export default function AlbumDetailPage() {
 
       <section className="surface relative flex items-center gap-[17px] overflow-hidden rounded-[20px] p-[22px] max-[760px]:flex-wrap max-[760px]:p-[18px]">
         <div className="relative grid h-[78px] w-[95px] flex-none place-items-center overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.66),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b7daf6_49%,#dceefa_100%)] max-[520px]:h-[65px] max-[520px]:w-[75px]">
-          <span className="absolute right-[-45px] top-[-68px] h-[115px] w-[115px] rounded-full bg-[rgba(75,158,237,0.24)]" />
-          <span className="absolute bottom-[-52px] left-[-36px] h-[90px] w-[90px] rounded-full bg-[rgba(255,255,255,0.36)]" />
-
-          <span className="relative z-[1] grid h-12 w-12 place-items-center rounded-[14px] border border-[rgba(255,255,255,0.72)] bg-[rgba(255,255,255,0.5)] text-[#237edb] shadow-[0_12px_27px_rgba(49,110,169,0.11),inset_0_1px_rgba(255,255,255,0.7)] backdrop-blur-[11px] max-[520px]:h-[39px] max-[520px]:w-[39px] max-[520px]:rounded-xl">
-            <Images
+          {albumCoverPreview ? (
+            <img
+              src={previewUrls[albumCoverPreview.id]}
+              alt=""
               aria-hidden="true"
-              size={31}
-              strokeWidth={1.45}
+              className="absolute inset-0 h-full w-full object-cover"
             />
-          </span>
+          ) : (
+            <>
+              <span className="absolute right-[-45px] top-[-68px] h-[115px] w-[115px] rounded-full bg-[rgba(75,158,237,0.24)]" />
+              <span className="absolute bottom-[-52px] left-[-36px] h-[90px] w-[90px] rounded-full bg-[rgba(255,255,255,0.36)]" />
+
+              <span className="relative z-[1] grid h-12 w-12 place-items-center rounded-[14px] border border-[rgba(255,255,255,0.72)] bg-[rgba(255,255,255,0.5)] text-[#237edb] shadow-[0_12px_27px_rgba(49,110,169,0.11),inset_0_1px_rgba(255,255,255,0.7)] backdrop-blur-[11px] max-[520px]:h-[39px] max-[520px]:w-[39px] max-[520px]:rounded-xl">
+                <Images
+                  aria-hidden="true"
+                  size={31}
+                  strokeWidth={1.45}
+                />
+              </span>
+            </>
+          )}
         </div>
 
         <div className="min-w-0 flex-1 basis-0 max-[760px]:basis-[calc(100%-112px)] max-[520px]:basis-[calc(100%-92px)]">
@@ -841,26 +915,39 @@ export default function AlbumDetailPage() {
         </div>
 
         {canManageAlbum && (
-          <button
-            type="button"
-            onClick={() =>
-              fileInputRef.current?.click()
-            }
-            disabled={uploading}
-            className="primary-action flex-none self-center disabled:opacity-60 disabled:cursor-wait max-[760px]:ml-auto max-[520px]:ml-0 max-[520px]:w-full"
-          >
-            <Upload
-              aria-hidden="true"
-              size={16}
-              strokeWidth={1.8}
-            />
+          <div className="flex flex-none items-center gap-2 self-center max-[760px]:ml-auto max-[520px]:ml-0 max-[520px]:w-full">
+            <button
+              type="button"
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              disabled={uploading || deletingAlbum}
+              className="primary-action flex-none justify-center disabled:opacity-60 disabled:cursor-wait max-[520px]:min-w-0 max-[520px]:flex-1"
+            >
+              <Upload
+                aria-hidden="true"
+                size={16}
+                strokeWidth={1.8}
+              />
 
-            <span>
-              {uploading
-                ? "Adding..."
-                : "Add files"}
-            </span>
-          </button>
+              <span>
+                {uploading
+                  ? "Adding..."
+                  : "Add files"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteAlbum()}
+              disabled={deletingAlbum || uploading}
+              aria-label="Delete album"
+              title="Delete album"
+              className="inline-flex h-9 flex-none cursor-pointer items-center justify-center gap-[7px] rounded-[10px] border border-[rgba(203,154,157,0.55)] bg-[rgba(255,248,248,0.72)] px-3 text-[10px] font-semibold text-[#ad5960] transition-[background,border-color,color] duration-[180ms] hover:border-[rgba(195,105,113,0.7)] hover:bg-[rgba(255,236,237,0.9)] hover:text-[#a83f49] disabled:cursor-wait disabled:opacity-60 max-[520px]:min-w-0 max-[520px]:flex-1"
+            >
+              <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />
+              <span>{deletingAlbum ? "Deleting..." : "Delete album"}</span>
+            </button>
+          </div>
         )}
 
         <input
@@ -926,6 +1013,7 @@ export default function AlbumDetailPage() {
               replaceInputRef.current.click();
             }
           }}
+          onDetails={(file) => void handleShowFileDetails(file)}
           onDownload={(file) =>
             void handleDownload(
               file,
@@ -1374,6 +1462,12 @@ export default function AlbumDetailPage() {
             </p>
           </div>
         </section>
+      )}
+      {fileDetails && (
+        <FileDetailsDialog
+          file={fileDetails}
+          onClose={() => setFileDetails(null)}
+        />
       )}
     </div>
   );

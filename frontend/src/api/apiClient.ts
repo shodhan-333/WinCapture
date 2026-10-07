@@ -15,7 +15,7 @@ import type {
   AddAlbumMemberRequest,
   UpdateAlbumMemberRequest,
 } from "../types/album";
-import type { FileResponse } from "../types/file";
+import type { AdminFileResponse, FileResponse } from "../types/file";
 
 async function acquireAccessToken(
   instance: IPublicClientApplication,
@@ -219,6 +219,19 @@ export async function getAlbums(
   ) as AlbumResponse[];
 }
 
+export async function getMyAlbums(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<AlbumResponse[]> {
+  const response = await callApi(
+    instance,
+    account,
+    "/api/albums/mine",
+  );
+
+  return (await response.json()) as AlbumResponse[];
+}
+
 export async function getAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -391,6 +404,21 @@ export async function getAlbumFiles(
   ) as FileResponse[];
 }
 
+export async function getAlbumFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  fileId: number,
+): Promise<FileResponse> {
+  const response = await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}`,
+  );
+
+  return (await response.json()) as FileResponse;
+}
+
 export async function uploadAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -525,6 +553,20 @@ export async function getFiles(
   ) as FileResponse[];
 }
 
+export async function getFile(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  fileId: number,
+): Promise<FileResponse> {
+  const response = await callApi(
+    instance,
+    account,
+    `/api/files/${fileId}`,
+  );
+
+  return (await response.json()) as FileResponse;
+}
+
 export async function getFavorites(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -636,7 +678,7 @@ export async function deleteFile(
 export async function getAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<FileResponse[]> {
+): Promise<AdminFileResponse[]> {
   const response =
     await callApi(
       instance,
@@ -646,7 +688,20 @@ export async function getAdminFiles(
 
   return (
     await response.json()
-  ) as FileResponse[];
+  ) as AdminFileResponse[];
+}
+
+export async function getMyAdminFiles(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<AdminFileResponse[]> {
+  const response = await callApi(
+    instance,
+    account,
+    "/api/admin/files/mine",
+  );
+
+  return (await response.json()) as AdminFileResponse[];
 }
 
 export async function getAdminAlbums(
@@ -663,6 +718,19 @@ export async function getAdminAlbums(
   return (
     await response.json()
   ) as AlbumResponse[];
+}
+
+export async function getMyAdminAlbums(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<AlbumResponse[]> {
+  const response = await callApi(
+    instance,
+    account,
+    "/api/admin/albums/mine",
+  );
+
+  return (await response.json()) as AlbumResponse[];
 }
 
 async function uploadMultipartFile<T>(

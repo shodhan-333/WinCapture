@@ -10,6 +10,7 @@ interface FileCardGridProps {
   canManage?: boolean | ((file: FileResponse) => boolean);
   onFavoriteToggle: (file: FileResponse) => void;
   onReplace: (file: FileResponse) => void;
+  onDetails: (file: FileResponse) => void;
   onDownload: (file: FileResponse) => void;
   onDelete: (file: FileResponse) => void;
   empty?: ReactNode;
@@ -22,6 +23,7 @@ export default function FileCardGrid({
   canManage = false,
   onFavoriteToggle,
   onReplace,
+  onDetails,
   onDownload,
   onDelete,
   empty,
@@ -51,6 +53,7 @@ export default function FileCardGrid({
               onFavoriteToggle(file)
             }
             onReplace={() => onReplace(file)}
+            onDetails={() => onDetails(file)}
             onDownload={() => onDownload(file)}
             onDelete={() => onDelete(file)}
           />

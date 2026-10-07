@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   FolderOpen,
@@ -8,12 +8,14 @@ import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
 
 import {
-  getAdminFiles,
-  getAlbums,
+  getMyAlbums,
+  getFilePreviewUrl,
   getFiles,
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
+import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
+import useFilePreviews from "../hooks/useFilePreviews";
 import type { AlbumResponse } from "../types/album";
 import type { FileResponse } from "../types/file";
 import {
@@ -41,6 +43,28 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const recentAlbums = useMemo(() => albums.slice(0, 4), [albums]);
+  const recentFiles = useMemo(() => files.slice(0, 4), [files]);
+  const albumCoverUrls = useAlbumCoverPreviews(
+    recentAlbums,
+    instance,
+    account,
+    user?.userId,
+  );
+  const loadFilePreview = useCallback(
+    (file: FileResponse) => {
+      if (!account) {
+        throw new Error("An authenticated account is required.");
+      }
+      return getFilePreviewUrl(instance, account, file.id);
+    },
+    [account, instance],
+  );
+  const { previewUrls: recentFilePreviewUrls } = useFilePreviews(
+    recentFiles,
+    loadFilePreview,
+  );
+
   useEffect(() => {
     async function load() {
       if (!account) {
@@ -53,10 +77,8 @@ export default function Dashboard() {
 
         const [albumResult, fileResult] =
           await Promise.all([
-            getAlbums(instance, account),
-            user?.role === "Admin"
-              ? getAdminFiles(instance, account)
-              : getFiles(instance, account),
+            getMyAlbums(instance, account),
+            getFiles(instance, account),
           ]);
 
         setAlbums(albumResult);
@@ -73,7 +95,7 @@ export default function Dashboard() {
     }
 
     void load();
-  }, [account, instance, user?.role]);
+  }, [account, instance]);
 
   if (loading) {
     return (
@@ -283,7 +305,7 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : (
-              albums.slice(0, 4).map((album) => (
+              recentAlbums.map((album) => (
                 <button
                   key={album.id}
                   type="button"
@@ -294,12 +316,21 @@ export default function Dashboard() {
                   }
                   className={dashboardListRowClass}
                 >
-                  <span className={`${dashboardIconClass} bg-[#e8f2ff] text-[#287bd7]`}>
-                    <Images
-                      aria-hidden="true"
-                      size={18}
-                      strokeWidth={1.7}
-                    />
+                  <span className={`${dashboardIconClass} relative overflow-hidden bg-[#e8f2ff] text-[#287bd7]`}>
+                    {albumCoverUrls[album.id] ? (
+                      <img
+                        src={albumCoverUrls[album.id]}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Images
+                        aria-hidden="true"
+                        size={18}
+                        strokeWidth={1.7}
+                      />
+                    )}
                   </span>
 
                   <span className="grid min-w-0 flex-1 gap-1">
@@ -385,7 +416,7 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : (
-              files.slice(0, 4).map((file) => (
+              recentFiles.map((file) => (
                 <button
                   key={file.id}
                   type="button"
@@ -394,8 +425,15 @@ export default function Dashboard() {
                   }
                   className={dashboardListRowClass}
                 >
-                  <span className={`${dashboardIconClass} bg-[#efedff] text-[#6b6bd8]`}>
-                    {file.contentType.startsWith(
+                  <span className={`${dashboardIconClass} relative overflow-hidden bg-[#efedff] text-[#6b6bd8]`}>
+                    {recentFilePreviewUrls[file.id] ? (
+                      <img
+                        src={recentFilePreviewUrls[file.id]}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    ) : file.contentType.startsWith(
                       "image/",
                     ) ? (
                       <span className="text-[8px] font-extrabold tracking-[0.04em]">

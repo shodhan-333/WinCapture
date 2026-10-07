@@ -34,6 +34,15 @@ public sealed class AlbumRepository(
             .ToListAsync();
 
     public async Task<IReadOnlyList<Album>>
+        GetOwnedByUserIdAsync(int userId) =>
+        await db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner)
+            .Where(album => album.CreatedBy == userId)
+            .OrderByDescending(album => album.CreatedAt)
+            .ToListAsync();
+
+    public async Task<IReadOnlyList<Album>>
         GetAllAsync() =>
         await db.Albums
             .AsNoTracking()
