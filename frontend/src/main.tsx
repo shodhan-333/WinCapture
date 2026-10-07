@@ -7,6 +7,7 @@ import { MsalProvider } from "@azure/msal-react";
 
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
+import { appShellClass } from "./components/ui/uiClasses";
 import {
   msalConfig,
   validateEnvironment,
@@ -37,7 +38,7 @@ function showStartupError(
       : String(error);
 
   root.render(
-    <main className="app-shell min-h-screen px-5 py-8 sm:px-8 sm:py-12">
+    <main className={`${appShellClass} min-h-screen px-5 py-8 sm:px-8 sm:py-12`}>
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-2xl items-center justify-center">
         <div className="surface w-full overflow-hidden rounded-[24px] p-6 sm:p-8">
           <div className="flex items-start gap-4">

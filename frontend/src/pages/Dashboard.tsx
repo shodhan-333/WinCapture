@@ -22,6 +22,15 @@ import {
   formatFileType,
 } from "../utils/formatters";
 
+const dashboardPanelClass =
+  "surface min-w-0 overflow-hidden rounded-[18px]";
+const dashboardPanelHeaderClass =
+  "flex min-h-[73px] items-center justify-between gap-4 border-b border-[#e4edf4] px-[19px] max-[520px]:min-h-[63px] max-[520px]:px-[14px]";
+const dashboardListRowClass =
+  "flex min-h-[78px] w-full cursor-pointer items-center gap-[11px] border-0 border-b border-[#e6eef4] bg-transparent px-[17px] py-[11px] text-left text-inherit transition-[background,padding] duration-[170ms] hover:bg-[rgba(228,241,252,0.66)] hover:pl-5 last:border-b-0 max-[520px]:min-h-[68px] max-[520px]:px-3 max-[520px]:hover:pl-[14px]";
+const dashboardIconClass =
+  "grid h-[39px] w-[39px] flex-none place-items-center rounded-[11px] bg-[#e8f3ff] text-[#2c82e4] max-[520px]:h-[34px] max-[520px]:w-[34px]";
+
 export default function Dashboard() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
@@ -69,24 +78,24 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="app-page">
-        <section className="dashboard-hero skeleton-panel">
+        <section className="skeleton-panel flex min-h-[218px] items-center justify-between p-[30px] max-[960px]:items-start max-[960px]:flex-col max-[760px]:[min-height:auto] max-[760px]:rounded-[17px] max-[760px]:px-5 max-[760px]:py-[23px]">
           <div className="skeleton-content">
             <span className="skeleton-line skeleton-line-sm" />
             <span className="skeleton-line skeleton-line-lg" />
             <span className="skeleton-line skeleton-line-md" />
           </div>
 
-          <div className="skeleton-actions">
+          <div className="flex gap-2">
             <span className="skeleton-button" />
             <span className="skeleton-button skeleton-button-wide" />
           </div>
         </section>
 
-        <section className="dashboard-stat-grid">
+        <section className="grid grid-cols-2 gap-[14px] max-[760px]:gap-[10px]">
           {[1, 2, 3, 4].map((item) => (
             <div
               key={item}
-              className="dashboard-stat-card skeleton-panel"
+              className="skeleton-panel flex min-h-[118px] items-center gap-[13px] rounded-[17px] p-[18px] max-[760px]:min-h-[102px] max-[760px]:p-[14px] max-[520px]:min-h-[96px]"
             >
               <span className="skeleton-icon" />
               <span className="skeleton-line skeleton-line-sm" />
@@ -95,9 +104,9 @@ export default function Dashboard() {
           ))}
         </section>
 
-        <section className="dashboard-content-grid">
-          <div className="dashboard-panel skeleton-panel skeleton-panel-tall" />
-          <div className="dashboard-panel skeleton-panel skeleton-panel-tall" />
+        <section className="grid grid-cols-2 gap-[18px] max-[960px]:grid-cols-1 max-[760px]:gap-[13px]">
+          <div className="skeleton-panel min-h-[355px] rounded-[18px]" />
+          <div className="skeleton-panel min-h-[355px] rounded-[18px]" />
         </section>
       </div>
     );
@@ -105,30 +114,30 @@ export default function Dashboard() {
 
   return (
     <div className="app-page">
-      <section className="dashboard-hero surface">
-        <div className="dashboard-hero-glow dashboard-hero-glow-one" />
-        <div className="dashboard-hero-glow dashboard-hero-glow-two" />
+      <section className="surface after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] relative flex min-h-[218px] items-stretch justify-between gap-7 overflow-hidden rounded-[21px] px-8 py-[30px] max-[960px]:items-start max-[960px]:flex-col max-[760px]:[min-height:auto] max-[760px]:rounded-[17px] max-[760px]:px-5 max-[760px]:py-[23px]">
+        <div className="pointer-events-none absolute right-[-85px] top-[-130px] h-[280px] w-[280px] rounded-full bg-[rgba(100,182,255,0.16)] blur-[2px]" />
+        <div className="pointer-events-none absolute right-[20%] bottom-[-180px] h-[220px] w-[220px] rounded-full bg-[rgba(188,222,255,0.18)] blur-[2px]" />
 
-        <div className="dashboard-hero-content">
-          <div className="dashboard-eyebrow">
-            <span className="dashboard-eyebrow-dot" />
+        <div className="relative z-[1] flex max-w-[740px] flex-col justify-center">
+          <div className="mb-2 inline-flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.11em] text-[#6e8ba4]">
+            <span className="h-[6px] w-[6px] rounded-full bg-[#1b86ee] shadow-[0_0_0_4px_rgba(27,134,238,0.08)]" />
             Your workspace
           </div>
 
-          <h1 className="dashboard-hero-title">
+          <h1 className="m-0 text-[clamp(27px,3vw,39px)] leading-[1.08] font-bold tracking-[-0.045em] text-[#0b2f51] max-[760px]:text-[27px]">
             Welcome back,{" "}
-            <span>
+            <span className="text-[#2278d7]">
               {user?.name ?? "User"}
             </span>
           </h1>
 
-          <p className="dashboard-hero-description">
+          <p className="mt-3 mb-0 max-w-[620px] text-[12px] leading-[1.7] text-[#6f879c] max-[760px]:text-[10px]">
             Keep your albums organized, manage your
             files, and access your shared collections
             from one place.
           </p>
 
-          <div className="dashboard-hero-actions">
+          <div className="mt-5 flex flex-wrap gap-[9px] max-[760px]:w-full max-[760px]:[&>button]:flex-1">
             <button
               type="button"
               onClick={() => navigate("/albums")}
@@ -161,13 +170,13 @@ export default function Dashboard() {
 
       {error && <ErrorBanner message={error} />}
 
-      <section className="dashboard-stat-grid">
+      <section className="grid grid-cols-2 gap-[14px] max-[760px]:gap-[10px]">
         <button
           type="button"
-          className="dashboard-stat-card surface"
+          className="surface group relative flex min-h-[118px] cursor-pointer items-center gap-[13px] rounded-[17px] px-[18px] py-[18px] text-left transition-[transform,border-color,box-shadow] duration-[180ms] hover:-translate-y-0.5 hover:border-[rgba(169,205,231,0.62)] hover:shadow-[0_17px_34px_rgba(51,105,151,0.09),inset_0_0_0_1px_rgba(197,221,238,0.26)] max-[760px]:min-h-[102px] max-[760px]:p-[14px] max-[520px]:min-h-[96px]"
           onClick={() => navigate("/albums")}
         >
-          <span className="dashboard-stat-icon blue">
+          <span className="grid h-[43px] w-[43px] flex-none place-items-center rounded-[13px] bg-[#e5f1ff] text-[#1678ec] max-[760px]:h-[37px] max-[760px]:w-[37px] max-[760px]:rounded-[11px]">
             <Images
               aria-hidden="true"
               size={19}
@@ -175,14 +184,14 @@ export default function Dashboard() {
             />
           </span>
 
-          <span className="dashboard-stat-copy">
-            <small>Albums</small>
-            <strong>{albums.length}</strong>
+          <span className="grid min-w-0 gap-1">
+            <small className="text-[10px] font-semibold text-[#7d93a5]">Albums</small>
+            <strong className="text-[22px] leading-[1.1] font-bold tracking-[-0.03em] text-[#143653] max-[760px]:text-[18px]">{albums.length}</strong>
           </span>
 
           <ArrowRight
             aria-hidden="true"
-            className="dashboard-stat-arrow"
+            className="ml-auto text-[#9aafbf] transition-[transform,color] duration-[180ms] group-hover:translate-x-0.5 group-hover:text-[#2679d5] max-[520px]:hidden"
             size={17}
             strokeWidth={1.8}
           />
@@ -190,10 +199,10 @@ export default function Dashboard() {
 
         <button
           type="button"
-          className="dashboard-stat-card surface"
+          className="surface group relative flex min-h-[118px] cursor-pointer items-center gap-[13px] rounded-[17px] px-[18px] py-[18px] text-left transition-[transform,border-color,box-shadow] duration-[180ms] hover:-translate-y-0.5 hover:border-[rgba(169,205,231,0.62)] hover:shadow-[0_17px_34px_rgba(51,105,151,0.09),inset_0_0_0_1px_rgba(197,221,238,0.26)] max-[760px]:min-h-[102px] max-[760px]:p-[14px] max-[520px]:min-h-[96px]"
           onClick={() => navigate("/files")}
         >
-          <span className="dashboard-stat-icon purple">
+          <span className="grid h-[43px] w-[43px] flex-none place-items-center rounded-[13px] bg-[#edeaff] text-[#7162db] max-[760px]:h-[37px] max-[760px]:w-[37px] max-[760px]:rounded-[11px]">
             <FolderOpen
               aria-hidden="true"
               size={19}
@@ -201,14 +210,14 @@ export default function Dashboard() {
             />
           </span>
 
-          <span className="dashboard-stat-copy">
-            <small>Files</small>
-            <strong>{files.length}</strong>
+          <span className="grid min-w-0 gap-1">
+            <small className="text-[10px] font-semibold text-[#7d93a5]">Files</small>
+            <strong className="text-[22px] leading-[1.1] font-bold tracking-[-0.03em] text-[#143653] max-[760px]:text-[18px]">{files.length}</strong>
           </span>
 
           <ArrowRight
             aria-hidden="true"
-            className="dashboard-stat-arrow"
+            className="ml-auto text-[#9aafbf] transition-[transform,color] duration-[180ms] group-hover:translate-x-0.5 group-hover:text-[#2679d5]"
             size={17}
             strokeWidth={1.8}
           />
@@ -216,15 +225,15 @@ export default function Dashboard() {
 
       </section>
 
-      <section className="dashboard-content-grid">
-        <section className="dashboard-panel surface">
-          <div className="dashboard-panel-header">
+        <section className="grid grid-cols-2 gap-[18px] max-[960px]:grid-cols-1 max-[760px]:gap-[13px]">
+        <section className={dashboardPanelClass}>
+          <div className={dashboardPanelHeaderClass}>
             <div>
               <p className="dashboard-panel-kicker">
                 Collections
               </p>
 
-              <h2 className="dashboard-panel-title">
+              <h2 className="mt-1 mb-0 text-[15px] font-[650] tracking-[-0.02em] text-[#153756]">
                 Recent albums
               </h2>
             </div>
@@ -232,7 +241,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/albums")}
-              className="dashboard-view-all"
+              className="inline-flex cursor-pointer items-center gap-[5px] border-0 bg-transparent text-[10px] font-semibold text-[#1572dd] hover:text-[#0b5fbf]"
             >
               View all
               <ArrowRight
@@ -243,10 +252,10 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="dashboard-list">
+          <div className="flex flex-col">
             {albums.length === 0 ? (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon">
+              <div className="flex min-h-[230px] items-center justify-center gap-3 p-6">
+                <span className="grid h-[45px] w-[45px] flex-none place-items-center rounded-[13px] bg-[#e8f3ff] text-[#2b7fd9]">
                   <Images
                     aria-hidden="true"
                     size={21}
@@ -254,12 +263,12 @@ export default function Dashboard() {
                   />
                 </span>
 
-                <div>
-                  <strong>
+                <div className="min-w-0">
+                  <strong className="block text-[11px] font-semibold text-[#334f68]">
                     No albums yet
                   </strong>
 
-                  <p>
+                  <p className="mt-[5px] max-w-[280px] text-[9px] leading-[1.5] text-[#8498a8]">
                     Create your first album to
                     start organizing your files.
                   </p>
@@ -283,9 +292,9 @@ export default function Dashboard() {
                       `/albums/${album.id}`,
                     )
                   }
-                  className="dashboard-list-row"
+                  className={dashboardListRowClass}
                 >
-                  <span className="dashboard-list-icon album">
+                  <span className={`${dashboardIconClass} bg-[#e8f2ff] text-[#287bd7]`}>
                     <Images
                       aria-hidden="true"
                       size={18}
@@ -293,23 +302,23 @@ export default function Dashboard() {
                     />
                   </span>
 
-                  <span className="dashboard-list-main">
-                    <strong>
+                  <span className="grid min-w-0 flex-1 gap-1">
+                    <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-[#26445f]">
                       {album.albumName}
                     </strong>
 
-                    <small>
+                    <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] text-[#7c91a2]">
                       Owner: {album.ownerName}
                     </small>
                   </span>
 
-                  <span className="dashboard-list-meta">
+                  <span className="flex-none text-[9px] text-[#8ca0b0] max-[760px]:hidden">
                     {formatDate(album.createdAt)}
                   </span>
 
                   <ArrowRight
                     aria-hidden="true"
-                    className="dashboard-list-arrow"
+                    className="flex-none text-[#9cafbd]"
                     size={15}
                     strokeWidth={1.8}
                   />
@@ -319,14 +328,14 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="dashboard-panel surface">
-          <div className="dashboard-panel-header">
+        <section className={dashboardPanelClass}>
+          <div className={dashboardPanelHeaderClass}>
             <div>
               <p className="dashboard-panel-kicker">
                 Your library
               </p>
 
-              <h2 className="dashboard-panel-title">
+              <h2 className="mt-1 mb-0 text-[15px] font-[650] tracking-[-0.02em] text-[#153756]">
                 Recent files
               </h2>
             </div>
@@ -334,7 +343,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => navigate("/files")}
-              className="dashboard-view-all"
+              className="inline-flex cursor-pointer items-center gap-[5px] border-0 bg-transparent text-[10px] font-semibold text-[#1572dd] hover:text-[#0b5fbf]"
             >
               View all
               <ArrowRight
@@ -345,10 +354,10 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="dashboard-list">
+          <div className="flex flex-col">
             {files.length === 0 ? (
-              <div className="dashboard-empty-state">
-                <span className="dashboard-empty-icon purple">
+              <div className="flex min-h-[230px] items-center justify-center gap-3 p-6">
+                <span className="grid h-[45px] w-[45px] flex-none place-items-center rounded-[13px] bg-[#eeeaff] text-[#7161da]">
                   <FolderOpen
                     aria-hidden="true"
                     size={21}
@@ -356,12 +365,12 @@ export default function Dashboard() {
                   />
                 </span>
 
-                <div>
-                  <strong>
+                <div className="min-w-0">
+                  <strong className="block text-[11px] font-semibold text-[#334f68]">
                     No files uploaded yet
                   </strong>
 
-                  <p>
+                  <p className="mt-[5px] max-w-[280px] text-[9px] leading-[1.5] text-[#8498a8]">
                     Upload a file to see it
                     appear in your library.
                   </p>
@@ -383,13 +392,13 @@ export default function Dashboard() {
                   onClick={() =>
                     navigate("/files")
                   }
-                  className="dashboard-list-row"
+                  className={dashboardListRowClass}
                 >
-                  <span className="dashboard-file-icon">
+                  <span className={`${dashboardIconClass} bg-[#efedff] text-[#6b6bd8]`}>
                     {file.contentType.startsWith(
                       "image/",
                     ) ? (
-                      <span className="dashboard-file-image-icon">
+                      <span className="text-[8px] font-extrabold tracking-[0.04em]">
                         IMG
                       </span>
                     ) : (
@@ -401,12 +410,12 @@ export default function Dashboard() {
                     )}
                   </span>
 
-                  <span className="dashboard-list-main">
-                    <strong>
+                  <span className="grid min-w-0 flex-1 gap-1">
+                    <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-[#26445f]">
                       {file.originalFileName}
                     </strong>
 
-                    <small>
+                    <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] text-[#7c91a2]">
                       {formatFileType(
                         file.contentType,
                       )}
@@ -419,7 +428,7 @@ export default function Dashboard() {
                     </small>
                   </span>
 
-                  <span className="dashboard-list-meta">
+                  <span className="flex-none text-[9px] text-[#8ca0b0] max-[760px]:hidden">
                     {new Date(
                       file.uploadedAt,
                     ).toLocaleDateString()}
@@ -427,7 +436,7 @@ export default function Dashboard() {
 
                   <ArrowRight
                     aria-hidden="true"
-                    className="dashboard-list-arrow"
+                    className="flex-none text-[#9cafbd]"
                     size={15}
                     strokeWidth={1.8}
                   />

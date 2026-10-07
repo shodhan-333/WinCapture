@@ -13,6 +13,19 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 import { getInitials } from "../utils/formatters";
+import {
+  brandMarkClass,
+  brandMarkLetterClass,
+  brandMarkSmallClass,
+  brandMarkSmallLetterClass,
+  appShellClass,
+} from "./ui/uiClasses";
+
+const navLinkClass = (active: boolean) =>
+  `group relative flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-transparent px-3 text-[13px] font-medium text-[#57728a] transition-[color,background,border-color,transform,box-shadow] duration-[180ms] hover:border-[rgba(180,209,235,0.34)] hover:bg-[rgba(226,239,251,0.72)] hover:text-[#126dd7] active:translate-y-px ${active ? "is-active border-[rgba(179,213,241,0.55)] bg-[linear-gradient(135deg,rgba(225,240,255,0.96),rgba(210,232,252,0.76))] font-semibold text-[#0872e7] shadow-[0_8px_18px_rgba(41,113,181,0.07),inset_0_1px_rgba(255,255,255,0.68)] before:absolute before:top-[9px] before:bottom-[9px] before:left-[-1px] before:w-[3px] before:rounded-[99px] before:bg-[#1680ef] before:content-['']" : ""}`;
+
+const navIconClass =
+  "grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-[rgba(231,241,250,0.58)] text-current transition-[background,color] duration-[180ms] group-[.is-active]:bg-[rgba(255,255,255,0.62)] group-[.is-active]:text-[#0872e7]";
 
 const navigation = [
   {
@@ -41,33 +54,31 @@ export default function Layout() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={appShellClass}>
       <aside
-        className={`sidebar ${
-          mobileOpen ? "sidebar-open" : ""
-        }`}
+        className={`fixed inset-y-0 left-0 z-[60] flex w-[252px] min-w-[252px] flex-col border-r border-[rgba(137,174,210,0.25)] bg-[linear-gradient(180deg,rgba(252,254,255,0.9),rgba(246,251,255,0.78))] px-[15px] pt-[22px] pb-4 shadow-[10px_0_35px_rgba(47,97,143,0.055),inset_-1px_0_rgba(255,255,255,0.52)] backdrop-blur-[28px] transition-[transform,box-shadow] duration-[240ms] max-[960px]:w-56 max-[960px]:min-w-56 max-[760px]:-translate-x-[105%] max-[760px]:shadow-[12px_0_38px_rgba(28,68,101,0.15)] ${mobileOpen ? "max-[760px]:translate-x-0" : ""}`}
         aria-label="Primary navigation"
       >
-        <div className="sidebar-brand">
+        <div className="flex min-h-[46px] items-center justify-between px-[6px] pl-2">
           <NavLink
             to="/dashboard"
-            className="brand-link"
+            className="inline-flex min-w-0 items-center gap-[11px] rounded-[14px] transition-[transform,opacity] duration-[180ms] hover:-translate-y-px hover:opacity-[0.96]"
             onClick={closeMobileNavigation}
             aria-label="WinCapture dashboard"
           >
-            <span className="brand-mark" aria-hidden="true">
-              <span>W</span>
+            <span className={brandMarkClass} aria-hidden="true">
+              <span className={brandMarkLetterClass}>W</span>
             </span>
 
-            <span className="brand-copy">
-              <strong>WinCapture</strong>
-              <small>WinWire</small>
+            <span className="grid min-w-0 gap-0.5">
+              <strong className="text-[15px] leading-[1.1] font-bold tracking-[-0.02em] text-[#102d4d]">WinCapture</strong>
+              <small className="text-[9px] leading-none font-medium text-[#7b94aa]">WinWire</small>
             </span>
           </NavLink>
 
           <button
             type="button"
-            className="sidebar-close"
+            className="hidden h-[34px] w-[34px] cursor-pointer items-center justify-center rounded-[10px] border-0 bg-[rgba(231,241,250,0.65)] text-[#5d7890] transition-[color,background] duration-[180ms] hover:bg-[#e2effc] hover:text-[#166fd7] max-[760px]:inline-flex"
             onClick={closeMobileNavigation}
             aria-label="Close navigation"
           >
@@ -75,8 +86,8 @@ export default function Layout() {
           </button>
         </div>
 
-        <nav className="sidebar-nav">
-          <p className="sidebar-section-label">Workspace</p>
+        <nav className="mt-[30px] flex flex-col gap-[6px]">
+          <p className="mx-[10px] mt-0 mb-[5px] text-[9px] leading-[1.2] font-bold tracking-[0.12em] text-[#8aa1b4] uppercase">Workspace</p>
 
           {navigation.map((item) => {
             const Icon = item.icon;
@@ -86,13 +97,9 @@ export default function Layout() {
                 key={item.to}
                 to={item.to}
                 onClick={closeMobileNavigation}
-                className={({ isActive }) =>
-                  `sidebar-nav-link ${
-                    isActive ? "is-active" : ""
-                  }`
-                }
+                className={({ isActive }) => navLinkClass(isActive)}
               >
-                <span className="sidebar-nav-icon">
+                <span className={navIconClass}>
                   <Icon
                     aria-hidden="true"
                     size={18}
@@ -107,22 +114,18 @@ export default function Layout() {
 
           {user?.role === "Admin" && (
             <>
-              <div className="sidebar-divider" />
+              <div className="mx-2 my-3 h-px bg-[rgba(204,222,237,0.72)]" />
 
-              <p className="sidebar-section-label">
+              <p className="mx-[10px] mt-0 mb-[5px] text-[9px] leading-[1.2] font-bold tracking-[0.12em] text-[#8aa1b4] uppercase">
                 Administration
               </p>
 
               <NavLink
                 to="/admin"
                 onClick={closeMobileNavigation}
-                className={({ isActive }) =>
-                  `sidebar-nav-link ${
-                    isActive ? "is-active" : ""
-                  }`
-                }
+                className={({ isActive }) => navLinkClass(isActive)}
               >
-                <span className="sidebar-nav-icon">
+                <span className={navIconClass}>
                   <Shield
                     aria-hidden="true"
                     size={18}
@@ -136,17 +139,13 @@ export default function Layout() {
           )}
         </nav>
 
-        <div className="sidebar-footer">
+        <div className="mt-auto flex flex-col gap-[5px]">
           <NavLink
             to="/profile"
             onClick={closeMobileNavigation}
-            className={({ isActive }) =>
-              `sidebar-nav-link ${
-                isActive ? "is-active" : ""
-              }`
-            }
+            className={({ isActive }) => navLinkClass(isActive)}
           >
-            <span className="sidebar-nav-icon">
+            <span className={navIconClass}>
               <UserRound
                 aria-hidden="true"
                 size={18}
@@ -159,10 +158,10 @@ export default function Layout() {
 
           <button
             type="button"
-            className="sidebar-nav-link sidebar-signout"
+            className={`${navLinkClass(false)} text-[#6b8297]`}
             onClick={() => void logout()}
           >
-            <span className="sidebar-nav-icon">
+            <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-[rgba(231,241,250,0.58)] text-current transition-[background,color] duration-[180ms]">
               <LogOut
                 aria-hidden="true"
                 size={18}
@@ -173,17 +172,17 @@ export default function Layout() {
             <span>Sign out</span>
           </button>
 
-          <div className="sidebar-user-card">
-            <span className="sidebar-user-avatar">
+          <div className="mt-[7px] flex min-h-[58px] items-center gap-[10px] rounded-[13px] border border-[rgba(189,216,237,0.48)] bg-[rgba(255,255,255,0.42)] px-[10px] py-[9px] shadow-[inset_0_1px_rgba(255,255,255,0.68),0_6px_15px_rgba(48,103,151,0.04)]">
+            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-[linear-gradient(145deg,#74bdff,#4687db)] text-[10px] font-bold text-white shadow-[0_6px_17px_rgba(52,120,215,0.18),inset_0_1px_rgba(255,255,255,0.23)]">
               {getInitials(user?.name)}
             </span>
 
-            <span className="sidebar-user-copy">
-              <strong>
+            <span className="grid min-w-0 gap-[3px]">
+              <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#284763]">
                 {user?.name ?? "WinCapture User"}
               </strong>
 
-              <small>
+              <small className="text-[9px] text-[#8299ab]">
                 {user?.role ?? "User"}
               </small>
             </span>
@@ -194,18 +193,18 @@ export default function Layout() {
       {mobileOpen && (
         <button
           type="button"
-          className="navigation-scrim"
+          className="fixed inset-0 z-[50] block h-full w-full cursor-pointer border-0 bg-[rgba(15,39,59,0.2)] backdrop-blur-[2px]"
           onClick={closeMobileNavigation}
           aria-label="Close navigation"
         />
       )}
 
-      <div className="workspace">
-        <header className="topbar">
-          <div className="topbar-left">
+      <div className="relative z-[1] ml-[252px] min-h-screen w-[calc(100%-252px)] max-[960px]:ml-56 max-[960px]:w-[calc(100%-224px)] max-[760px]:ml-0 max-[760px]:w-full">
+        <header className="sticky top-0 z-40 flex h-[76px] items-center justify-between border-b border-[rgba(147,181,212,0.22)] bg-[rgba(250,253,255,0.46)] px-[40px] pr-[38px] shadow-[0_8px_26px_rgba(49,105,154,0.025)] backdrop-blur-[22px] max-[1200px]:px-7 max-[760px]:h-[68px] max-[760px]:px-[17px]">
+          <div className="flex min-w-0 items-center gap-[15px] max-[760px]:gap-[9px]">
             <button
               type="button"
-              className="mobile-menu-button"
+              className="hidden h-9 w-9 flex-none cursor-pointer place-items-center rounded-[10px] border-0 bg-[rgba(236,245,251,0.68)] text-[#567186] max-[760px]:grid"
               onClick={() =>
                 setMobileOpen((current) => !current)
               }
@@ -223,9 +222,9 @@ export default function Layout() {
               />
             </button>
 
-            <div className="mobile-brand">
-              <span className="brand-mark small" aria-hidden="true">
-                <span>W</span>
+            <div className="hidden items-center gap-2 text-[12px] font-[650] text-[#22425d] max-[760px]:flex">
+              <span className={`${brandMarkClass} ${brandMarkSmallClass}`} aria-hidden="true">
+                <span className={`${brandMarkLetterClass} ${brandMarkSmallLetterClass}`}>W</span>
               </span>
 
               <span>WinCapture</span>

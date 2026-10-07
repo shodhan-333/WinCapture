@@ -25,11 +25,24 @@ import {
   uploadFile,
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
+import {
+  pageHeaderClass,
+  pageHeaderSkeletonClass,
+} from "../components/ui/uiClasses";
 import FileCardGrid from "../components/files/FileCardGrid";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
+
+const fileToolbarClass =
+  "flex flex-wrap items-center justify-end gap-2 max-[960px]:w-full max-[960px]:justify-start max-[760px]:grid max-[760px]:grid-cols-1";
+const viewSwitcherClass =
+  "inline-flex rounded-[10px] border border-[#dce8f0] bg-[rgba(244,248,251,0.8)] p-[3px] max-[760px]:w-full";
+const viewButtonClass =
+  "inline-flex min-h-[34px] cursor-pointer items-center justify-center gap-[6px] rounded-lg border-0 bg-transparent px-[10px] text-[9px] font-semibold text-[#74899a] transition-[color,background,box-shadow] duration-[160ms] hover:text-[#425f76]";
+const searchFieldClass =
+  "flex min-h-10 w-[min(280px,100%)] items-center gap-2 rounded-[11px] border border-[#dbe8f1] bg-[rgba(255,255,255,0.63)] px-[10px] text-[#8195a5] shadow-[0_6px_17px_rgba(45,94,136,0.03),inset_0_1px_rgba(255,255,255,0.78)] focus-within:border-[#8bbdec] focus-within:shadow-[0_0_0_3px_rgba(75,155,227,0.09),0_6px_17px_rgba(45,94,136,0.04)] max-[760px]:w-full";
 
 type FileView =
   | "all"
@@ -310,29 +323,29 @@ export default function FilesPage() {
   if (loading || previewsLoading) {
     return (
       <div className="app-page">
-        <section className="files-page-header skeleton-panel">
+        <section className={pageHeaderSkeletonClass}>
           <div className="skeleton-content">
             <span className="skeleton-line skeleton-line-sm" />
             <span className="skeleton-line skeleton-line-lg" />
             <span className="skeleton-line skeleton-line-md" />
           </div>
 
-          <div className="files-toolbar-skeleton">
+          <div className="flex items-center gap-2">
             <span className="skeleton-field skeleton-field-lg" />
             <span className="skeleton-field" />
             <span className="skeleton-button skeleton-button-wide" />
           </div>
         </section>
 
-        <section className="file-card-grid">
+        <section className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
           {[1, 2, 3, 4].map((item) => (
             <div
               key={item}
-              className="surface file-card-loading"
+              className="surface overflow-hidden rounded-[17px]"
             >
-              <div className="file-loading-preview" />
+              <div className="relative mx-[10px] mt-[10px] h-[176px] w-[calc(100%-20px)] overflow-hidden rounded-[13px] bg-[linear-gradient(145deg,#e3edf5,#d7e5ef)] after:absolute after:top-0 after:bottom-0 after:w-[35%] after:translate-x-[-130%] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] after:animate-[skeleton-shimmer_1.55s_infinite_ease-in-out] after:content-['']" />
 
-              <div className="file-loading-body">
+              <div className="grid gap-1 p-4">
                 <span className="skeleton-line skeleton-line-md" />
                 <span className="skeleton-line skeleton-line-sm" />
                 <span className="skeleton-line skeleton-line-xs" />
@@ -346,8 +359,8 @@ export default function FilesPage() {
 
   return (
     <div className="app-page">
-      <section className="files-page-header surface">
-        <div className="files-page-heading">
+      <section className={pageHeaderClass}>
+        <div className="min-w-0">
           <div className="page-kicker">
             <span className="page-kicker-dot" />
             Your library
@@ -363,9 +376,9 @@ export default function FilesPage() {
           </p>
         </div>
 
-        <div className="files-toolbar">
+        <div className={fileToolbarClass}>
           <div
-            className="file-view-switcher"
+            className={viewSwitcherClass}
             role="group"
             aria-label="File view"
           >
@@ -373,7 +386,7 @@ export default function FilesPage() {
               type="button"
               aria-pressed={view === "all"}
               onClick={() => setView("all")}
-              className={view === "all" ? "is-active" : ""}
+              className={`${viewButtonClass} ${view === "all" ? "bg-[rgba(255,255,255,0.8)] text-[#224762] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""}`}
             >
               <FolderOpen
                 aria-hidden="true"
@@ -389,7 +402,7 @@ export default function FilesPage() {
               aria-pressed={view === "favorites"}
               onClick={() => setView("favorites")}
               className={
-                view === "favorites" ? "is-active" : ""
+                view === "favorites" ? "bg-[rgba(255,255,255,0.8)] text-[#b47818] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""
               }
             >
               <Star
@@ -407,7 +420,7 @@ export default function FilesPage() {
             </button>
           </div>
 
-          <label className="search-field files-search">
+          <label className={searchFieldClass}>
             <Search
               aria-hidden="true"
               size={17}
@@ -418,6 +431,7 @@ export default function FilesPage() {
 
             <input
               type="search"
+              className="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
               value={searchQuery}
               onChange={(event) =>
                 setSearchQuery(event.target.value)
@@ -429,7 +443,7 @@ export default function FilesPage() {
             {searchQuery && (
               <button
                 type="button"
-                className="search-clear"
+                className="grid h-[25px] w-[25px] flex-none cursor-pointer place-items-center rounded-[7px] border-0 bg-transparent text-[#8296a6] hover:bg-[#edf4f9] hover:text-[#527087]"
                 aria-label="Clear file search"
                 onClick={() => setSearchQuery("")}
               >
@@ -446,7 +460,7 @@ export default function FilesPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="primary-action files-upload-button disabled:opacity-60 disabled:cursor-wait"
+            className="primary-action flex-none disabled:opacity-60 disabled:cursor-wait max-[760px]:min-h-[42px] max-[760px]:w-full"
           >
             <Upload
               aria-hidden="true"
@@ -478,14 +492,14 @@ export default function FilesPage() {
       {error && <ErrorBanner message={error} />}
 
       <section
-        className="files-section"
+        className="min-w-0"
         aria-label={
           view === "favorites" ? "Favorite files" : "Files"
         }
       >
         {filteredFiles.length === 0 ? (
-          <section className="surface files-empty-state">
-            <span className="files-empty-icon">
+          <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
+            <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] bg-[#e7f3ff] text-[#2a7dd7] shadow-[inset_0_1px_rgba(255,255,255,0.72),0_7px_18px_rgba(45,111,176,0.06)]">
               {view === "favorites" ? (
                 <Star
                   aria-hidden="true"
@@ -507,7 +521,7 @@ export default function FilesPage() {
               )}
             </span>
 
-            <h3>
+            <h3 className="mt-4 mb-0 text-[15px] font-[650] text-[#29445d]">
               {view === "favorites"
                 ? searchQuery
                   ? "No favorite files found"
@@ -517,7 +531,7 @@ export default function FilesPage() {
                   : "No files match your search"}
             </h3>
 
-            <p>
+            <p className="mt-[7px] mb-[18px] max-w-[390px] text-[10px] leading-[1.6] text-[#8497a7]">
               {view === "favorites"
                 ? searchQuery
                   ? "Try a different filename, type, or ID."
