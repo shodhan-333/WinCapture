@@ -9,8 +9,7 @@ public sealed class AlbumService(
     IAlbumRepository albums,
     IUserRepository users,
     IFileRepository files,
-    IStorageService storage,
-    ILogger<AlbumService> logger) : IAlbumService
+    IStorageService storage) : IAlbumService
 {
     public async Task<AlbumResponse> CreateAsync(
         CreateAlbumRequest request,
@@ -141,26 +140,15 @@ public sealed class AlbumService(
             await files.GetByAlbumIdAsync(
                 albumId);
 
-        await albums.DeleteAsync(
-            album);
-
         foreach (var file in albumFiles)
         {
-            try
-            {
-                await storage.DeleteAsync(
-                    file.StoredFileName);
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(
-                    exception,
-                    "Album deleted but file cleanup failed. AlbumId: {AlbumId}, FileId: {FileId}, StoredFileName: {StoredFileName}",
-                    albumId,
-                    file.Id,
-                    file.StoredFileName);
-            }
+            // Do not remove album or file metadata unless every blob delete succeeds.
+            await storage.DeleteAsync(
+                file.StoredFileName);
         }
+
+        await albums.DeleteAsync(
+            album);
     }
 
     public async Task<IReadOnlyList<AlbumMemberResponse>>

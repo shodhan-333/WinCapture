@@ -14,6 +14,28 @@ public sealed class AlbumFileService(
     IAlbumService albumService,
     ILogger<AlbumFileService> logger) : IAlbumFileService
 {
+    public async Task<FileResponse> ReplaceAsync(long albumId, long fileId, IFormFile file, User currentUser, UserRole role)
+    {
+        var album = await albumService.GetForUploadAsync(albumId, currentUser, role);
+        var existing = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
+        if (existing.AlbumId != albumId)
+            throw new NotFoundException("The requested file was not found in this album.");
+        await validator.ValidateAsync(file);
+        var oldName = existing.StoredFileName;
+        var newName = await storage.SaveAsync(file);
+        existing.StoredFileName = newName;
+        existing.OriginalFileName = Path.GetFileName(file.FileName);
+        existing.ContentType = file.ContentType;
+        existing.FileSize = file.Length;
+        existing.UploadedAt = DateTime.UtcNow;
+        try { await files.UpdateAsync(existing); }
+        catch { await TryDeleteStoredFileAsync(newName); throw; }
+        await TryDeleteStoredFileAsync(oldName);
+        var favorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
+        return ToResponse(existing, albumId, favorite, role == UserRole.Admin || album.CreatedBy == currentUser.Id);
+    }
+
     public async Task<FileResponse> UploadAsync(
         long albumId,
         IFormFile file,
@@ -256,11 +278,12 @@ public sealed class AlbumFileService(
                 "The requested file was not found in this album.");
         }
 
+        // Keep metadata when storage deletion fails so the operation can be retried.
+        await storage.DeleteAsync(
+            file.StoredFileName);
+
         await files.DeleteAsync(
             file);
-
-        await TryDeleteStoredFileAsync(
-            file.StoredFileName);
     }
 
     private async Task TryDeleteStoredFileAsync(

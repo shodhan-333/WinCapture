@@ -76,7 +76,8 @@ public sealed class FileService(
             await GetAuthorizedFileAsync(
                 fileId,
                 userId,
-                userRole);
+                userRole,
+                requireManage: true);
 
         var oldStoredFileName =
             existing.StoredFileName;
@@ -172,7 +173,7 @@ public sealed class FileService(
         return ToResponse(
             file,
             isFavorite,
-            true);
+            (await GetFilePermissionsAsync(file, userId, userRole)).CanManage);
     }
 
     public async Task<FileDownloadResult>
@@ -186,6 +187,18 @@ public sealed class FileService(
                 fileId,
                 userId,
                 userRole);
+
+        if (userRole != UserRole.Admin && file.AlbumId.HasValue)
+        {
+            var album = await albums.GetByIdAsync(file.AlbumId.Value);
+            if (album is null) throw new NotFoundException("The requested album was not found.");
+            if (album.CreatedBy != userId)
+            {
+                var access = await albums.GetAccessAsync(file.AlbumId.Value, userId);
+                if (access?.CanDownload != true)
+                    throw new ForbiddenException("You are not allowed to download this file.");
+            }
+        }
 
         var content =
             await storage.GetAsync(
@@ -206,13 +219,16 @@ public sealed class FileService(
             await GetAuthorizedFileAsync(
                 fileId,
                 userId,
-                userRole);
+                userRole,
+                requireManage: true);
+
+        // Remove the blob first. If storage fails, keep the metadata so the
+        // user can retry the deletion and the database does not claim success.
+        await storage.DeleteAsync(
+            file.StoredFileName);
 
         await files.DeleteAsync(
             file);
-
-        await TryDeleteStoredFileAsync(
-            file.StoredFileName);
     }
 
     public async Task<IReadOnlyList<AdminFileResponse>>
@@ -331,7 +347,8 @@ public sealed class FileService(
         GetAuthorizedFileAsync(
             long fileId,
             int userId,
-            UserRole userRole)
+            UserRole userRole,
+            bool requireManage = false)
     {
         var file =
             await files.GetByIdAsync(
@@ -339,8 +356,8 @@ public sealed class FileService(
             ?? throw new NotFoundException(
                 "The requested file was not found.");
 
-        if (userRole != UserRole.Admin &&
-            file.UploadedBy != userId)
+        var permissions = await GetFilePermissionsAsync(file, userId, userRole);
+        if (!permissions.CanView || (requireManage && !permissions.CanManage))
         {
             throw new ForbiddenException(
                 "You are not allowed to access this file.");
@@ -369,9 +386,7 @@ public sealed class FileService(
                 ownsFile);
         }
 
-        var album =
-            await albums.GetByIdAsync(
-                file.AlbumId.Value);
+        var album = await albums.GetByIdAsync(file.AlbumId.Value);
 
         if (album is null)
         {

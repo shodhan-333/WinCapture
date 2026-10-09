@@ -26,14 +26,17 @@ import {
   uploadFile,
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
+import Pagination from "../components/ui/Pagination";
 import {
   pageHeaderClass,
   pageHeaderSkeletonClass,
 } from "../components/ui/uiClasses";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
+import ImagePreviewModal from "../components/files/ImagePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
+import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
 
@@ -49,6 +52,8 @@ const searchFieldClass =
 type FileView =
   | "all"
   | "favorites";
+
+const PAGE_SIZE = 12;
 
 export default function FilesPage() {
   const { instance } = useMsal();
@@ -67,6 +72,8 @@ export default function FilesPage() {
     useState<FileResponse[]>([]);
   const [view, setView] =
     useState<FileView>("all");
+  const [currentPage, setCurrentPage] =
+    useState(1);
   const [loading, setLoading] =
     useState(true);
   const [error, setError] =
@@ -77,6 +84,7 @@ export default function FilesPage() {
     useState("");
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
 
   const loadPreview = useCallback(
     async (file: FileResponse) => {
@@ -103,14 +111,6 @@ export default function FilesPage() {
     [account, instance],
   );
 
-  const {
-    previewUrls,
-    loading: previewsLoading,
-  } = useFilePreviews(
-    files,
-    loadPreview,
-  );
-
   const normalizedQuery =
     searchQuery.trim().toLocaleLowerCase();
 
@@ -126,6 +126,15 @@ export default function FilesPage() {
           String(file.id).includes(normalizedQuery),
       )
     : files;
+  const pagination = usePagination(
+    filteredFiles,
+    currentPage,
+    PAGE_SIZE,
+  );
+  const {
+    previewUrls,
+    loading: previewsLoading,
+  } = useFilePreviews(pagination.items, loadPreview);
 
   const loadFiles = async (
     nextView: FileView = view,
@@ -182,6 +191,7 @@ export default function FilesPage() {
 
       if (view === "favorites") {
         setView("all");
+        setCurrentPage(1);
       } else {
         await loadFiles("all");
       }
@@ -270,8 +280,8 @@ export default function FilesPage() {
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
-          ? caughtError.message
-          : "Delete failed.",
+          ? `${caughtError.message} The file remains listed, so you can retry after resolving the issue.`
+          : "Delete failed. You can safely retry.",
       );
     }
   };
@@ -404,7 +414,10 @@ export default function FilesPage() {
             <button
               type="button"
               aria-pressed={view === "all"}
-              onClick={() => setView("all")}
+              onClick={() => {
+                setView("all");
+                setCurrentPage(1);
+              }}
               className={`${viewButtonClass} ${view === "all" ? "bg-[rgba(255,255,255,0.8)] text-[#224762] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""}`}
             >
               <FolderOpen
@@ -419,7 +432,10 @@ export default function FilesPage() {
             <button
               type="button"
               aria-pressed={view === "favorites"}
-              onClick={() => setView("favorites")}
+              onClick={() => {
+                setView("favorites");
+                setCurrentPage(1);
+              }}
               className={`${viewButtonClass} ${view === "favorites" ? "bg-[rgba(255,255,255,0.8)] text-[#b47818] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""}`}
             >
               <Star
@@ -450,9 +466,10 @@ export default function FilesPage() {
               type="search"
               className="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
               value={searchQuery}
-              onChange={(event) =>
-                setSearchQuery(event.target.value)
-              }
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search files..."
               aria-label="Search files by name, type, or ID"
             />
@@ -462,7 +479,10 @@ export default function FilesPage() {
                 type="button"
                 className="grid h-[25px] w-[25px] flex-none cursor-pointer place-items-center rounded-[7px] border-0 bg-transparent text-[#8296a6] hover:bg-[#edf4f9] hover:text-[#527087]"
                 aria-label="Clear file search"
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
               >
                 <X
                   aria-hidden="true"
@@ -561,7 +581,10 @@ export default function FilesPage() {
             {view === "favorites" && !searchQuery && (
               <button
                 type="button"
-                onClick={() => setView("all")}
+                onClick={() => {
+                  setView("all");
+                  setCurrentPage(1);
+                }}
                 className="secondary-action"
               >
                 <FolderOpen
@@ -594,7 +617,7 @@ export default function FilesPage() {
           </section>
         ) : (
           <FileCardGrid
-            files={filteredFiles}
+            files={pagination.items}
             previewUrls={previewUrls}
             favoritePendingIds={favoritePendingIds}
             canManage={(file) => file.canManage}
@@ -603,12 +626,20 @@ export default function FilesPage() {
             }
             onReplace={openReplace}
             onDetails={(file) => void handleShowFileDetails(file)}
+            onPreview={setPreviewFile}
             onDownload={(file) =>
               void handleDownload(file)
             }
             onDelete={(file) =>
               void handleDelete(file.id)
             }
+          />
+        )}
+        {filteredFiles.length > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            pageCount={pagination.pageCount}
+            onPageChange={setCurrentPage}
           />
         )}
       </section>
@@ -618,6 +649,7 @@ export default function FilesPage() {
           onClose={() => setFileDetails(null)}
         />
       )}
+      {previewFile && <ImagePreviewModal file={previewFile} src={previewUrls[previewFile.id]} onClose={() => setPreviewFile(null)} />}
     </div>
   );
 }

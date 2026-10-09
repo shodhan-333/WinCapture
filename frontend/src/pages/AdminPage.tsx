@@ -138,24 +138,24 @@ export default function AdminPage() {
   };
 
   const handleDeleteAlbum = async (album: AlbumResponse) => {
-    if (!account || !window.confirm(`Delete “${album.albumName}” and all its files? This cannot be undone.`)) return;
+    if (!account || !window.confirm(`Delete "${album.albumName}" and all its files? This cannot be undone.`)) return;
     try {
       setError(null);
       await deleteAlbum(instance, account, album.id);
       setAlbums((current) => current.filter((item) => item.id !== album.id));
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to delete album.");
+      setError(caughtError instanceof Error ? `${caughtError.message} The album remains listed, so you can retry after resolving the issue.` : "Unable to delete album. You can retry after resolving the issue.");
     }
   };
 
   const handleDeleteFile = async (file: AdminFileResponse) => {
-    if (!account || !window.confirm(`Delete “${file.originalFileName}”? This cannot be undone.`)) return;
+    if (!account || !window.confirm(`Delete "${file.originalFileName}"? This cannot be undone.`)) return;
     try {
       setError(null);
       await deleteFile(instance, account, file.id);
       setFiles((current) => current.filter((item) => item.id !== file.id));
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to delete file.");
+      setError(caughtError instanceof Error ? `${caughtError.message} The file remains listed, so you can retry after resolving the issue.` : "Unable to delete file. You can retry after resolving the issue.");
     }
   };
 
@@ -332,8 +332,8 @@ export default function AdminPage() {
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[8px] text-[#879aa9]">
                     Uploaded by: {file.uploaderName} (#{file.uploadedBy})
                     {file.albumId !== null
-                      ? ` · Album: ${file.albumName ?? "Unknown album"} (#${file.albumId})`
-                      : " · Personal file"}
+                      ? ` \u00B7 Album: ${file.albumName ?? "Unknown album"} (#${file.albumId})`
+                      : " \u00B7 Personal file"}
                   </span>
                 </div>
                 <div className="grid flex-none gap-0.5 text-right max-[520px]:hidden">

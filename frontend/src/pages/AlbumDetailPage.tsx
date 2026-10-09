@@ -45,10 +45,13 @@ import {
   uploadAlbumFile,
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
+import Pagination from "../components/ui/Pagination";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
+import ImagePreviewModal from "../components/files/ImagePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
+import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 
 import type {
@@ -57,6 +60,8 @@ import type {
 } from "../types/album";
 import type { FileResponse } from "../types/file";
 import { formatDate } from "../utils/formatters";
+
+const PAGE_SIZE = 12;
 
 const sharePanelClass =
   "min-w-0 p-5 max-[760px]:p-[17px] max-[520px]:p-[14px]";
@@ -91,9 +96,12 @@ export default function AlbumDetailPage() {
 
   const [files, setFiles] =
     useState<FileResponse[]>([]);
+  const [currentPage, setCurrentPage] =
+    useState(1);
 
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
 
   const [members, setMembers] =
     useState<AlbumMemberResponse[]>([]);
@@ -161,13 +169,15 @@ export default function AlbumDetailPage() {
     ],
   );
 
+  const pagination = usePagination(
+    files,
+    currentPage,
+    PAGE_SIZE,
+  );
   const {
     previewUrls,
     loading: previewsLoading,
-  } = useFilePreviews(
-    files,
-    loadPreview,
-  );
+  } = useFilePreviews(pagination.items, loadPreview);
   const albumCoverPreview = files.find(
     (file) =>
       file.contentType.startsWith("image/") &&
@@ -209,6 +219,7 @@ export default function AlbumDetailPage() {
         );
 
       setFiles(fileResult);
+      setCurrentPage(1);
 
       if (nextCanManageAlbum) {
         try {
@@ -402,8 +413,8 @@ export default function AlbumDetailPage() {
       ) {
         setError(
           caughtError instanceof Error
-            ? caughtError.message
-            : "Delete failed.",
+            ? `${caughtError.message} The file remains listed, so you can retry after resolving the issue.`
+            : "Delete failed. The file remains listed, so you can retry after resolving the issue.",
         );
       }
     };
@@ -510,7 +521,7 @@ export default function AlbumDetailPage() {
       return;
     }
 
-    if (!window.confirm(`Delete “${album.albumName}”? This cannot be undone.`)) {
+    if (!window.confirm(`Delete "${album.albumName}"? This cannot be undone.`)) {
       return;
     }
 
@@ -522,8 +533,8 @@ export default function AlbumDetailPage() {
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to delete album.",
+          ? `${caughtError.message} The album remains listed, so you can retry after resolving the issue.`
+          : "Unable to delete album. You can retry after resolving the issue.",
       );
     } finally {
       setDeletingAlbum(false);
@@ -985,7 +996,7 @@ export default function AlbumDetailPage() {
         </div>
 
         <FileCardGrid
-          files={files}
+          files={pagination.items}
           previewUrls={previewUrls}
           favoritePendingIds={
             favoritePendingIds
@@ -1014,6 +1025,7 @@ export default function AlbumDetailPage() {
             }
           }}
           onDetails={(file) => void handleShowFileDetails(file)}
+          onPreview={setPreviewFile}
           onDownload={(file) =>
             void handleDownload(
               file,
@@ -1063,6 +1075,13 @@ export default function AlbumDetailPage() {
             </section>
           }
         />
+        {files.length > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            pageCount={pagination.pageCount}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </section>
 
       {canManageAlbum && (
@@ -1469,6 +1488,7 @@ export default function AlbumDetailPage() {
           onClose={() => setFileDetails(null)}
         />
       )}
+      {previewFile && <ImagePreviewModal file={previewFile} src={previewUrls[previewFile.id]} onClose={() => setPreviewFile(null)} />}
     </div>
   );
 }

@@ -11,6 +11,7 @@ interface FileCardGridProps {
   onFavoriteToggle: (file: FileResponse) => void;
   onReplace: (file: FileResponse) => void;
   onDetails: (file: FileResponse) => void;
+  onPreview: (file: FileResponse) => void;
   onDownload: (file: FileResponse) => void;
   onDelete: (file: FileResponse) => void;
   empty?: ReactNode;
@@ -24,6 +25,7 @@ export default function FileCardGrid({
   onFavoriteToggle,
   onReplace,
   onDetails,
+  onPreview,
   onDownload,
   onDelete,
   empty,
@@ -54,6 +56,7 @@ export default function FileCardGrid({
             }
             onReplace={() => onReplace(file)}
             onDetails={() => onDetails(file)}
+            onPreview={() => onPreview(file)}
             onDownload={() => onDownload(file)}
             onDelete={() => onDelete(file)}
           />

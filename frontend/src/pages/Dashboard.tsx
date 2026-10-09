@@ -458,7 +458,7 @@ export default function Dashboard() {
                         file.contentType,
                       )}
                       <span aria-hidden="true">
-                        {" Â· "}
+                        {" \u00B7 "}
                       </span>
                       {formatFileSize(
                         file.fileSize,

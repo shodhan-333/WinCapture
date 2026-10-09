@@ -19,6 +19,7 @@ interface FileCardProps {
   onFavoriteToggle: () => void;
   onReplace: () => void;
   onDetails: () => void;
+  onPreview: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }
@@ -43,6 +44,7 @@ export default function FileCard({
   onFavoriteToggle,
   onReplace,
   onDetails,
+  onPreview,
   onDownload,
   onDelete,
 }: FileCardProps) {
@@ -64,7 +66,13 @@ export default function FileCard({
           <img
             src={previewUrl}
             alt={file.originalFileName}
-            className="h-full w-full object-cover transition-[transform,filter] duration-[350ms] group-hover:scale-[1.04] group-hover:saturate-[1.03]"
+            loading="lazy"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open full-screen preview of ${file.originalFileName}`}
+            onClick={onPreview}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPreview(); } }}
+            className="h-full w-full cursor-zoom-in object-cover transition-[transform,filter] duration-[350ms] group-hover:scale-[1.04] group-hover:saturate-[1.03]"
           />
         ) : (
           <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${category === "document" ? "bg-[linear-gradient(145deg,#f1efff,#e7e8ff)] text-[#5d67c9]" : category === "file" ? "bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]" : ""}`}>
@@ -137,7 +145,7 @@ export default function FileCard({
                 {formatFileType(file.contentType)}
 
                 <span aria-hidden="true">
-                  Â·
+                  {"\u00B7"}
                 </span>
 
                 {formatFileSize(file.fileSize)}

@@ -12,6 +12,8 @@ public interface IAlbumFileService
         User currentUser,
         UserRole role);
 
+    Task<FileResponse> ReplaceAsync(long albumId, long fileId, IFormFile file, User currentUser, UserRole role);
+
     Task<IReadOnlyList<FileResponse>> GetAsync(
         long albumId,
         User currentUser,

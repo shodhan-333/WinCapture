@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FileResponse } from "../types/file";
 
@@ -18,31 +18,22 @@ export default function useFilePreviews(
   const [previewUrls, setPreviewUrls] =
     useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
+  const cache = useRef(new Map<number, string>());
+  const pending = useRef(new Map<number, Promise<string>>());
 
   useEffect(() => {
     let active = true;
-    let cleanupRequested = false;
-    const createdUrls: string[] = [];
-
-    const registerUrl = (url: string) => {
-      if (cleanupRequested) {
-        URL.revokeObjectURL(url);
-        return;
-      }
-
-      createdUrls.push(url);
-    };
 
     const imageFiles = files.filter((file) =>
       file.contentType.startsWith("image/"),
     );
 
-    setPreviewUrls({});
+    setPreviewUrls(Object.fromEntries(imageFiles.flatMap(file => cache.current.has(file.id) ? [[file.id, cache.current.get(file.id)!]] : [])));
     setLoading(imageFiles.length > 0);
 
     if (imageFiles.length === 0) {
       return () => {
-        cleanupRequested = true;
+        active = false;
       };
     }
 
@@ -50,12 +41,19 @@ export default function useFilePreviews(
       const results = await Promise.all(
         imageFiles.map(async (file) => {
           try {
-            const url = await loadPreview(file);
-            registerUrl(url);
+            let request = pending.current.get(file.id);
+            if (!request) {
+              request = loadPreview(file);
+              pending.current.set(file.id, request);
+            }
+            const url = cache.current.get(file.id) ?? await request;
+            cache.current.set(file.id, url);
 
             return [file.id, url] as const;
           } catch {
             return null;
+          } finally {
+            pending.current.delete(file.id);
           }
         }),
       );
@@ -79,13 +77,13 @@ export default function useFilePreviews(
 
     return () => {
       active = false;
-      cleanupRequested = true;
-
-      createdUrls.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
     };
   }, [files, loadPreview]);
+
+  useEffect(() => () => {
+    cache.current.forEach((url) => URL.revokeObjectURL(url));
+    cache.current.clear();
+  }, []);
 
   return {
     previewUrls,

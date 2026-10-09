@@ -187,6 +187,17 @@ public sealed class AlbumsController(
             response);
     }
 
+    [HttpPut("{id:long}/files/{fileId:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaximumRequestSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaximumRequestSize)]
+    public async Task<ActionResult<FileResponse>> ReplaceFile(long id, long fileId, IFormFile file)
+    {
+        var response = await albumFileService.ReplaceAsync(id, fileId, file, CurrentUser, CurrentUserRole);
+        return Ok(response);
+    }
+
     [HttpGet("{id:long}/files")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     public async Task<ActionResult<

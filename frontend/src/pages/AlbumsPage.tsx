@@ -10,14 +10,18 @@ import { useNavigate } from "react-router-dom";
 
 import { createAlbum, getAlbums } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
+import Pagination from "../components/ui/Pagination";
 import {
   pageHeaderClass,
   pageHeaderSkeletonClass,
 } from "../components/ui/uiClasses";
 import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
+import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import { formatDate } from "../utils/formatters";
+
+const PAGE_SIZE = 9;
 
 export default function AlbumsPage() {
   const { instance } = useMsal();
@@ -25,14 +29,16 @@ export default function AlbumsPage() {
   const navigate = useNavigate();
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(
     null,
   );
   const [creating, setCreating] = useState(false);
   const [albumName, setAlbumName] = useState("");
+  const pagination = usePagination(albums, currentPage, PAGE_SIZE);
   const coverUrls = useAlbumCoverPreviews(
-    albums,
+    pagination.items,
     instance,
     account,
     user?.userId,
@@ -256,7 +262,7 @@ export default function AlbumsPage() {
           </section>
         ) : (
           <div className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
-            {albums.map((album) => (
+            {pagination.items.map((album) => (
                 <button
                   key={album.id}
                   type="button"
@@ -374,6 +380,13 @@ export default function AlbumsPage() {
                 </button>
             ))}
           </div>
+        )}
+        {albums.length > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            pageCount={pagination.pageCount}
+            onPageChange={setCurrentPage}
+          />
         )}
       </section>
     </div>
