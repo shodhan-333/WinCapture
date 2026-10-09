@@ -6,6 +6,7 @@ namespace WinCapture.Middleware;
 
 public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     // Catches exceptions from the request pipeline and passes them to the central handler.
     public async Task InvokeAsync(HttpContext context)
     {
@@ -53,6 +54,6 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
 
         var response = new ErrorResponse(statusCode, message);
 
-        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
     }
 }

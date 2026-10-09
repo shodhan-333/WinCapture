@@ -199,7 +199,7 @@ public sealed class AlbumFileService(
             file.OriginalFileName);
     }
 
-    // Deletes the blob before its metadata so a storage failure leaves the database record available for retry.
+    // Removes metadata first so a database failure cannot leave a record pointing to missing content.
     public async Task DeleteAsync(
         long albumId,
         long fileId,
@@ -216,8 +216,8 @@ public sealed class AlbumFileService(
             throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        await storage.DeleteAsync(file.StoredFileName);
         await files.DeleteAsync(file);
+        await TryDeleteStoredFileAsync(file.StoredFileName);
     }
 
     // Logs cleanup failures without hiding the result of the main operation.
@@ -229,9 +229,9 @@ public sealed class AlbumFileService(
         }
         catch (Exception exception)
         {
-            logger.LogError(
+            logger.LogCritical(
                 exception,
-                "Failed to clean up stored file {StoredFileName}.",
+                "Database metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
                 storedFileName);
         }
     }

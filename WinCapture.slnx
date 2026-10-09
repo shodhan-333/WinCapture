@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Backend/">
+    <Project Path="backend/WinCapture.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/backend.Tests/WinCapture.Tests.csproj" />
+  </Folder>
+</Solution>

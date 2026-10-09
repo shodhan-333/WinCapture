@@ -29,6 +29,12 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
                 "The Microsoft account object ID is missing.");
         }
 
+        if (role is not UserRole.User and not UserRole.Admin)
+        {
+            throw new UnauthorizedException(
+                "The Microsoft account does not have a supported WinCapture app role.");
+        }
+
         var normalizedName = string.IsNullOrWhiteSpace(name)
             ? normalizedEmail.Split('@')[0]
             : name.Trim();
@@ -40,12 +46,6 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
 
         // Uses the Entra object ID as the stable identity key for the account.
         var user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId);
-
-        // Links an existing account by email when it has not been linked to Entra yet.
-        if (user is null)
-        {
-            user = await userRepository.GetByEmailAsync(normalizedEmail);
-        }
 
         if (user is null)
         {
@@ -63,13 +63,21 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
                 await userRepository.AddAsync(user);
             }
             catch (DbUpdateException exception)
-                when (IsDuplicateKeyException(exception))
             {
-                // Loads the account created by another request if a duplicate key occurs.
-                user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId)
-                    ?? await userRepository.GetByEmailAsync(normalizedEmail)
-                    ?? throw new UnauthorizedException(
-                        "The Microsoft user could not be created or loaded.");
+                // A concurrent first sign-in may have inserted this OID already. Never fall back to email.
+                var concurrentUser = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId);
+                if (concurrentUser is not null)
+                {
+                    return concurrentUser;
+                }
+
+                if (IsDuplicateKeyException(exception))
+                {
+                    throw new UnauthorizedException(
+                        "The Microsoft account conflicts with an existing WinCapture profile.");
+                }
+
+                throw;
             }
 
             return user;
@@ -77,15 +85,6 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
 
         // Keeps the local user details and role in sync with Microsoft Entra.
         var changed = false;
-
-        if (!string.Equals(
-                user.EntraObjectId,
-                normalizedObjectId,
-                StringComparison.Ordinal))
-        {
-            user.EntraObjectId = normalizedObjectId;
-            changed = true;
-        }
 
         if (!string.Equals(
                 user.Email,

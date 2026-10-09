@@ -71,19 +71,20 @@ public sealed class MicrosoftIdentityClaimsTransformation(
     {
         var roles = principal.FindAll("roles")
             .Select(claim => claim.Value)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Where(role =>
+                string.Equals(role, "WinCapture.Admin", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(role, "WinCapture.User", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-        if (roles.Contains("WinCapture.Admin"))
+        if (roles.Length != 1)
         {
-            return UserRole.Admin;
+            return null;
         }
 
-        if (roles.Contains("WinCapture.User"))
-        {
-            return UserRole.User;
-        }
-
-        return null;
+        return string.Equals(roles[0], "WinCapture.Admin", StringComparison.OrdinalIgnoreCase)
+            ? UserRole.Admin
+            : UserRole.User;
     }
 
     // Removes existing claims of the specified type before adding updated values.

@@ -23,6 +23,28 @@ builder.Services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.Authenticatio
     options.MapInboundClaims = false;
     options.TokenValidationParameters.NameClaimType = "name";
     options.TokenValidationParameters.RoleClaimType = "roles";
+    options.Events ??= new JwtBearerEvents();
+    var previousTokenValidated = options.Events.OnTokenValidated;
+    options.Events.OnTokenValidated = async context =>
+    {
+        if (previousTokenValidated is not null)
+        {
+            await previousTokenValidated(context);
+        }
+
+        if (context.Result?.Failure is not null)
+        {
+            return;
+        }
+
+        var scopes = context.Principal?.FindFirst("scp")?.Value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            ?? [];
+        if (!scopes.Contains("access_as_user", StringComparer.Ordinal))
+        {
+            context.Fail("The required WinCapture API delegated scope is missing.");
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -134,3 +156,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+
+public partial class Program { }

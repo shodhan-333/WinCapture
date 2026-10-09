@@ -94,6 +94,8 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
         return await db.Favorites
             .AsNoTracking()
             .Include(favorite => favorite.File)
+                .ThenInclude(file => file.Album)
+                    .ThenInclude(album => album!.Access.Where(access => access.UserId == userId))
             .Where(favorite => favorite.UserId == userId)
             .OrderByDescending(favorite => favorite.FavoritedAt)
             .Select(favorite => favorite.File)

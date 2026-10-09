@@ -1000,6 +1000,7 @@ namespace WinCapture.Middleware;
 
 public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     // Catches exceptions from the request pipeline and passes them to the central handler.
     public async Task InvokeAsync(HttpContext context)
     {
@@ -1047,9 +1048,10 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
 
         var response = new ErrorResponse(statusCode, message);
 
-        await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Migrations\20261001084829_InitialCreate.cs
@@ -2321,6 +2323,8 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
         return await db.Favorites
             .AsNoTracking()
             .Include(favorite => favorite.File)
+                .ThenInclude(file => file.Album)
+                    .ThenInclude(album => album!.Access.Where(access => access.UserId == userId))
             .Where(favorite => favorite.UserId == userId)
             .OrderByDescending(favorite => favorite.FavoritedAt)
             .Select(favorite => favorite.File)
@@ -2350,6 +2354,7 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
         await db.SaveChangesAsync();
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IAlbumRepository.cs
@@ -2719,7 +2724,7 @@ public sealed class AlbumFileService(
             file.OriginalFileName);
     }
 
-    // Deletes the blob before its metadata so a storage failure leaves the database record available for retry.
+    // Removes metadata first so a database failure cannot leave a record pointing to missing content.
     public async Task DeleteAsync(
         long albumId,
         long fileId,
@@ -2736,8 +2741,8 @@ public sealed class AlbumFileService(
             throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        await storage.DeleteAsync(file.StoredFileName);
         await files.DeleteAsync(file);
+        await TryDeleteStoredFileAsync(file.StoredFileName);
     }
 
     // Logs cleanup failures without hiding the result of the main operation.
@@ -2749,9 +2754,9 @@ public sealed class AlbumFileService(
         }
         catch (Exception exception)
         {
-            logger.LogError(
+            logger.LogCritical(
                 exception,
-                "Failed to clean up stored file {StoredFileName}.",
+                "Database metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
                 storedFileName);
         }
     }
@@ -2774,6 +2779,7 @@ public sealed class AlbumFileService(
             canManage);
 }
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AlbumService.cs
 ============================================================
@@ -2789,7 +2795,8 @@ public sealed class AlbumService(
     IAlbumRepository albums,
     IUserRepository users,
     IFileRepository files,
-    IStorageService storage) : IAlbumService
+    IStorageService storage,
+    ILogger<AlbumService> logger) : IAlbumService
 {
     // Validates the album name, saves the album, and returns its details.
     public async Task<AlbumResponse> CreateAsync(
@@ -2882,7 +2889,7 @@ public sealed class AlbumService(
         return ToResponse(album);
     }
 
-    // Deletes the stored files before deleting the album and its database records.
+    // Deletes album metadata first, then cleans its private blobs and logs any orphan requiring reconciliation.
     public async Task DeleteAsync(
         long albumId,
         User currentUser,
@@ -2896,13 +2903,22 @@ public sealed class AlbumService(
 
         var albumFiles = await files.GetByAlbumIdAsync(albumId);
 
-        // Keeps the album and its database records if a blob deletion fails.
+        await albums.DeleteAsync(album);
+
         foreach (var file in albumFiles)
         {
-            await storage.DeleteAsync(file.StoredFileName);
+            try
+            {
+                await storage.DeleteAsync(file.StoredFileName);
+            }
+            catch (Exception exception)
+            {
+                logger.LogCritical(
+                    exception,
+                    "Album metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
+                    file.StoredFileName);
+            }
         }
-
-        await albums.DeleteAsync(album);
     }
 
     // Returns the members who have access to the album and their permissions.
@@ -3126,6 +3142,7 @@ public sealed class AlbumService(
     }
 }
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AzureBlobStorageService.cs
 ============================================================
@@ -3222,7 +3239,6 @@ using WinCapture.Repositories;
 using WinCapture.Validators;
 
 namespace WinCapture.Services;
-
 public sealed class FileService(
     FileValidator validator,
     IStorageService storage,
@@ -3267,13 +3283,13 @@ public sealed class FileService(
         int userId,
         UserRole userRole)
     {
-        await validator.ValidateAsync(file);
-
         var existing = await GetAuthorizedFileAsync(
             fileId,
             userId,
             userRole,
             requireManage: true);
+
+        await validator.ValidateAsync(file);
 
         var oldStoredFileName = existing.StoredFileName;
         var newStoredFileName = await storage.SaveAsync(file);
@@ -3366,7 +3382,7 @@ public sealed class FileService(
             file.OriginalFileName);
     }
 
-    // Deletes the stored blob before removing its database metadata.
+    // Commits metadata deletion first so a database failure cannot leave a live record pointing to missing content.
     public async Task DeleteAsync(
         long fileId,
         int userId,
@@ -3378,10 +3394,8 @@ public sealed class FileService(
             userRole,
             requireManage: true);
 
-        // Keeps the metadata available if blob deletion fails so the operation can be retried.
-        await storage.DeleteAsync(file.StoredFileName);
-
         await files.DeleteAsync(file);
+        await TryDeleteStoredFileAsync(file.StoredFileName);
     }
 
     // Returns all files with their uploader and album details for admin management.
@@ -3414,7 +3428,7 @@ public sealed class FileService(
 
         foreach (var file in favoriteFiles)
         {
-            var permissions = await GetFilePermissionsAsync(file, userId, userRole);
+            var permissions = GetLoadedFavoritePermissions(file, userId, userRole);
 
             if (!permissions.CanView)
             {
@@ -3425,6 +3439,37 @@ public sealed class FileService(
         }
 
         return result;
+    }
+
+    // Uses the album and caller access row loaded with favorite files to avoid per-favorite queries.
+    private static (bool CanView, bool CanManage) GetLoadedFavoritePermissions(
+        FileMetadata file,
+        int userId,
+        UserRole userRole)
+    {
+        if (userRole == UserRole.Admin)
+        {
+            return (true, true);
+        }
+
+        if (file.AlbumId is null)
+        {
+            var ownsFile = file.UploadedBy == userId;
+            return (ownsFile, ownsFile);
+        }
+
+        if (file.Album is null)
+        {
+            return (false, false);
+        }
+
+        if (file.Album.CreatedBy == userId)
+        {
+            return (true, true);
+        }
+
+        var access = file.Album.Access.FirstOrDefault(item => item.UserId == userId);
+        return (access?.CanView == true, false);
     }
 
     // Adds a file to the user's favorites if they are allowed to view it.
@@ -3535,9 +3580,9 @@ public sealed class FileService(
         }
         catch (Exception exception)
         {
-            logger.LogError(
+            logger.LogCritical(
                 exception,
-                "Failed to clean up stored file {StoredFileName}.",
+                "Database metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
                 storedFileName);
         }
     }
@@ -3583,6 +3628,7 @@ public sealed class FileService(
             file.Album?.AlbumName);
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IAlbumFileService.cs
@@ -3898,19 +3944,20 @@ public sealed class MicrosoftIdentityClaimsTransformation(
     {
         var roles = principal.FindAll("roles")
             .Select(claim => claim.Value)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Where(role =>
+                string.Equals(role, "WinCapture.Admin", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(role, "WinCapture.User", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-        if (roles.Contains("WinCapture.Admin"))
+        if (roles.Length != 1)
         {
-            return UserRole.Admin;
+            return null;
         }
 
-        if (roles.Contains("WinCapture.User"))
-        {
-            return UserRole.User;
-        }
-
-        return null;
+        return string.Equals(roles[0], "WinCapture.Admin", StringComparison.OrdinalIgnoreCase)
+            ? UserRole.Admin
+            : UserRole.User;
     }
 
     // Removes existing claims of the specified type before adding updated values.
@@ -3922,6 +3969,7 @@ public sealed class MicrosoftIdentityClaimsTransformation(
         }
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\MicrosoftUserService.cs
@@ -3958,6 +4006,12 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
                 "The Microsoft account object ID is missing.");
         }
 
+        if (role is not UserRole.User and not UserRole.Admin)
+        {
+            throw new UnauthorizedException(
+                "The Microsoft account does not have a supported WinCapture app role.");
+        }
+
         var normalizedName = string.IsNullOrWhiteSpace(name)
             ? normalizedEmail.Split('@')[0]
             : name.Trim();
@@ -3969,12 +4023,6 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
 
         // Uses the Entra object ID as the stable identity key for the account.
         var user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId);
-
-        // Links an existing account by email when it has not been linked to Entra yet.
-        if (user is null)
-        {
-            user = await userRepository.GetByEmailAsync(normalizedEmail);
-        }
 
         if (user is null)
         {
@@ -3992,13 +4040,21 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
                 await userRepository.AddAsync(user);
             }
             catch (DbUpdateException exception)
-                when (IsDuplicateKeyException(exception))
             {
-                // Loads the account created by another request if a duplicate key occurs.
-                user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId)
-                    ?? await userRepository.GetByEmailAsync(normalizedEmail)
-                    ?? throw new UnauthorizedException(
-                        "The Microsoft user could not be created or loaded.");
+                // A concurrent first sign-in may have inserted this OID already. Never fall back to email.
+                var concurrentUser = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId);
+                if (concurrentUser is not null)
+                {
+                    return concurrentUser;
+                }
+
+                if (IsDuplicateKeyException(exception))
+                {
+                    throw new UnauthorizedException(
+                        "The Microsoft account conflicts with an existing WinCapture profile.");
+                }
+
+                throw;
             }
 
             return user;
@@ -4006,15 +4062,6 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
 
         // Keeps the local user details and role in sync with Microsoft Entra.
         var changed = false;
-
-        if (!string.Equals(
-                user.EntraObjectId,
-                normalizedObjectId,
-                StringComparison.Ordinal))
-        {
-            user.EntraObjectId = normalizedObjectId;
-            changed = true;
-        }
 
         if (!string.Equals(
                 user.Email,
@@ -4076,6 +4123,7 @@ public sealed class MicrosoftUserService(IUserRepository userRepository)
                 sqlException.Number == 2627);
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Validators\FileValidator.cs
@@ -5452,7 +5500,10 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\package.json
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "test:watch": "vitest --config vitest.config.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.23.0",
@@ -5464,13 +5515,18 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\package.json
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "^5.0.3",
+    "jsdom": "^30.1.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "vitest": "^5.0.3"
   }
 }
 
@@ -5546,13 +5602,18 @@ async function extractErrorMessage(
     const data =
       (await response.json()) as {
         message?: string;
+        Message?: string;
         error?: string;
+        Error?: string;
         status?: number;
+        Status?: number;
       };
 
     return (
       data.message ||
+      data.Message ||
       data.error ||
+      data.Error ||
       `Backend returned HTTP ${response.status}.`
     );
   } catch {
@@ -6323,6 +6384,10 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\App.tsx
 ============================================================
 
 import {
+  useEffect,
+  useRef,
+} from "react";
+import {
   Navigate,
   Route,
   Routes,
@@ -6346,7 +6411,19 @@ function AuthGate() {
     user,
     loading,
     login,
+    logout,
+    error,
+    refreshUser,
   } = useAuth();
+  const redirectStarted = useRef(false);
+
+  useEffect(() => {
+    if (!loading && !error && !account && !user && !redirectStarted.current) {
+      redirectStarted.current = true;
+      void login();
+    }
+    if (account || user) redirectStarted.current = false;
+  }, [account, error, loading, login, user]);
 
   if (loading) {
     return (
@@ -6398,9 +6475,22 @@ function AuthGate() {
     );
   }
 
-  if (!account && !user) {
-    void login();
+  if (error) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f3f8fc] p-6">
+        <section className="surface w-[min(460px,100%)] rounded-[20px] p-7">
+          <h1 className="text-lg font-semibold text-[#183a57]">Unable to connect to WinCapture</h1>
+          <p role="alert" className="mt-3 text-sm text-[#60798e]">{error}</p>
+          <div className="mt-5 flex gap-3">
+            <button className="primary-action" type="button" onClick={() => void (account ? refreshUser() : login())}>Retry</button>
+            <button className="secondary-action" type="button" onClick={() => void logout()}>Sign out</button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
+  if (!account && !user) {
     return (
       <main className="relative isolate grid min-h-screen place-items-center overflow-hidden bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.98),transparent_28%),radial-gradient(circle_at_82%_75%,rgba(117,190,255,0.22),transparent_31%),linear-gradient(145deg,#f6faff_0%,#e5f1fc_49%,#f6f7fb_100%)] p-6 max-[520px]:p-[17px]">
         <div className="pointer-events-none absolute right-[-90px] top-[-170px] z-[-1] h-[340px] w-[340px] rounded-full bg-[rgba(86,169,242,0.16)] blur-[1px]" />
@@ -7568,8 +7658,10 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\context\Auth
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -7630,6 +7722,9 @@ export function AuthProvider({
 
   const [error, setError] =
     useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const profileAccountId = useRef<string | null>(null);
+  const refreshUserRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   useEffect(() => {
     if (
@@ -7647,14 +7742,20 @@ export function AuthProvider({
     accounts[0] ??
     null;
 
-  const refreshUser =
-    async () => {
+  const refreshUser = useCallback(async () => {
+      const version = ++requestVersion.current;
       if (!account) {
+        profileAccountId.current = null;
         setUser(null);
         setLoading(false);
+        setError(null);
         return;
       }
 
+      if (profileAccountId.current !== account.homeAccountId) {
+        profileAccountId.current = null;
+        setUser(null);
+      }
       setLoading(true);
       setError(null);
 
@@ -7665,34 +7766,40 @@ export function AuthProvider({
             account,
           );
 
-        setUser(currentUser);
+        if (requestVersion.current === version) {
+          profileAccountId.current = account.homeAccountId;
+          setUser(currentUser);
+        }
       } catch (caughtError) {
-        setUser(null);
-
-        setError(
+        if (requestVersion.current === version) {
+          profileAccountId.current = null;
+          setUser(null);
+          setError(
           caughtError instanceof Error
             ? caughtError.message
             : "Microsoft authentication succeeded, but the WinCapture API rejected the request.",
-        );
+          );
+        }
       } finally {
-        setLoading(false);
+        if (requestVersion.current === version) setLoading(false);
       }
-    };
+    }, [account, instance]);
+
+  refreshUserRef.current = refreshUser;
 
   useEffect(() => {
     if (
       inProgress ===
       InteractionStatus.None
     ) {
-      void refreshUser();
+      void refreshUserRef.current();
     }
   }, [
     account?.homeAccountId,
     inProgress,
   ]);
 
-  const login =
-    async () => {
+  const login = useCallback(async () => {
       setError(null);
 
       try {
@@ -7706,10 +7813,11 @@ export function AuthProvider({
             : "Microsoft authentication could not be started.",
         );
       }
-    };
+    }, [instance]);
 
-  const logout =
-    async () => {
+  const logout = useCallback(async () => {
+      requestVersion.current += 1;
+      profileAccountId.current = null;
       setUser(null);
       setError(null);
 
@@ -7727,7 +7835,7 @@ export function AuthProvider({
             : "Microsoft logout could not be completed.",
         );
       }
-    };
+    }, [account, instance]);
 
   const value =
     useMemo<AuthContextValue>(
@@ -7749,6 +7857,9 @@ export function AuthProvider({
         loading,
         inProgress,
         error,
+        login,
+        logout,
+        refreshUser,
       ],
     );
 
@@ -7990,8 +8101,9 @@ export default function useFilePreviews(
   const [previewUrls, setPreviewUrls] =
     useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
-  const cache = useRef(new Map<number, string>());
-  const pending = useRef(new Map<number, Promise<string>>());
+  const cache = useRef(new Map<number, { signature: string; url: string }>());
+  const pending = useRef(new Map<string, Promise<string>>());
+  const currentSignatures = useRef(new Map<number, string>());
 
   useEffect(() => {
     let active = true;
@@ -8000,7 +8112,22 @@ export default function useFilePreviews(
       file.contentType.startsWith("image/"),
     );
 
-    setPreviewUrls(Object.fromEntries(imageFiles.flatMap(file => cache.current.has(file.id) ? [[file.id, cache.current.get(file.id)!]] : [])));
+    const signatureFor = (file: FileResponse) =>
+      `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
+    currentSignatures.current = new Map(
+      imageFiles.map((file) => [file.id, signatureFor(file)]),
+    );
+    cache.current.forEach((entry, id) => {
+      const currentFile = imageFiles.find((file) => file.id === id);
+      if (!currentFile || entry.signature !== signatureFor(currentFile)) {
+        URL.revokeObjectURL(entry.url);
+        cache.current.delete(id);
+      }
+    });
+    setPreviewUrls(Object.fromEntries(imageFiles.flatMap(file => {
+      const entry = cache.current.get(file.id);
+      return entry?.signature === signatureFor(file) ? [[file.id, entry.url]] : [];
+    })));
     setLoading(imageFiles.length > 0);
 
     if (imageFiles.length === 0) {
@@ -8013,19 +8140,36 @@ export default function useFilePreviews(
       const results = await Promise.all(
         imageFiles.map(async (file) => {
           try {
-            let request = pending.current.get(file.id);
+            const signature = signatureFor(file);
+            const pendingKey = `${file.id}:${signature}`;
+            let request = pending.current.get(pendingKey);
             if (!request) {
               request = loadPreview(file);
-              pending.current.set(file.id, request);
+              pending.current.set(pendingKey, request);
             }
-            const url = cache.current.get(file.id) ?? await request;
-            cache.current.set(file.id, url);
+            const cached = cache.current.get(file.id);
+            const url = cached?.signature === signature ? cached.url : await request;
+            const isCurrent =
+              active && currentSignatures.current.get(file.id) === signature;
+            if (!isCurrent) {
+              // Requests shared with a newer effect may still be consumed there.
+              if (currentSignatures.current.get(file.id) !== signature) {
+                URL.revokeObjectURL(url);
+              }
+              return null;
+            }
+
+            const previous = cache.current.get(file.id);
+            if (previous && previous.url !== url && previous.signature !== signature) {
+              URL.revokeObjectURL(previous.url);
+            }
+            cache.current.set(file.id, { signature, url });
 
             return [file.id, url] as const;
           } catch {
             return null;
           } finally {
-            pending.current.delete(file.id);
+            pending.current.delete(`${file.id}:${signatureFor(file)}`);
           }
         }),
       );
@@ -8053,7 +8197,8 @@ export default function useFilePreviews(
   }, [files, loadPreview]);
 
   useEffect(() => () => {
-    cache.current.forEach((url) => URL.revokeObjectURL(url));
+    currentSignatures.current.clear();
+    cache.current.forEach((entry) => URL.revokeObjectURL(entry.url));
     cache.current.clear();
   }, []);
 
@@ -9410,6 +9555,14 @@ export default function AlbumDetailPage() {
 
   useEffect(
     () => {
+      if (!Number.isSafeInteger(numericAlbumId) || numericAlbumId <= 0) {
+        setAlbum(null);
+        setFiles([]);
+        setMembers([]);
+        setError("The album ID is invalid.");
+        setLoading(false);
+        return;
+      }
       void loadAlbumData();
     },
     [
@@ -11125,8 +11278,11 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
       if (!account) {
+        setLoading(false);
         return;
       }
 
@@ -11140,21 +11296,27 @@ export default function Dashboard() {
             getFiles(instance, account),
           ]);
 
+        if (!active) return;
         setAlbums(albumResult);
         setFiles(fileResult);
       } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to load dashboard data.",
-        );
+        if (active) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load dashboard data.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     void load();
-  }, [account, instance]);
+    return () => {
+      active = false;
+    };
+  }, [account?.homeAccountId, instance]);
 
   if (loading) {
     return (
@@ -12393,8 +12555,9 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\tsconfig.json
     "jsx": "react-jsx",
     "types": ["vite/client","node"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "../Tests/frontend.Tests", "vite.config.ts", "vitest.config.ts"]
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\vite.config.ts
@@ -12435,3 +12598,4 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
 });
+

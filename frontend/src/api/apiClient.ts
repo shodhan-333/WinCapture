@@ -65,13 +65,18 @@ async function extractErrorMessage(
     const data =
       (await response.json()) as {
         message?: string;
+        Message?: string;
         error?: string;
+        Error?: string;
         status?: number;
+        Status?: number;
       };
 
     return (
       data.message ||
+      data.Message ||
       data.error ||
+      data.Error ||
       `Backend returned HTTP ${response.status}.`
     );
   } catch {

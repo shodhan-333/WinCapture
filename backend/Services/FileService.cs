@@ -6,7 +6,6 @@ using WinCapture.Repositories;
 using WinCapture.Validators;
 
 namespace WinCapture.Services;
-
 public sealed class FileService(
     FileValidator validator,
     IStorageService storage,
@@ -51,13 +50,13 @@ public sealed class FileService(
         int userId,
         UserRole userRole)
     {
-        await validator.ValidateAsync(file);
-
         var existing = await GetAuthorizedFileAsync(
             fileId,
             userId,
             userRole,
             requireManage: true);
+
+        await validator.ValidateAsync(file);
 
         var oldStoredFileName = existing.StoredFileName;
         var newStoredFileName = await storage.SaveAsync(file);
@@ -150,7 +149,7 @@ public sealed class FileService(
             file.OriginalFileName);
     }
 
-    // Deletes the stored blob before removing its database metadata.
+    // Commits metadata deletion first so a database failure cannot leave a live record pointing to missing content.
     public async Task DeleteAsync(
         long fileId,
         int userId,
@@ -162,10 +161,8 @@ public sealed class FileService(
             userRole,
             requireManage: true);
 
-        // Keeps the metadata available if blob deletion fails so the operation can be retried.
-        await storage.DeleteAsync(file.StoredFileName);
-
         await files.DeleteAsync(file);
+        await TryDeleteStoredFileAsync(file.StoredFileName);
     }
 
     // Returns all files with their uploader and album details for admin management.
@@ -198,7 +195,7 @@ public sealed class FileService(
 
         foreach (var file in favoriteFiles)
         {
-            var permissions = await GetFilePermissionsAsync(file, userId, userRole);
+            var permissions = GetLoadedFavoritePermissions(file, userId, userRole);
 
             if (!permissions.CanView)
             {
@@ -209,6 +206,37 @@ public sealed class FileService(
         }
 
         return result;
+    }
+
+    // Uses the album and caller access row loaded with favorite files to avoid per-favorite queries.
+    private static (bool CanView, bool CanManage) GetLoadedFavoritePermissions(
+        FileMetadata file,
+        int userId,
+        UserRole userRole)
+    {
+        if (userRole == UserRole.Admin)
+        {
+            return (true, true);
+        }
+
+        if (file.AlbumId is null)
+        {
+            var ownsFile = file.UploadedBy == userId;
+            return (ownsFile, ownsFile);
+        }
+
+        if (file.Album is null)
+        {
+            return (false, false);
+        }
+
+        if (file.Album.CreatedBy == userId)
+        {
+            return (true, true);
+        }
+
+        var access = file.Album.Access.FirstOrDefault(item => item.UserId == userId);
+        return (access?.CanView == true, false);
     }
 
     // Adds a file to the user's favorites if they are allowed to view it.
@@ -319,9 +347,9 @@ public sealed class FileService(
         }
         catch (Exception exception)
         {
-            logger.LogError(
+            logger.LogCritical(
                 exception,
-                "Failed to clean up stored file {StoredFileName}.",
+                "Database metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
                 storedFileName);
         }
     }

@@ -9,7 +9,8 @@ public sealed class AlbumService(
     IAlbumRepository albums,
     IUserRepository users,
     IFileRepository files,
-    IStorageService storage) : IAlbumService
+    IStorageService storage,
+    ILogger<AlbumService> logger) : IAlbumService
 {
     // Validates the album name, saves the album, and returns its details.
     public async Task<AlbumResponse> CreateAsync(
@@ -102,7 +103,7 @@ public sealed class AlbumService(
         return ToResponse(album);
     }
 
-    // Deletes the stored files before deleting the album and its database records.
+    // Deletes album metadata first, then cleans its private blobs and logs any orphan requiring reconciliation.
     public async Task DeleteAsync(
         long albumId,
         User currentUser,
@@ -116,13 +117,22 @@ public sealed class AlbumService(
 
         var albumFiles = await files.GetByAlbumIdAsync(albumId);
 
-        // Keeps the album and its database records if a blob deletion fails.
+        await albums.DeleteAsync(album);
+
         foreach (var file in albumFiles)
         {
-            await storage.DeleteAsync(file.StoredFileName);
+            try
+            {
+                await storage.DeleteAsync(file.StoredFileName);
+            }
+            catch (Exception exception)
+            {
+                logger.LogCritical(
+                    exception,
+                    "Album metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
+                    file.StoredFileName);
+            }
         }
-
-        await albums.DeleteAsync(album);
     }
 
     // Returns the members who have access to the album and their permissions.

@@ -252,6 +252,14 @@ export default function AlbumDetailPage() {
 
   useEffect(
     () => {
+      if (!Number.isSafeInteger(numericAlbumId) || numericAlbumId <= 0) {
+        setAlbum(null);
+        setFiles([]);
+        setMembers([]);
+        setError("The album ID is invalid.");
+        setLoading(false);
+        return;
+      }
       void loadAlbumData();
     },
     [

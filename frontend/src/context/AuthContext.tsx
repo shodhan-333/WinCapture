@@ -1,8 +1,10 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -63,6 +65,9 @@ export function AuthProvider({
 
   const [error, setError] =
     useState<string | null>(null);
+  const requestVersion = useRef(0);
+  const profileAccountId = useRef<string | null>(null);
+  const refreshUserRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   useEffect(() => {
     if (
@@ -80,14 +85,20 @@ export function AuthProvider({
     accounts[0] ??
     null;
 
-  const refreshUser =
-    async () => {
+  const refreshUser = useCallback(async () => {
+      const version = ++requestVersion.current;
       if (!account) {
+        profileAccountId.current = null;
         setUser(null);
         setLoading(false);
+        setError(null);
         return;
       }
 
+      if (profileAccountId.current !== account.homeAccountId) {
+        profileAccountId.current = null;
+        setUser(null);
+      }
       setLoading(true);
       setError(null);
 
@@ -98,34 +109,40 @@ export function AuthProvider({
             account,
           );
 
-        setUser(currentUser);
+        if (requestVersion.current === version) {
+          profileAccountId.current = account.homeAccountId;
+          setUser(currentUser);
+        }
       } catch (caughtError) {
-        setUser(null);
-
-        setError(
+        if (requestVersion.current === version) {
+          profileAccountId.current = null;
+          setUser(null);
+          setError(
           caughtError instanceof Error
             ? caughtError.message
             : "Microsoft authentication succeeded, but the WinCapture API rejected the request.",
-        );
+          );
+        }
       } finally {
-        setLoading(false);
+        if (requestVersion.current === version) setLoading(false);
       }
-    };
+    }, [account, instance]);
+
+  refreshUserRef.current = refreshUser;
 
   useEffect(() => {
     if (
       inProgress ===
       InteractionStatus.None
     ) {
-      void refreshUser();
+      void refreshUserRef.current();
     }
   }, [
     account?.homeAccountId,
     inProgress,
   ]);
 
-  const login =
-    async () => {
+  const login = useCallback(async () => {
       setError(null);
 
       try {
@@ -139,10 +156,11 @@ export function AuthProvider({
             : "Microsoft authentication could not be started.",
         );
       }
-    };
+    }, [instance]);
 
-  const logout =
-    async () => {
+  const logout = useCallback(async () => {
+      requestVersion.current += 1;
+      profileAccountId.current = null;
       setUser(null);
       setError(null);
 
@@ -160,7 +178,7 @@ export function AuthProvider({
             : "Microsoft logout could not be completed.",
         );
       }
-    };
+    }, [account, instance]);
 
   const value =
     useMemo<AuthContextValue>(
@@ -182,6 +200,9 @@ export function AuthProvider({
         loading,
         inProgress,
         error,
+        login,
+        logout,
+        refreshUser,
       ],
     );
 

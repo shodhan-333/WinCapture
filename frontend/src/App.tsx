@@ -1,4 +1,8 @@
 import {
+  useEffect,
+  useRef,
+} from "react";
+import {
   Navigate,
   Route,
   Routes,
@@ -22,7 +26,19 @@ function AuthGate() {
     user,
     loading,
     login,
+    logout,
+    error,
+    refreshUser,
   } = useAuth();
+  const redirectStarted = useRef(false);
+
+  useEffect(() => {
+    if (!loading && !error && !account && !user && !redirectStarted.current) {
+      redirectStarted.current = true;
+      void login();
+    }
+    if (account || user) redirectStarted.current = false;
+  }, [account, error, loading, login, user]);
 
   if (loading) {
     return (
@@ -74,9 +90,22 @@ function AuthGate() {
     );
   }
 
-  if (!account && !user) {
-    void login();
+  if (error) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#f3f8fc] p-6">
+        <section className="surface w-[min(460px,100%)] rounded-[20px] p-7">
+          <h1 className="text-lg font-semibold text-[#183a57]">Unable to connect to WinCapture</h1>
+          <p role="alert" className="mt-3 text-sm text-[#60798e]">{error}</p>
+          <div className="mt-5 flex gap-3">
+            <button className="primary-action" type="button" onClick={() => void (account ? refreshUser() : login())}>Retry</button>
+            <button className="secondary-action" type="button" onClick={() => void logout()}>Sign out</button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
+  if (!account && !user) {
     return (
       <main className="relative isolate grid min-h-screen place-items-center overflow-hidden bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.98),transparent_28%),radial-gradient(circle_at_82%_75%,rgba(117,190,255,0.22),transparent_31%),linear-gradient(145deg,#f6faff_0%,#e5f1fc_49%,#f6f7fb_100%)] p-6 max-[520px]:p-[17px]">
         <div className="pointer-events-none absolute right-[-90px] top-[-170px] z-[-1] h-[340px] w-[340px] rounded-full bg-[rgba(86,169,242,0.16)] blur-[1px]" />

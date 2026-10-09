@@ -66,8 +66,11 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
       if (!account) {
+        setLoading(false);
         return;
       }
 
@@ -81,21 +84,27 @@ export default function Dashboard() {
             getFiles(instance, account),
           ]);
 
+        if (!active) return;
         setAlbums(albumResult);
         setFiles(fileResult);
       } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to load dashboard data.",
-        );
+        if (active) {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load dashboard data.",
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     void load();
-  }, [account, instance]);
+    return () => {
+      active = false;
+    };
+  }, [account?.homeAccountId, instance]);
 
   if (loading) {
     return (
