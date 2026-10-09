@@ -4,4 +4,3 @@ public sealed record AddAlbumMemberRequest(
     string Email,
     bool CanView,
     bool CanDownload);
-    

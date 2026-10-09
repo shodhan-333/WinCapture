@@ -3,27 +3,20 @@ using WinCapture.Models;
 
 namespace WinCapture.Data;
 
-public sealed class WinCaptureDbContext(
-    DbContextOptions<WinCaptureDbContext> options)
-    : DbContext(options)
+public sealed class WinCaptureDbContext(DbContextOptions<WinCaptureDbContext> options) : DbContext(options)
 {
-    public DbSet<User> Users =>
-        Set<User>();
+    public DbSet<User> Users => Set<User>();
 
-    public DbSet<FileMetadata> Files =>
-        Set<FileMetadata>();
+    public DbSet<FileMetadata> Files => Set<FileMetadata>();
 
-    public DbSet<Album> Albums =>
-        Set<Album>();
+    public DbSet<Album> Albums => Set<Album>();
 
-    public DbSet<AlbumAccess> AlbumAccess =>
-        Set<AlbumAccess>();
+    public DbSet<AlbumAccess> AlbumAccess => Set<AlbumAccess>();
 
-    public DbSet<Favorite> Favorites =>
-        Set<Favorite>();
+    public DbSet<Favorite> Favorites => Set<Favorite>();
 
-    protected override void OnModelCreating(
-        ModelBuilder modelBuilder)
+    // Configures the database tables, constraints, indexes, and relationships used by WinCapture.
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
         {
@@ -42,6 +35,7 @@ public sealed class WinCaptureDbContext(
                 .HasMaxLength(320)
                 .IsRequired();
 
+            // Prevents multiple user accounts from using the same email address or Entra object ID.
             entity.HasIndex(user => user.Email)
                 .IsUnique();
 
@@ -79,6 +73,7 @@ public sealed class WinCaptureDbContext(
                 .HasMaxLength(260)
                 .IsRequired();
 
+            // Ensures each file has a unique name in storage.
             entity.HasIndex(file => file.StoredFileName)
                 .IsUnique();
 
@@ -104,11 +99,13 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(file => file.UploadedAt);
 
+            // Prevents deleting a user while their uploaded files still reference them.
             entity.HasOne(file => file.User)
                 .WithMany(user => user.Files)
                 .HasForeignKey(file => file.UploadedBy)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Removes the associated file records when an album is deleted.
             entity.HasOne(file => file.Album)
                 .WithMany(album => album.Files)
                 .HasForeignKey(file => file.AlbumId)
@@ -137,6 +134,7 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(album => album.CreatedBy);
 
+            // Prevents deleting the album owner while their albums still reference them.
             entity.HasOne(album => album.Owner)
                 .WithMany(user => user.Albums)
                 .HasForeignKey(album => album.CreatedBy)
@@ -161,8 +159,8 @@ public sealed class WinCaptureDbContext(
                 .HasColumnType("datetime2")
                 .IsRequired();
 
-            entity.HasIndex(
-                access => new
+            // Prevents the same user from receiving duplicate access entries for an album.
+            entity.HasIndex(access => new
                 {
                     access.AlbumId,
                     access.UserId
@@ -171,6 +169,7 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(access => access.UserId);
 
+            // Removes album access entries when the associated album is deleted.
             entity.HasOne(access => access.Album)
                 .WithMany(album => album.Access)
                 .HasForeignKey(access => access.AlbumId)
@@ -191,12 +190,12 @@ public sealed class WinCaptureDbContext(
         {
             entity.ToTable("Favorites");
 
-            entity.HasKey(favorite =>
-                new
-                {
-                    favorite.UserId,
-                    favorite.FileId
-                });
+            // Uses the user and file IDs together to prevent duplicate favorites.
+            entity.HasKey(favorite => new
+            {
+                favorite.UserId,
+                favorite.FileId
+            });
 
             entity.Property(favorite => favorite.FavoritedAt)
                 .HasColumnType("datetime2")
@@ -204,11 +203,13 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(favorite => favorite.FileId);
 
+            // Removes a user's favorites when that user is deleted.
             entity.HasOne(favorite => favorite.User)
                 .WithMany(user => user.Favorites)
                 .HasForeignKey(favorite => favorite.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Removes favorite entries when the associated file is deleted.
             entity.HasOne(favorite => favorite.File)
                 .WithMany(file => file.Favorites)
                 .HasForeignKey(favorite => favorite.FileId)

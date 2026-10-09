@@ -15,66 +15,56 @@ namespace WinCapture.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize(Roles = "WinCapture.Admin")]
-public sealed class AdminController(
-    IFileService fileService,
-    IAlbumService albumService) : ControllerBase
+public sealed class AdminController(IFileService fileService, IAlbumService albumService) : ControllerBase
 {
+    // Gets the mapped WinCapture user ID for retrieving the current admin's own resources.
     private int UserId
     {
         get
         {
             var value = User.FindFirst("wincapture_user_id")?.Value;
+
             if (!int.TryParse(value, out var userId) || userId <= 0)
             {
-                throw new UnauthorizedException(
-                    "The authenticated user ID is missing or invalid.");
+                throw new UnauthorizedException("The authenticated user ID is missing or invalid.");
             }
 
             return userId;
         }
     }
 
+    // Returns files uploaded by all users for admin management.
     [HttpGet("files")]
-    [ProducesResponseType<IReadOnlyList<AdminFileResponse>>(
-        StatusCodes.Status200OK)]
-    public async Task<ActionResult<
-        IReadOnlyList<AdminFileResponse>>>
-        GetFiles()
+    [ProducesResponseType<IReadOnlyList<AdminFileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AdminFileResponse>>> GetFiles()
     {
-        return Ok(
-            await fileService.GetAllAsync());
+        return Ok(await fileService.GetAllAsync());
     }
 
+    // Returns albums across all users for admin management.
     [HttpGet("albums")]
-    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(
-        StatusCodes.Status200OK)]
-    public async Task<ActionResult<
-        IReadOnlyList<AlbumResponse>>>
-        GetAlbums()
+    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetAlbums()
     {
-        return Ok(
-            await albumService.GetAllForAdminAsync());
+        return Ok(await albumService.GetAllForAdminAsync());
     }
 
+    // Returns only the albums owned by the current admin.
     [HttpGet("albums/mine")]
-    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(
-        StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>>
-        GetMyAlbums()
+    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetMyAlbums()
     {
         return Ok(await albumService.GetOwnedByUserAsync(UserId));
     }
 
+    // Returns only the files uploaded by the current admin.
     [HttpGet("files/mine")]
-    [ProducesResponseType<IReadOnlyList<AdminFileResponse>>(
-        StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AdminFileResponse>>>
-        GetMyFiles()
+    [ProducesResponseType<IReadOnlyList<AdminFileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<AdminFileResponse>>> GetMyFiles()
     {
         return Ok(await fileService.GetAdminFilesByUploaderIdAsync(UserId));
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Controllers\AlbumsController.cs
@@ -94,37 +84,30 @@ namespace WinCapture.Controllers;
 [ApiController]
 [Route("api/albums")]
 [Authorize]
-public sealed class AlbumsController(
-    IAlbumService albumService,
-    IAlbumFileService albumFileService) : ControllerBase
+public sealed class AlbumsController(IAlbumService albumService, IAlbumFileService albumFileService) : ControllerBase
 {
-    private const long RequestOverhead =
-        1024L * 1024L;
+    // Allows space for multipart form data beyond the maximum file size.
+    private const long RequestOverhead = 1024L * 1024L;
 
-    private const long MaximumRequestSize =
-        FileValidator.MaximumFileSize +
-        RequestOverhead;
+    private const long MaximumRequestSize = FileValidator.MaximumFileSize + RequestOverhead;
 
+    // Gets the local WinCapture user ID mapped to the authenticated Entra account.
     private int UserId
     {
         get
         {
-            var value =
-                User.FindFirst("wincapture_user_id")?.Value;
+            var value = User.FindFirst("wincapture_user_id")?.Value;
 
-            if (!int.TryParse(
-                    value,
-                    out var userId) ||
-                userId <= 0)
+            if (!int.TryParse(value, out var userId) || userId <= 0)
             {
-                throw new UnauthorizedException(
-                    "The authenticated user ID is missing or invalid.");
+                throw new UnauthorizedException("The authenticated user ID is missing or invalid.");
             }
 
             return userId;
         }
     }
 
+    // Maps the authenticated Entra app role to the role used by WinCapture services.
     private UserRole CurrentUserRole
     {
         get
@@ -139,296 +122,210 @@ public sealed class AlbumsController(
                 return UserRole.User;
             }
 
-            throw new ForbiddenException(
-                "The authenticated user role is missing or invalid.");
+            throw new ForbiddenException("The authenticated user role is missing or invalid.");
         }
     }
 
+    // Builds the user context required by the album services from the authenticated claims.
     private User CurrentUser =>
         new()
         {
             Id = UserId,
-
-            Name =
-                User.FindFirst("name")?.Value
-                ?? string.Empty,
-
-            Email =
-                User.FindFirst("email")?.Value
+            Name = User.FindFirst("name")?.Value ?? string.Empty,
+            Email = User.FindFirst("email")?.Value
                 ?? User.FindFirst("preferred_username")?.Value
                 ?? string.Empty,
-
             Role = CurrentUserRole
         };
 
+    // Creates an album for the current user and returns its location.
     [HttpPost]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<AlbumResponse>> Create(
-        CreateAlbumRequest request)
+    public async Task<ActionResult<AlbumResponse>> Create(CreateAlbumRequest request)
     {
         var user = CurrentUser;
+        var response = await albumService.CreateAsync(request, user);
 
-        var response =
-            await albumService.CreateAsync(
-                request,
-                user);
-
-        return Created(
-            $"/api/albums/{response.Id}",
-            response);
+        return Created($"/api/albums/{response.Id}", response);
     }
 
+    // Returns the albums the current user is allowed to access, including shared albums.
     [HttpGet]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<
-        IReadOnlyList<AlbumResponse>>>
-        GetAll()
+    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetAll()
     {
         var user = CurrentUser;
 
-        return Ok(
-            await albumService.GetAccessibleAsync(
-                user));
+        return Ok(await albumService.GetAccessibleAsync(user));
     }
 
+    // Returns only the albums owned by the current user.
     [HttpGet("mine")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>>
-        GetOwnedByCurrentUser()
+    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetOwnedByCurrentUser()
     {
-        return Ok(
-            await albumService.GetOwnedByUserAsync(UserId));
+        return Ok(await albumService.GetOwnedByUserAsync(UserId));
     }
 
+    // Retrieves an album using the current user's identity and role for access checks.
     [HttpGet("{id:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<AlbumResponse>> Get(
-        long id)
+    public async Task<ActionResult<AlbumResponse>> Get(long id)
     {
         var user = CurrentUser;
 
-        return Ok(
-            await albumService.GetAsync(
-                id,
-                user,
-                CurrentUserRole));
+        return Ok(await albumService.GetAsync(id, user, CurrentUserRole));
     }
 
+    // Passes the current user's identity and role to the service when updating an album.
     [HttpPut("{id:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<AlbumResponse>> Update(
-        long id,
-        UpdateAlbumRequest request)
+    public async Task<ActionResult<AlbumResponse>> Update(long id, UpdateAlbumRequest request)
     {
         var user = CurrentUser;
 
-        return Ok(
-            await albumService.UpdateAsync(
-                id,
-                request,
-                user,
-                CurrentUserRole));
+        return Ok(await albumService.UpdateAsync(id, request, user, CurrentUserRole));
     }
 
+    // Delegates album deletion and access checks to the album service.
     [HttpDelete("{id:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> Delete(
-        long id)
+    public async Task<IActionResult> Delete(long id)
     {
         var user = CurrentUser;
 
-        await albumService.DeleteAsync(
-            id,
-            user,
-            CurrentUserRole);
+        await albumService.DeleteAsync(id, user, CurrentUserRole);
 
         return NoContent();
     }
 
+    // Uploads a file to the specified album within the configured request-size limit.
     [HttpPost("{id:long}/files")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestSize)]
-    [RequestFormLimits(
-        MultipartBodyLengthLimit = MaximumRequestSize)]
-    public async Task<ActionResult<FileResponse>> UploadFile(
-        long id,
-        IFormFile file)
+    [RequestFormLimits(MultipartBodyLengthLimit = MaximumRequestSize)]
+    public async Task<ActionResult<FileResponse>> UploadFile(long id, IFormFile file)
     {
         var user = CurrentUser;
+        var response = await albumFileService.UploadAsync(id, file, user, CurrentUserRole);
 
-        var response =
-            await albumFileService.UploadAsync(
-                id,
-                file,
-                user,
-                CurrentUserRole);
-
-        return Created(
-            response.Url,
-            response);
+        return Created(response.Url, response);
     }
 
+    // Replaces a file in the specified album while enforcing the configured request-size limit.
+    [HttpPut("{id:long}/files/{fileId:long}")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(MaximumRequestSize)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaximumRequestSize)]
+    public async Task<ActionResult<FileResponse>> ReplaceFile(long id, long fileId, IFormFile file)
+    {
+        var response = await albumFileService.ReplaceAsync(id, fileId, file, CurrentUser, CurrentUserRole);
+
+        return Ok(response);
+    }
+
+    // Returns the files in an album after applying the current user's access rules.
     [HttpGet("{id:long}/files")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<
-        IReadOnlyList<FileResponse>>>
-        GetFiles(long id)
+    public async Task<ActionResult<IReadOnlyList<FileResponse>>> GetFiles(long id)
     {
         var user = CurrentUser;
 
-        return Ok(
-            await albumFileService.GetAsync(
-                id,
-                user,
-                CurrentUserRole));
+        return Ok(await albumFileService.GetAsync(id, user, CurrentUserRole));
     }
 
+    // Retrieves a specific file using the current user's access context.
     [HttpGet("{id:long}/files/{fileId:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<FileResponse>> GetFile(
-        long id,
-        long fileId)
+    public async Task<ActionResult<FileResponse>> GetFile(long id, long fileId)
     {
         var user = CurrentUser;
 
-        return Ok(
-            await albumFileService.GetOneAsync(
-                id,
-                fileId,
-                user,
-                CurrentUserRole));
+        return Ok(await albumFileService.GetOneAsync(id, fileId, user, CurrentUserRole));
     }
 
-    [HttpGet(
-        "{id:long}/files/{fileId:long}/preview")]
+    // Returns the file content for in-browser preview without setting a download filename.
+    [HttpGet("{id:long}/files/{fileId:long}/preview")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> PreviewFile(
-        long id,
-        long fileId)
+    public async Task<IActionResult> PreviewFile(long id, long fileId)
     {
         var user = CurrentUser;
+        var result = await albumFileService.PreviewAsync(id, fileId, user, CurrentUserRole);
 
-        var result =
-            await albumFileService.PreviewAsync(
-                id,
-                fileId,
-                user,
-                CurrentUserRole);
-
-        return File(
-            result.Content,
-            result.ContentType);
+        return File(result.Content, result.ContentType);
     }
 
-    [HttpGet(
-        "{id:long}/files/{fileId:long}/download")]
+    // Returns the file content with its download filename.
+    [HttpGet("{id:long}/files/{fileId:long}/download")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> DownloadFile(
-        long id,
-        long fileId)
+    public async Task<IActionResult> DownloadFile(long id, long fileId)
     {
         var user = CurrentUser;
+        var result = await albumFileService.DownloadAsync(id, fileId, user, CurrentUserRole);
 
-        var result =
-            await albumFileService.DownloadAsync(
-                id,
-                fileId,
-                user,
-                CurrentUserRole);
-
-        return File(
-            result.Content,
-            result.ContentType,
-            result.DownloadName);
+        return File(result.Content, result.ContentType, result.DownloadName);
     }
 
+    // Delegates file deletion and album access checks to the album file service.
     [HttpDelete("{id:long}/files/{fileId:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> DeleteFile(
-        long id,
-        long fileId)
+    public async Task<IActionResult> DeleteFile(long id, long fileId)
     {
         var user = CurrentUser;
 
-        await albumFileService.DeleteAsync(
-            id,
-            fileId,
-            user,
-            CurrentUserRole);
+        await albumFileService.DeleteAsync(id, fileId, user, CurrentUserRole);
 
         return NoContent();
     }
 
+    // Returns the members of an album according to the current user's access permissions.
     [HttpGet("{id:long}/members")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<
-        IReadOnlyList<AlbumMemberResponse>>>
-        GetMembers(long id)
+    public async Task<ActionResult<IReadOnlyList<AlbumMemberResponse>>> GetMembers(long id)
     {
         var user = CurrentUser;
 
-        return Ok(
-            await albumService.GetMembersAsync(
-                id,
-                user,
-                CurrentUserRole));
+        return Ok(await albumService.GetMembersAsync(id, user, CurrentUserRole));
     }
 
+    // Adds an album member using the current user's identity and role.
     [HttpPost("{id:long}/members")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> AddMember(
-        long id,
-        AddAlbumMemberRequest request)
+    public async Task<IActionResult> AddMember(long id, AddAlbumMemberRequest request)
     {
         var user = CurrentUser;
 
-        await albumService.AddMemberAsync(
-            id,
-            request,
-            user,
-            CurrentUserRole);
+        await albumService.AddMemberAsync(id, request, user, CurrentUserRole);
 
         return NoContent();
     }
 
+    // Updates an album member's permissions through the album service.
     [HttpPut("{id:long}/members/{userId:int}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> UpdateMember(
-        long id,
-        int userId,
-        UpdateAlbumMemberRequest request)
+    public async Task<IActionResult> UpdateMember(long id, int userId, UpdateAlbumMemberRequest request)
     {
         var user = CurrentUser;
 
-        await albumService.UpdateMemberAsync(
-            id,
-            userId,
-            request,
-            user,
-            CurrentUserRole);
+        await albumService.UpdateMemberAsync(id, userId, request, user, CurrentUserRole);
 
         return NoContent();
     }
 
+    // Removes an album member through the album service.
     [HttpDelete("{id:long}/members/{userId:int}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<IActionResult> RemoveMember(
-        long id,
-        int userId)
+    public async Task<IActionResult> RemoveMember(long id, int userId)
     {
         var user = CurrentUser;
 
-        await albumService.RemoveMemberAsync(
-            id,
-            userId,
-            user,
-            CurrentUserRole);
+        await albumService.RemoveMemberAsync(id, userId, user, CurrentUserRole);
 
         return NoContent();
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Controllers\AuthController.cs
@@ -445,70 +342,51 @@ namespace WinCapture.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
+    // Returns the authenticated WinCapture user's details after validating the mapped user ID and role.
     [Authorize]
     [HttpGet("me")]
-    [ProducesResponseType<CurrentUserResponse>(
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public ActionResult<CurrentUserResponse> Me()
     {
-        var userId =
-            User.FindFirst(
-                "wincapture_user_id")?.Value;
+        var userId = User.FindFirst("wincapture_user_id")?.Value;
 
-        if (!int.TryParse(
-                userId,
-                out var parsedUserId) ||
-            parsedUserId <= 0)
+        if (!int.TryParse(userId, out var parsedUserId) || parsedUserId <= 0)
         {
-            throw new UnauthorizedException(
-                "The authenticated WinCapture user ID is missing or invalid.");
+            throw new UnauthorizedException("The authenticated WinCapture user ID is missing or invalid.");
         }
 
-        var role =
-            GetWinCaptureRole();
+        var role = GetWinCaptureRole();
 
         if (role is null)
         {
-            throw new ForbiddenException(
-                "The Microsoft account is authenticated but is not assigned to a WinCapture role.");
+            throw new ForbiddenException("The Microsoft account is authenticated but is not assigned to a WinCapture role.");
         }
 
-        var name =
-            User.FindFirst("name")?.Value
+        var name = User.FindFirst("name")?.Value ?? string.Empty;
+        var email = User.FindFirst("preferred_username")?.Value
+            ?? User.FindFirst("email")?.Value
+            ?? User.FindFirst("upn")?.Value
             ?? string.Empty;
 
-        var email =
-            User.FindFirst(
-                "preferred_username")?.Value
-            ?? User.FindFirst(
-                "email")?.Value
-            ?? User.FindFirst(
-                "upn")?.Value
-            ?? string.Empty;
-
-        return Ok(
-            new CurrentUserResponse(
-                parsedUserId,
-                name,
-                email,
-                role,
-                "Microsoft Entra ID"));
+        return Ok(new CurrentUserResponse(
+            parsedUserId,
+            name,
+            email,
+            role,
+            "Microsoft Entra ID"));
     }
 
+    // Maps the Microsoft Entra app role to the role name returned by WinCapture.
     private string? GetWinCaptureRole()
     {
-        if (User.IsInRole(
-                "WinCapture.Admin"))
+        if (User.IsInRole("WinCapture.Admin"))
         {
             return "Admin";
         }
 
-        if (User.IsInRole(
-                "WinCapture.User"))
+        if (User.IsInRole("WinCapture.User"))
         {
             return "User";
         }
@@ -534,232 +412,154 @@ namespace WinCapture.Controllers;
 [ApiController]
 [Route("api/files")]
 [Authorize]
-public sealed class FilesController(
-    IFileService fileService) : ControllerBase
+public sealed class FilesController(IFileService fileService) : ControllerBase
 {
-    private const long RequestOverhead =
-        1024L * 1024L;
+    // Allows space for multipart form data beyond the maximum file size.
+    private const long RequestOverhead = 1024L * 1024L;
 
-    private const long MaximumRequestSize =
-        FileValidator.MaximumFileSize +
-        RequestOverhead;
+    private const long MaximumRequestSize = FileValidator.MaximumFileSize + RequestOverhead;
 
+    // Gets the mapped WinCapture user ID from the authenticated user's claims.
     private int UserId
     {
         get
         {
-            var value =
-                User.FindFirst(
-                    "wincapture_user_id")
-                ?.Value;
+            var value = User.FindFirst("wincapture_user_id")?.Value;
 
-            if (!int.TryParse(
-                    value,
-                    out var userId) ||
-                userId <= 0)
+            if (!int.TryParse(value, out var userId) || userId <= 0)
             {
-                throw new UnauthorizedException(
-                    "The authenticated user ID is missing or invalid.");
+                throw new UnauthorizedException("The authenticated user ID is missing or invalid.");
             }
 
             return userId;
         }
     }
 
-    private UserRole UserRole
+    // Gets the WinCapture role from the authenticated user's Entra app roles.
+    private UserRole CurrentUserRole
     {
         get
         {
-            if (User.IsInRole(
-                    "WinCapture.Admin"))
+            if (User.IsInRole("WinCapture.Admin"))
             {
                 return UserRole.Admin;
             }
 
-            if (User.IsInRole(
-                    "WinCapture.User"))
+            if (User.IsInRole("WinCapture.User"))
             {
                 return UserRole.User;
             }
 
-            throw new ForbiddenException(
-                "The authenticated user role is missing or invalid.");
+            throw new ForbiddenException("The authenticated user role is missing or invalid.");
         }
     }
 
+    // Uploads a new file for the current user and returns its location.
     [HttpPost]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestSize)]
-    [RequestFormLimits(
-        MultipartBodyLengthLimit =
-            MaximumRequestSize)]
-    [ProducesResponseType<FileResponse>(
-        StatusCodes.Status201Created)]
-    [ProducesResponseType(
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(
-        StatusCodes.Status413PayloadTooLarge)]
-    public async Task<ActionResult<FileResponse>> Upload(
-        IFormFile file)
+    [RequestFormLimits(MultipartBodyLengthLimit = MaximumRequestSize)]
+    [ProducesResponseType<FileResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<FileResponse>> Upload(IFormFile file)
     {
-        var response =
-            await fileService.UploadAsync(
-                file,
-                UserId);
+        var response = await fileService.UploadAsync(file, UserId);
 
-        return Created(
-            $"/api/files/{response.Id}",
-            response);
+        return Created($"/api/files/{response.Id}", response);
     }
 
+    // Returns the files available in the current user's gallery.
     [HttpGet]
-    [ProducesResponseType<
-        IReadOnlyList<FileResponse>>(
-            StatusCodes.Status200OK)]
-    public async Task<ActionResult<
-        IReadOnlyList<FileResponse>>>
-        GetGallery()
+    [ProducesResponseType<IReadOnlyList<FileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<FileResponse>>> GetGallery()
     {
-        return Ok(
-            await fileService.GetGalleryAsync(
-                UserId));
+        return Ok(await fileService.GetGalleryAsync(UserId));
     }
 
+    // Returns the current user's favorite files according to their WinCapture role.
     [HttpGet("favorites")]
-    [ProducesResponseType<
-        IReadOnlyList<FileResponse>>(
-            StatusCodes.Status200OK)]
-    public async Task<ActionResult<
-        IReadOnlyList<FileResponse>>>
-        GetFavorites()
+    [ProducesResponseType<IReadOnlyList<FileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<FileResponse>>> GetFavorites()
     {
-        return Ok(
-            await fileService.GetFavoritesAsync(
-                UserId,
-                UserRole));
+        return Ok(await fileService.GetFavoritesAsync(UserId, CurrentUserRole));
     }
 
+    // Adds the specified file to the current user's favorites.
     [HttpPut("{id:long}/favorite")]
-    [ProducesResponseType(
-        StatusCodes.Status204NoContent)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(
-        StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> AddFavorite(
-        long id)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddFavorite(long id)
     {
-        await fileService.AddFavoriteAsync(
-            id,
-            UserId,
-            UserRole);
+        await fileService.AddFavoriteAsync(id, UserId, CurrentUserRole);
 
         return NoContent();
     }
 
+    // Removes the specified file from the current user's favorites.
     [HttpDelete("{id:long}/favorite")]
-    [ProducesResponseType(
-        StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> RemoveFavorite(
-        long id)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemoveFavorite(long id)
     {
-        await fileService.RemoveFavoriteAsync(
-            id,
-            UserId);
+        await fileService.RemoveFavoriteAsync(id, UserId);
 
         return NoContent();
     }
 
+    // Retrieves a file after the service checks the current user's access permissions.
     [HttpGet("{id:long}")]
-    [ProducesResponseType<FileResponse>(
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(
-        StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<FileResponse>> Get(
-        long id)
+    [ProducesResponseType<FileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FileResponse>> Get(long id)
     {
-        return Ok(
-            await fileService.GetAsync(
-                id,
-                UserId,
-                UserRole));
+        return Ok(await fileService.GetAsync(id, UserId, CurrentUserRole));
     }
 
+    // Replaces an existing file while enforcing the configured request-size limit.
     [HttpPut("{id:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaximumRequestSize)]
-    [RequestFormLimits(
-        MultipartBodyLengthLimit =
-            MaximumRequestSize)]
-    [ProducesResponseType<FileResponse>(
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(
-        StatusCodes.Status404NotFound)]
-    [ProducesResponseType(
-        StatusCodes.Status413PayloadTooLarge)]
-    public async Task<ActionResult<FileResponse>> Replace(
-        long id,
-        IFormFile file)
+    [RequestFormLimits(MultipartBodyLengthLimit = MaximumRequestSize)]
+    [ProducesResponseType<FileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<FileResponse>> Replace(long id, IFormFile file)
     {
-        var response =
-            await fileService.ReplaceAsync(
-                id,
-                file,
-                UserId,
-                UserRole);
+        var response = await fileService.ReplaceAsync(id, file, UserId, CurrentUserRole);
 
         return Ok(response);
     }
 
+    // Returns the file content with its download filename.
     [HttpGet("{id:long}/download")]
-    [ProducesResponseType(
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(
-        StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Download(
-        long id)
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Download(long id)
     {
-        var result =
-            await fileService.DownloadAsync(
-                id,
-                UserId,
-                UserRole);
+        var result = await fileService.DownloadAsync(id, UserId, CurrentUserRole);
 
-        return File(
-            result.Content,
-            result.ContentType,
-            result.DownloadName);
+        return File(result.Content, result.ContentType, result.DownloadName);
     }
 
+    // Deletes the specified file after the service checks the current user's permissions.
     [HttpDelete("{id:long}")]
-    [ProducesResponseType(
-        StatusCodes.Status204NoContent)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(
-        StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(
-        long id)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(long id)
     {
-        await fileService.DeleteAsync(
-            id,
-            UserId,
-            UserRole);
+        await fileService.DeleteAsync(id, UserId, CurrentUserRole);
 
         return NoContent();
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Data\WinCaptureDbContext.cs
@@ -770,27 +570,20 @@ using WinCapture.Models;
 
 namespace WinCapture.Data;
 
-public sealed class WinCaptureDbContext(
-    DbContextOptions<WinCaptureDbContext> options)
-    : DbContext(options)
+public sealed class WinCaptureDbContext(DbContextOptions<WinCaptureDbContext> options) : DbContext(options)
 {
-    public DbSet<User> Users =>
-        Set<User>();
+    public DbSet<User> Users => Set<User>();
 
-    public DbSet<FileMetadata> Files =>
-        Set<FileMetadata>();
+    public DbSet<FileMetadata> Files => Set<FileMetadata>();
 
-    public DbSet<Album> Albums =>
-        Set<Album>();
+    public DbSet<Album> Albums => Set<Album>();
 
-    public DbSet<AlbumAccess> AlbumAccess =>
-        Set<AlbumAccess>();
+    public DbSet<AlbumAccess> AlbumAccess => Set<AlbumAccess>();
 
-    public DbSet<Favorite> Favorites =>
-        Set<Favorite>();
+    public DbSet<Favorite> Favorites => Set<Favorite>();
 
-    protected override void OnModelCreating(
-        ModelBuilder modelBuilder)
+    // Configures the database tables, constraints, indexes, and relationships used by WinCapture.
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
         {
@@ -809,6 +602,7 @@ public sealed class WinCaptureDbContext(
                 .HasMaxLength(320)
                 .IsRequired();
 
+            // Prevents multiple user accounts from using the same email address or Entra object ID.
             entity.HasIndex(user => user.Email)
                 .IsUnique();
 
@@ -846,6 +640,7 @@ public sealed class WinCaptureDbContext(
                 .HasMaxLength(260)
                 .IsRequired();
 
+            // Ensures each file has a unique name in storage.
             entity.HasIndex(file => file.StoredFileName)
                 .IsUnique();
 
@@ -871,11 +666,13 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(file => file.UploadedAt);
 
+            // Prevents deleting a user while their uploaded files still reference them.
             entity.HasOne(file => file.User)
                 .WithMany(user => user.Files)
                 .HasForeignKey(file => file.UploadedBy)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Removes the associated file records when an album is deleted.
             entity.HasOne(file => file.Album)
                 .WithMany(album => album.Files)
                 .HasForeignKey(file => file.AlbumId)
@@ -904,6 +701,7 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(album => album.CreatedBy);
 
+            // Prevents deleting the album owner while their albums still reference them.
             entity.HasOne(album => album.Owner)
                 .WithMany(user => user.Albums)
                 .HasForeignKey(album => album.CreatedBy)
@@ -928,8 +726,8 @@ public sealed class WinCaptureDbContext(
                 .HasColumnType("datetime2")
                 .IsRequired();
 
-            entity.HasIndex(
-                access => new
+            // Prevents the same user from receiving duplicate access entries for an album.
+            entity.HasIndex(access => new
                 {
                     access.AlbumId,
                     access.UserId
@@ -938,6 +736,7 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(access => access.UserId);
 
+            // Removes album access entries when the associated album is deleted.
             entity.HasOne(access => access.Album)
                 .WithMany(album => album.Access)
                 .HasForeignKey(access => access.AlbumId)
@@ -958,12 +757,12 @@ public sealed class WinCaptureDbContext(
         {
             entity.ToTable("Favorites");
 
-            entity.HasKey(favorite =>
-                new
-                {
-                    favorite.UserId,
-                    favorite.FileId
-                });
+            // Uses the user and file IDs together to prevent duplicate favorites.
+            entity.HasKey(favorite => new
+            {
+                favorite.UserId,
+                favorite.FileId
+            });
 
             entity.Property(favorite => favorite.FavoritedAt)
                 .HasColumnType("datetime2")
@@ -971,11 +770,13 @@ public sealed class WinCaptureDbContext(
 
             entity.HasIndex(favorite => favorite.FileId);
 
+            // Removes a user's favorites when that user is deleted.
             entity.HasOne(favorite => favorite.User)
                 .WithMany(user => user.Favorites)
                 .HasForeignKey(favorite => favorite.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Removes favorite entries when the associated file is deleted.
             entity.HasOne(favorite => favorite.File)
                 .WithMany(file => file.Favorites)
                 .HasForeignKey(favorite => favorite.FileId)
@@ -994,7 +795,7 @@ public sealed record AddAlbumMemberRequest(
     string Email,
     bool CanView,
     bool CanDownload);
-    
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\AlbumMemberResponse.cs
@@ -1010,6 +811,7 @@ public sealed record AlbumMemberResponse(
     bool CanDownload,
     DateTime GrantedAt);
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\AlbumResponse.cs
 ============================================================
@@ -1024,6 +826,7 @@ public sealed record AlbumResponse(
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\CreateAlbumRequest.cs
 ============================================================
@@ -1031,6 +834,7 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\Creat
 namespace WinCapture.DTOs.Albums;
 
 public sealed record CreateAlbumRequest(string AlbumName);
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\UpdateAlbumMemberRequest.cs
@@ -1042,6 +846,7 @@ public sealed record UpdateAlbumMemberRequest(
     bool CanView,
     bool CanDownload);
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\UpdateAlbumRequest.cs
 ============================================================
@@ -1049,6 +854,7 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Albums\Updat
 namespace WinCapture.DTOs.Albums;
 
 public sealed record UpdateAlbumRequest(string AlbumName);
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Auth\CurrentUserResponse.cs
@@ -1062,6 +868,7 @@ public sealed record CurrentUserResponse(
     string Email,
     string Role,
     string AuthenticationType);
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\DTOs\Common\ErrorResponse.cs
@@ -1116,6 +923,7 @@ public sealed record FileResponse(
     bool IsFavorite = false,
     bool CanManage = false);
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\BadRequestException.cs
 ============================================================
@@ -1132,6 +940,7 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\Confli
 namespace WinCapture.Exceptions;
 
 public sealed class ConflictException(string message) : Exception(message);
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Exceptions\ForbiddenException.cs
@@ -1189,10 +998,9 @@ using WinCapture.Exceptions;
 
 namespace WinCapture.Middleware;
 
-public sealed class ExceptionMiddleware(
-    RequestDelegate next,
-    ILogger<ExceptionMiddleware> logger)
+public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
 {
+    // Catches exceptions from the request pipeline and passes them to the central handler.
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -1205,9 +1013,8 @@ public sealed class ExceptionMiddleware(
         }
     }
 
-    private async Task HandleExceptionAsync(
-        HttpContext context,
-        Exception exception)
+    // Converts exceptions into HTTP responses and logs unexpected server errors.
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         var statusCode = exception switch
         {
@@ -1244,7 +1051,6 @@ public sealed class ExceptionMiddleware(
     }
 }
 
-
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Migrations\20261001084829_InitialCreate.cs
 ============================================================
@@ -1256,10 +1062,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace WinCapture.Migrations
 {
-    /// <inheritdoc />
     public partial class InitialCreate : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
@@ -1465,7 +1269,6 @@ namespace WinCapture.Migrations
                 unique: true);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
@@ -1508,7 +1311,6 @@ namespace WinCapture.Migrations
     [Migration("20261001084829_InitialCreate")]
     partial class InitialCreate
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -2147,6 +1949,7 @@ public sealed class Album
     public ICollection<AlbumAccess> Access { get; set; } = [];
 }
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\AlbumAccess.cs
 ============================================================
@@ -2174,6 +1977,7 @@ public sealed class AlbumAccess
     public User User { get; set; } = null!;
 }
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\Favorite.cs
 ============================================================
@@ -2192,6 +1996,7 @@ public sealed class Favorite
 
     public FileMetadata File { get; set; } = null!;
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\FileMetadata.cs
@@ -2224,6 +2029,7 @@ public sealed class FileMetadata
     public ICollection<Favorite> Favorites { get; set; } = [];
 }
 
+
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\User.cs
 ============================================================
@@ -2252,6 +2058,7 @@ public sealed class User
 
     public ICollection<Favorite> Favorites { get; set; } = [];
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Models\UserRole.cs
@@ -2305,24 +2112,27 @@ using WinCapture.Models;
 
 namespace WinCapture.Repositories;
 
-public sealed class AlbumRepository(
-    WinCaptureDbContext db) : IAlbumRepository
+public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
 {
+    // Adds a new album to the database and saves the changes.
     public async Task AddAsync(Album album)
     {
         db.Albums.Add(album);
         await db.SaveChangesAsync();
     }
 
-    public async Task<Album?> GetByIdAsync(long albumId) =>
-        await db.Albums
+    // Gets an album by ID and includes its owner details.
+    public async Task<Album?> GetByIdAsync(long albumId)
+    {
+        return await db.Albums
             .Include(album => album.Owner)
-            .SingleOrDefaultAsync(
-                album => album.Id == albumId);
+            .SingleOrDefaultAsync(album => album.Id == albumId);
+    }
 
-    public async Task<IReadOnlyList<Album>>
-        GetAccessibleByUserIdAsync(int userId) =>
-        await db.Albums
+    // Returns albums owned by the user or shared with them with view permission.
+    public async Task<IReadOnlyList<Album>> GetAccessibleByUserIdAsync(int userId)
+    {
+        return await db.Albums
             .AsNoTracking()
             .Include(album => album.Owner)
             .Where(album =>
@@ -2330,77 +2140,86 @@ public sealed class AlbumRepository(
                 album.Access.Any(access =>
                     access.UserId == userId &&
                     access.CanView))
-            .OrderByDescending(
-                album => album.CreatedAt)
+            .OrderByDescending(album => album.CreatedAt)
             .ToListAsync();
+    }
 
-    public async Task<IReadOnlyList<Album>>
-        GetOwnedByUserIdAsync(int userId) =>
-        await db.Albums
+    // Returns only the albums owned by the specified user, newest first.
+    public async Task<IReadOnlyList<Album>> GetOwnedByUserIdAsync(int userId)
+    {
+        return await db.Albums
             .AsNoTracking()
             .Include(album => album.Owner)
             .Where(album => album.CreatedBy == userId)
             .OrderByDescending(album => album.CreatedAt)
             .ToListAsync();
+    }
 
-    public async Task<IReadOnlyList<Album>>
-        GetAllAsync() =>
-        await db.Albums
+    // Returns all albums with their owner details, newest first.
+    public async Task<IReadOnlyList<Album>> GetAllAsync()
+    {
+        return await db.Albums
             .AsNoTracking()
             .Include(album => album.Owner)
-            .OrderByDescending(
-                album => album.CreatedAt)
+            .OrderByDescending(album => album.CreatedAt)
             .ToListAsync();
+    }
 
+    // Updates the album in the database and saves the changes.
     public async Task UpdateAsync(Album album)
     {
         db.Albums.Update(album);
         await db.SaveChangesAsync();
     }
 
+    // Removes the album from the database and saves the changes.
     public async Task DeleteAsync(Album album)
     {
         db.Albums.Remove(album);
         await db.SaveChangesAsync();
     }
 
-    public async Task<AlbumAccess?> GetAccessAsync(
-        long albumId,
-        int userId) =>
-        await db.AlbumAccess
+    // Gets a user's access entry for the specified album, if one exists.
+    public async Task<AlbumAccess?> GetAccessAsync(long albumId, int userId)
+    {
+        return await db.AlbumAccess
             .SingleOrDefaultAsync(access =>
                 access.AlbumId == albumId &&
                 access.UserId == userId);
+    }
 
-    public async Task<IReadOnlyList<AlbumAccess>>
-        GetAccessListAsync(long albumId) =>
-        await db.AlbumAccess
+    // Returns the access entries for an album with user details, ordered by name.
+    public async Task<IReadOnlyList<AlbumAccess>> GetAccessListAsync(long albumId)
+    {
+        return await db.AlbumAccess
             .AsNoTracking()
             .Include(access => access.User)
-            .Where(access =>
-                access.AlbumId == albumId)
+            .Where(access => access.AlbumId == albumId)
             .OrderBy(access => access.User.Name)
             .ToListAsync();
+    }
 
+    // Grants a user access to an album and saves the changes.
     public async Task AddAccessAsync(AlbumAccess access)
     {
         db.AlbumAccess.Add(access);
         await db.SaveChangesAsync();
     }
 
+    // Updates an album access entry and saves the changes.
     public async Task UpdateAccessAsync(AlbumAccess access)
     {
         db.AlbumAccess.Update(access);
         await db.SaveChangesAsync();
     }
 
+    // Removes an album access entry and saves the changes.
     public async Task DeleteAccessAsync(AlbumAccess access)
     {
         db.AlbumAccess.Remove(access);
         await db.SaveChangesAsync();
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\FileRepository.cs
@@ -2412,142 +2231,125 @@ using WinCapture.Models;
 
 namespace WinCapture.Repositories;
 
-public sealed class FileRepository(
-    WinCaptureDbContext db) : IFileRepository
+public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
 {
-    public async Task AddAsync(
-        FileMetadata file)
+    // Adds the file metadata to the database and saves the changes.
+    public async Task AddAsync(FileMetadata file)
     {
         db.Files.Add(file);
-
         await db.SaveChangesAsync();
     }
 
-    public async Task<FileMetadata?> GetByIdAsync(
-        long fileId) =>
-        await db.Files
+    // Retrieves a file by ID without tracking it because the query is read-only.
+    public async Task<FileMetadata?> GetByIdAsync(long fileId)
+    {
+        return await db.Files
             .AsNoTracking()
-            .SingleOrDefaultAsync(
-                file => file.Id == fileId);
+            .SingleOrDefaultAsync(file => file.Id == fileId);
+    }
 
-    public async Task<IReadOnlyList<FileMetadata>>
-        GetByUserIdAsync(
-            int userId) =>
-        await db.Files
+    // Returns the files uploaded by the specified user, newest first.
+    public async Task<IReadOnlyList<FileMetadata>> GetByUserIdAsync(int userId)
+    {
+        return await db.Files
             .AsNoTracking()
-            .Where(
-                file =>
-                    file.UploadedBy == userId)
-            .OrderByDescending(
-                file => file.UploadedAt)
+            .Where(file => file.UploadedBy == userId)
+            .OrderByDescending(file => file.UploadedAt)
             .ToListAsync();
+    }
 
-    public async Task<IReadOnlyList<FileMetadata>>
-        GetByAlbumIdAsync(
-            long albumId) =>
-        await db.Files
+    // Returns the files belonging to the specified album, newest first.
+    public async Task<IReadOnlyList<FileMetadata>> GetByAlbumIdAsync(long albumId)
+    {
+        return await db.Files
             .AsNoTracking()
-            .Where(
-                file =>
-                    file.AlbumId == albumId)
-            .OrderByDescending(
-                file => file.UploadedAt)
+            .Where(file => file.AlbumId == albumId)
+            .OrderByDescending(file => file.UploadedAt)
             .ToListAsync();
+    }
 
-    public async Task<IReadOnlyList<FileMetadata>>
-        GetAllAsync() =>
-        await db.Files
+    // Returns all files with their uploader and album details for admin management.
+    public async Task<IReadOnlyList<FileMetadata>> GetAllAsync()
+    {
+        return await db.Files
             .AsNoTracking()
             .Include(file => file.User)
             .Include(file => file.Album)
-            .OrderByDescending(
-                file => file.UploadedAt)
+            .OrderByDescending(file => file.UploadedAt)
             .ToListAsync();
+    }
 
-    public async Task<IReadOnlyList<FileMetadata>>
-        GetAdminFilesByUploaderIdAsync(int userId) =>
-        await db.Files
+    // Returns the specified admin's uploaded files with uploader and album details.
+    public async Task<IReadOnlyList<FileMetadata>> GetAdminFilesByUploaderIdAsync(int userId)
+    {
+        return await db.Files
             .AsNoTracking()
             .Include(file => file.User)
             .Include(file => file.Album)
             .Where(file => file.UploadedBy == userId)
             .OrderByDescending(file => file.UploadedAt)
             .ToListAsync();
+    }
 
-    public async Task UpdateAsync(
-        FileMetadata file)
+    // Updates the file metadata in the database and saves the changes.
+    public async Task UpdateAsync(FileMetadata file)
     {
         db.Files.Update(file);
-
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(
-        FileMetadata file)
+    // Removes the file metadata from the database and saves the changes.
+    public async Task DeleteAsync(FileMetadata file)
     {
         db.Files.Remove(file);
-
         await db.SaveChangesAsync();
     }
 
-    public async Task<IReadOnlyList<long>>
-        GetFavoriteFileIdsByUserIdAsync(
-            int userId) =>
-        await db.Favorites
+    // Returns the IDs of files favorited by the specified user.
+    public async Task<IReadOnlyList<long>> GetFavoriteFileIdsByUserIdAsync(int userId)
+    {
+        return await db.Favorites
             .AsNoTracking()
-            .Where(
-                favorite =>
-                    favorite.UserId == userId)
-            .Select(
-                favorite =>
-                    favorite.FileId)
+            .Where(favorite => favorite.UserId == userId)
+            .Select(favorite => favorite.FileId)
             .ToListAsync();
+    }
 
-    public async Task<IReadOnlyList<FileMetadata>>
-        GetFavoriteFilesByUserIdAsync(
-            int userId) =>
-        await db.Favorites
+    // Returns the user's favorite files, ordered by when they were favorited.
+    public async Task<IReadOnlyList<FileMetadata>> GetFavoriteFilesByUserIdAsync(int userId)
+    {
+        return await db.Favorites
             .AsNoTracking()
-            .Include(
-                favorite =>
-                    favorite.File)
-            .Where(
-                favorite =>
-                    favorite.UserId == userId)
-            .OrderByDescending(
-                favorite =>
-                    favorite.FavoritedAt)
-            .Select(
-                favorite =>
-                    favorite.File)
+            .Include(favorite => favorite.File)
+            .Where(favorite => favorite.UserId == userId)
+            .OrderByDescending(favorite => favorite.FavoritedAt)
+            .Select(favorite => favorite.File)
             .ToListAsync();
+    }
 
-    public async Task<Favorite?> GetFavoriteAsync(
-        int userId,
-        long fileId) =>
-        await db.Favorites
-            .SingleOrDefaultAsync(
-                favorite =>
-                    favorite.UserId == userId &&
-                    favorite.FileId == fileId);
+    // Finds the favorite entry for a specific user and file, if one exists.
+    public async Task<Favorite?> GetFavoriteAsync(int userId, long fileId)
+    {
+        return await db.Favorites
+            .SingleOrDefaultAsync(favorite =>
+                favorite.UserId == userId &&
+                favorite.FileId == fileId);
+    }
 
-    public async Task AddFavoriteAsync(
-        Favorite favorite)
+    // Adds a favorite entry to the database and saves the changes.
+    public async Task AddFavoriteAsync(Favorite favorite)
     {
         db.Favorites.Add(favorite);
-
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteFavoriteAsync(
-        Favorite favorite)
+    // Removes a favorite entry from the database and saves the changes.
+    public async Task DeleteFavoriteAsync(Favorite favorite)
     {
         db.Favorites.Remove(favorite);
-
         await db.SaveChangesAsync();
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IAlbumRepository.cs
@@ -2559,34 +2361,42 @@ namespace WinCapture.Repositories;
 
 public interface IAlbumRepository
 {
+    // Adds a new album to the database.
     Task AddAsync(Album album);
 
+    // Retrieves an album by ID, including its owner details.
     Task<Album?> GetByIdAsync(long albumId);
 
+    // Returns albums owned by the user or shared with them with view permission.
     Task<IReadOnlyList<Album>> GetAccessibleByUserIdAsync(int userId);
 
+    // Returns only the albums owned by the specified user.
     Task<IReadOnlyList<Album>> GetOwnedByUserIdAsync(int userId);
 
+    // Returns all albums in the database.
     Task<IReadOnlyList<Album>> GetAllAsync();
 
+    // Updates an existing album in the database.
     Task UpdateAsync(Album album);
 
+    // Deletes an album from the database.
     Task DeleteAsync(Album album);
 
-    Task<AlbumAccess?> GetAccessAsync(
-        long albumId,
-        int userId);
+    // Retrieves a user's access entry for an album, if one exists.
+    Task<AlbumAccess?> GetAccessAsync(long albumId, int userId);
 
-    Task<IReadOnlyList<AlbumAccess>> GetAccessListAsync(
-        long albumId);
+    // Returns all access entries for an album, including user details.
+    Task<IReadOnlyList<AlbumAccess>> GetAccessListAsync(long albumId);
 
+    // Adds an access entry to share an album with a user.
     Task AddAccessAsync(AlbumAccess access);
 
+    // Updates an existing album access entry.
     Task UpdateAccessAsync(AlbumAccess access);
 
+    // Removes an access entry to revoke a user's album access.
     Task DeleteAccessAsync(AlbumAccess access);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IFileRepository.cs
@@ -2598,50 +2408,45 @@ namespace WinCapture.Repositories;
 
 public interface IFileRepository
 {
+    // Adds file metadata to the database.
     Task AddAsync(FileMetadata file);
 
-    Task<FileMetadata?> GetByIdAsync(
-        long fileId);
+    // Retrieves a file by its ID.
+    Task<FileMetadata?> GetByIdAsync(long fileId);
 
-    Task<IReadOnlyList<FileMetadata>>
-        GetByUserIdAsync(
-            int userId);
+    // Returns the files uploaded by the specified user, newest first.
+    Task<IReadOnlyList<FileMetadata>> GetByUserIdAsync(int userId);
 
-    Task<IReadOnlyList<FileMetadata>>
-        GetByAlbumIdAsync(
-            long albumId);
+    // Returns the files belonging to the specified album, newest first.
+    Task<IReadOnlyList<FileMetadata>> GetByAlbumIdAsync(long albumId);
 
-    Task<IReadOnlyList<FileMetadata>>
-        GetAllAsync();
+    // Returns all files with their uploader and album details.
+    Task<IReadOnlyList<FileMetadata>> GetAllAsync();
 
-    Task<IReadOnlyList<FileMetadata>>
-        GetAdminFilesByUploaderIdAsync(int userId);
+    // Returns the specified admin's uploaded files with uploader and album details.
+    Task<IReadOnlyList<FileMetadata>> GetAdminFilesByUploaderIdAsync(int userId);
 
-    Task UpdateAsync(
-        FileMetadata file);
+    // Updates file metadata in the database.
+    Task UpdateAsync(FileMetadata file);
 
-    Task DeleteAsync(
-        FileMetadata file);
+    // Removes file metadata from the database.
+    Task DeleteAsync(FileMetadata file);
 
-    Task<IReadOnlyList<long>>
-        GetFavoriteFileIdsByUserIdAsync(
-            int userId);
+    // Returns the IDs of files favorited by the specified user.
+    Task<IReadOnlyList<long>> GetFavoriteFileIdsByUserIdAsync(int userId);
 
-    Task<IReadOnlyList<FileMetadata>>
-        GetFavoriteFilesByUserIdAsync(
-            int userId);
+    // Returns the user's favorite files, ordered by when they were favorited.
+    Task<IReadOnlyList<FileMetadata>> GetFavoriteFilesByUserIdAsync(int userId);
 
-    Task<Favorite?> GetFavoriteAsync(
-        int userId,
-        long fileId);
+    // Retrieves the favorite entry for a specific user and file, if one exists.
+    Task<Favorite?> GetFavoriteAsync(int userId, long fileId);
 
-    Task AddFavoriteAsync(
-        Favorite favorite);
+    // Adds a favorite entry to the database.
+    Task AddFavoriteAsync(Favorite favorite);
 
-    Task DeleteFavoriteAsync(
-        Favorite favorite);
+    // Removes a favorite entry from the database.
+    Task DeleteFavoriteAsync(Favorite favorite);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Repositories\IUserRepository.cs
@@ -2653,13 +2458,16 @@ namespace WinCapture.Repositories;
 
 public interface IUserRepository
 {
+    // Retrieves a user by email address, if one exists.
     Task<User?> GetByEmailAsync(string email);
 
-    Task<User?> GetByEntraObjectIdAsync(
-        string entraObjectId);
+    // Retrieves a user by their Microsoft Entra object ID, if one exists.
+    Task<User?> GetByEntraObjectIdAsync(string entraObjectId);
 
+    // Adds a new user to the database.
     Task AddAsync(User user);
 
+    // Updates an existing user's details in the database.
     Task UpdateAsync(User user);
 }
 
@@ -2673,36 +2481,35 @@ using WinCapture.Models;
 
 namespace WinCapture.Repositories;
 
-public sealed class UserRepository(
-    WinCaptureDbContext db) : IUserRepository
+public sealed class UserRepository(WinCaptureDbContext db) : IUserRepository
 {
-    public async Task<User?> GetByEmailAsync(
-        string email) =>
-        await db.Users
+    // Finds a user by email address without tracking the entity.
+    public async Task<User?> GetByEmailAsync(string email)
+    {
+        return await db.Users
             .AsNoTracking()
-            .SingleOrDefaultAsync(
-                user => user.Email == email);
+            .SingleOrDefaultAsync(user => user.Email == email);
+    }
 
-    public async Task<User?> GetByEntraObjectIdAsync(
-        string entraObjectId) =>
-        await db.Users
+    // Finds a user by their Microsoft Entra object ID without tracking the entity.
+    public async Task<User?> GetByEntraObjectIdAsync(string entraObjectId)
+    {
+        return await db.Users
             .AsNoTracking()
-            .SingleOrDefaultAsync(
-                user =>
-                    user.EntraObjectId ==
-                    entraObjectId);
+            .SingleOrDefaultAsync(user => user.EntraObjectId == entraObjectId);
+    }
 
+    // Adds a new user to the database and saves the changes.
     public async Task AddAsync(User user)
     {
         db.Users.Add(user);
-
         await db.SaveChangesAsync();
     }
 
+    // Updates an existing user's details in the database and saves the changes.
     public async Task UpdateAsync(User user)
     {
         db.Users.Update(user);
-
         await db.SaveChangesAsync();
     }
 }
@@ -2727,180 +2534,155 @@ public sealed class AlbumFileService(
     IAlbumService albumService,
     ILogger<AlbumFileService> logger) : IAlbumFileService
 {
+    // Saves the replacement first so the existing file remains available if the database update fails.
+    public async Task<FileResponse> ReplaceAsync(
+        long albumId,
+        long fileId,
+        IFormFile file,
+        User currentUser,
+        UserRole role)
+    {
+        var album = await albumService.GetForUploadAsync(albumId, currentUser, role);
+
+        var existing = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
+
+        if (existing.AlbumId != albumId)
+        {
+            throw new NotFoundException("The requested file was not found in this album.");
+        }
+
+        await validator.ValidateAsync(file);
+
+        var oldName = existing.StoredFileName;
+        var newName = await storage.SaveAsync(file);
+
+        existing.StoredFileName = newName;
+        existing.OriginalFileName = Path.GetFileName(file.FileName);
+        existing.ContentType = file.ContentType;
+        existing.FileSize = file.Length;
+        existing.UploadedAt = DateTime.UtcNow;
+
+        try
+        {
+            await files.UpdateAsync(existing);
+        }
+        catch
+        {
+            await TryDeleteStoredFileAsync(newName);
+            throw;
+        }
+
+        await TryDeleteStoredFileAsync(oldName);
+
+        var isFavorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
+        var canManage = role == UserRole.Admin || album.CreatedBy == currentUser.Id;
+
+        return ToResponse(existing, albumId, isFavorite, canManage);
+    }
+
+    // Saves the uploaded file and removes the stored blob if saving its metadata fails.
     public async Task<FileResponse> UploadAsync(
         long albumId,
         IFormFile file,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await albumService.GetForUploadAsync(
-                albumId,
-                currentUser,
-                role);
+        var album = await albumService.GetForUploadAsync(albumId, currentUser, role);
 
-        await validator.ValidateAsync(
-            file);
+        await validator.ValidateAsync(file);
 
-        var storedFileName =
-            await storage.SaveAsync(
-                file);
+        var storedFileName = await storage.SaveAsync(file);
 
         var metadata = new FileMetadata
         {
-            OriginalFileName =
-                Path.GetFileName(
-                    file.FileName),
-
-            StoredFileName =
-                storedFileName,
-
-            ContentType =
-                file.ContentType,
-
-            FileSize =
-                file.Length,
-
-            UploadedBy =
-                currentUser.Id,
-
-            AlbumId =
-                albumId,
-
-            UploadedAt =
-                DateTime.UtcNow
+            OriginalFileName = Path.GetFileName(file.FileName),
+            StoredFileName = storedFileName,
+            ContentType = file.ContentType,
+            FileSize = file.Length,
+            UploadedBy = currentUser.Id,
+            AlbumId = albumId,
+            UploadedAt = DateTime.UtcNow
         };
 
         try
         {
-            await files.AddAsync(
-                metadata);
+            await files.AddAsync(metadata);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(
-                storedFileName);
-
+            await TryDeleteStoredFileAsync(storedFileName);
             throw;
         }
 
-        var canManage =
-            role == UserRole.Admin ||
-            album.CreatedBy == currentUser.Id;
+        var canManage = role == UserRole.Admin || album.CreatedBy == currentUser.Id;
 
-        return ToResponse(
-            metadata,
-            albumId,
-            false,
-            canManage);
+        return ToResponse(metadata, albumId, false, canManage);
     }
 
-    public async Task<IReadOnlyList<FileResponse>>
-        GetAsync(
-            long albumId,
-            User currentUser,
-            UserRole role)
+    // Returns album files with their favorite status and management permissions.
+    public async Task<IReadOnlyList<FileResponse>> GetAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
     {
-        var album =
-            await albumService.GetAsync(
-                albumId,
-                currentUser,
-                role);
+        var album = await albumService.GetAsync(albumId, currentUser, role);
+        var albumFiles = await files.GetByAlbumIdAsync(albumId);
+        var favoriteIds = await files.GetFavoriteFileIdsByUserIdAsync(currentUser.Id);
+        var favoriteIdSet = favoriteIds.ToHashSet();
 
-        var albumFiles =
-            await files.GetByAlbumIdAsync(
-                albumId);
-
-        var favoriteIds =
-            await files.GetFavoriteFileIdsByUserIdAsync(
-                currentUser.Id);
-
-        var favoriteIdSet =
-            favoriteIds.ToHashSet();
-
-        var canManage =
-            role == UserRole.Admin ||
-            album.OwnerId == currentUser.Id;
+        var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
 
         return albumFiles
-            .Select(
-                file =>
-                    ToResponse(
-                        file,
-                        albumId,
-                        favoriteIdSet.Contains(
-                            file.Id),
-                        canManage))
+            .Select(file => ToResponse(
+                file,
+                albumId,
+                favoriteIdSet.Contains(file.Id),
+                canManage))
             .ToList();
     }
 
+    // Checks album access and verifies that the file belongs to the album before returning its details.
     public async Task<FileResponse> GetOneAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await albumService.GetAsync(
-                albumId,
-                currentUser,
-                role);
+        var album = await albumService.GetAsync(albumId, currentUser, role);
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        var isFavorite =
-            await files.GetFavoriteAsync(
-                currentUser.Id,
-                fileId) is not null;
+        var isFavorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
+        var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
 
-        var canManage =
-            role == UserRole.Admin ||
-            album.OwnerId == currentUser.Id;
-
-        return ToResponse(
-            file,
-            albumId,
-            isFavorite,
-            canManage);
+        return ToResponse(file, albumId, isFavorite, canManage);
     }
 
-    public async Task<FileDownloadResult>
-        PreviewAsync(
-            long albumId,
-            long fileId,
-            User currentUser,
-            UserRole role)
+    // Checks album access and returns the stored file content for preview.
+    public async Task<FileDownloadResult> PreviewAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role)
     {
-        await albumService.GetAsync(
-            albumId,
-            currentUser,
-            role);
+        await albumService.GetAsync(albumId, currentUser, role);
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        var content =
-            await storage.GetAsync(
-                file.StoredFileName);
+        var content = await storage.GetAsync(file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -2908,37 +2690,28 @@ public sealed class AlbumFileService(
             file.OriginalFileName);
     }
 
-    public async Task<FileDownloadResult>
-        DownloadAsync(
-            long albumId,
-            long fileId,
-            User currentUser,
-            UserRole role)
+    // Checks download permission before returning the stored file content.
+    public async Task<FileDownloadResult> DownloadAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role)
     {
-        if (!await albumService.CanDownloadAsync(
-                albumId,
-                currentUser,
-                role))
+        if (!await albumService.CanDownloadAsync(albumId, currentUser, role))
         {
             throw new ForbiddenException(
                 "You are not allowed to download files from this album.");
         }
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        var content =
-            await storage.GetAsync(
-                file.StoredFileName);
+        var content = await storage.GetAsync(file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -2946,44 +2719,33 @@ public sealed class AlbumFileService(
             file.OriginalFileName);
     }
 
+    // Deletes the blob before its metadata so a storage failure leaves the database record available for retry.
     public async Task DeleteAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role)
     {
-        await albumService.GetForUploadAsync(
-            albumId,
-            currentUser,
-            role);
+        await albumService.GetForUploadAsync(albumId, currentUser, role);
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        // Keep metadata when storage deletion fails so the operation can be retried.
-        await storage.DeleteAsync(
-            file.StoredFileName);
-
-        await files.DeleteAsync(
-            file);
+        await storage.DeleteAsync(file.StoredFileName);
+        await files.DeleteAsync(file);
     }
 
-    private async Task TryDeleteStoredFileAsync(
-        string storedFileName)
+    // Logs cleanup failures without hiding the result of the main operation.
+    private async Task TryDeleteStoredFileAsync(string storedFileName)
     {
         try
         {
-            await storage.DeleteAsync(
-                storedFileName);
+            await storage.DeleteAsync(storedFileName);
         }
         catch (Exception exception)
         {
@@ -2994,6 +2756,7 @@ public sealed class AlbumFileService(
         }
     }
 
+    // Builds the file response with its URLs, favorite status, and management permission.
     private static FileResponse ToResponse(
         FileMetadata file,
         long albumId,
@@ -3010,7 +2773,6 @@ public sealed class AlbumFileService(
             isFavorite,
             canManage);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AlbumService.cs
@@ -3029,51 +2791,40 @@ public sealed class AlbumService(
     IFileRepository files,
     IStorageService storage) : IAlbumService
 {
+    // Validates the album name, saves the album, and returns its details.
     public async Task<AlbumResponse> CreateAsync(
         CreateAlbumRequest request,
         User currentUser)
     {
-        ValidateAlbumName(
-            request.AlbumName);
+        ValidateAlbumName(request.AlbumName);
 
         var album = new Album
         {
-            AlbumName =
-                request.AlbumName.Trim(),
-
-            CreatedBy =
-                currentUser.Id,
-
-            CreatedAt =
-                DateTime.UtcNow
+            AlbumName = request.AlbumName.Trim(),
+            CreatedBy = currentUser.Id,
+            CreatedAt = DateTime.UtcNow
         };
 
-        await albums.AddAsync(
-            album);
+        await albums.AddAsync(album);
 
-        album.Owner =
-            currentUser;
+        album.Owner = currentUser;
 
-        return ToResponse(
-            album);
+        return ToResponse(album);
     }
 
-    public async Task<IReadOnlyList<AlbumResponse>>
-        GetAccessibleAsync(
-            User currentUser)
+    // Returns the albums owned by the user or shared with them.
+    public async Task<IReadOnlyList<AlbumResponse>> GetAccessibleAsync(
+        User currentUser)
     {
-        var result =
-            await albums.GetAccessibleByUserIdAsync(
-                currentUser.Id);
+        var result = await albums.GetAccessibleByUserIdAsync(currentUser.Id);
 
         return result
-            .Select(
-                ToResponse)
+            .Select(ToResponse)
             .ToList();
     }
 
-    public async Task<IReadOnlyList<AlbumResponse>>
-        GetOwnedByUserAsync(int userId)
+    // Returns only the albums owned by the specified user.
+    public async Task<IReadOnlyList<AlbumResponse>> GetOwnedByUserAsync(int userId)
     {
         var result = await albums.GetOwnedByUserIdAsync(userId);
 
@@ -3082,98 +2833,83 @@ public sealed class AlbumService(
             .ToList();
     }
 
-    public async Task<IReadOnlyList<AlbumResponse>>
-        GetAllForAdminAsync()
+    // Returns all albums for admin management.
+    public async Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync()
     {
-        var result =
-            await albums.GetAllAsync();
+        var result = await albums.GetAllAsync();
 
         return result
-            .Select(
-                ToResponse)
+            .Select(ToResponse)
             .ToList();
     }
 
+    // Retrieves an album after checking whether the user can view it.
     public async Task<AlbumResponse> GetAsync(
         long albumId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await GetAuthorizedAlbumAsync(
-                albumId,
-                currentUser,
-                role,
-                true);
+        var album = await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            true);
 
-        return ToResponse(
-            album);
+        return ToResponse(album);
     }
 
+    // Validates the album name and updates the album details.
     public async Task<AlbumResponse> UpdateAsync(
         long albumId,
         UpdateAlbumRequest request,
         User currentUser,
         UserRole role)
     {
-        ValidateAlbumName(
-            request.AlbumName);
+        ValidateAlbumName(request.AlbumName);
 
-        var album =
-            await GetAuthorizedAlbumAsync(
-                albumId,
-                currentUser,
-                role,
-                false);
+        var album = await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
 
-        album.AlbumName =
-            request.AlbumName.Trim();
+        album.AlbumName = request.AlbumName.Trim();
+        album.UpdatedBy = currentUser.Id;
+        album.UpdatedAt = DateTime.UtcNow;
 
-        album.UpdatedBy =
-            currentUser.Id;
+        await albums.UpdateAsync(album);
 
-        album.UpdatedAt =
-            DateTime.UtcNow;
-
-        await albums.UpdateAsync(
-            album);
-
-        return ToResponse(
-            album);
+        return ToResponse(album);
     }
 
+    // Deletes the stored files before deleting the album and its database records.
     public async Task DeleteAsync(
         long albumId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await GetAuthorizedAlbumAsync(
-                albumId,
-                currentUser,
-                role,
-                false);
+        var album = await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
 
-        var albumFiles =
-            await files.GetByAlbumIdAsync(
-                albumId);
+        var albumFiles = await files.GetByAlbumIdAsync(albumId);
 
+        // Keeps the album and its database records if a blob deletion fails.
         foreach (var file in albumFiles)
         {
-            // Do not remove album or file metadata unless every blob delete succeeds.
-            await storage.DeleteAsync(
-                file.StoredFileName);
+            await storage.DeleteAsync(file.StoredFileName);
         }
 
-        await albums.DeleteAsync(
-            album);
+        await albums.DeleteAsync(album);
     }
 
-    public async Task<IReadOnlyList<AlbumMemberResponse>>
-        GetMembersAsync(
-            long albumId,
-            User currentUser,
-            UserRole role)
+    // Returns the members who have access to the album and their permissions.
+    public async Task<IReadOnlyList<AlbumMemberResponse>> GetMembersAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
     {
         await GetAuthorizedAlbumAsync(
             albumId,
@@ -3181,23 +2917,20 @@ public sealed class AlbumService(
             role,
             false);
 
-        var access =
-            await albums.GetAccessListAsync(
-                albumId);
+        var access = await albums.GetAccessListAsync(albumId);
 
         return access
-            .Select(
-                item =>
-                    new AlbumMemberResponse(
-                        item.UserId,
-                        item.User.Name,
-                        item.User.Email,
-                        item.CanView,
-                        item.CanDownload,
-                        item.GrantedAt))
+            .Select(item => new AlbumMemberResponse(
+                item.UserId,
+                item.User.Name,
+                item.User.Email,
+                item.CanView,
+                item.CanDownload,
+                item.GrantedAt))
             .ToList();
     }
 
+    // Grants an existing WinCapture user access to the album with the requested permissions.
     public async Task AddMemberAsync(
         long albumId,
         AddAlbumMemberRequest request,
@@ -3210,20 +2943,15 @@ public sealed class AlbumService(
             role,
             false);
 
-        var email =
-            request.Email.Trim()
-                .ToLowerInvariant();
+        var email = request.Email.Trim().ToLowerInvariant();
 
-        if (!request.CanView &&
-            request.CanDownload)
+        if (!request.CanView && request.CanDownload)
         {
             throw new BadRequestException(
                 "CanDownload cannot be true when CanView is false.");
         }
 
-        var user =
-            await users.GetByEmailAsync(
-                email)
+        var user = await users.GetByEmailAsync(email)
             ?? throw new NotFoundException(
                 "The user must register in WinCapture before they can be added to an album.");
 
@@ -3233,10 +2961,7 @@ public sealed class AlbumService(
                 "The album owner already has full access.");
         }
 
-        var existing =
-            await albums.GetAccessAsync(
-                albumId,
-                user.Id);
+        var existing = await albums.GetAccessAsync(albumId, user.Id);
 
         if (existing is not null)
         {
@@ -3244,30 +2969,18 @@ public sealed class AlbumService(
                 "This user already has access to the album.");
         }
 
-        await albums.AddAccessAsync(
-            new AlbumAccess
-            {
-                AlbumId =
-                    albumId,
-
-                UserId =
-                    user.Id,
-
-                CanView =
-                    request.CanView,
-
-                CanDownload =
-                    request.CanView &&
-                    request.CanDownload,
-
-                GrantedAt =
-                    DateTime.UtcNow,
-
-                GrantedBy =
-                    currentUser.Id
-            });
+        await albums.AddAccessAsync(new AlbumAccess
+        {
+            AlbumId = albumId,
+            UserId = user.Id,
+            CanView = request.CanView,
+            CanDownload = request.CanView && request.CanDownload,
+            GrantedAt = DateTime.UtcNow,
+            GrantedBy = currentUser.Id
+        });
     }
 
+    // Updates a member's viewing and downloading permissions for the album.
     public async Task UpdateMemberAsync(
         long albumId,
         int userId,
@@ -3281,31 +2994,22 @@ public sealed class AlbumService(
             role,
             false);
 
-        if (!request.CanView &&
-            request.CanDownload)
+        if (!request.CanView && request.CanDownload)
         {
             throw new BadRequestException(
                 "CanDownload cannot be true when CanView is false.");
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                userId)
-            ?? throw new NotFoundException(
-                "Album access was not found.");
+        var access = await albums.GetAccessAsync(albumId, userId)
+            ?? throw new NotFoundException("Album access was not found.");
 
-        access.CanView =
-            request.CanView;
+        access.CanView = request.CanView;
+        access.CanDownload = request.CanView && request.CanDownload;
 
-        access.CanDownload =
-            request.CanView &&
-            request.CanDownload;
-
-        await albums.UpdateAccessAsync(
-            access);
+        await albums.UpdateAccessAsync(access);
     }
 
+    // Removes a member's access to the specified album.
     public async Task RemoveMemberAsync(
         long albumId,
         int userId,
@@ -3318,17 +3022,13 @@ public sealed class AlbumService(
             role,
             false);
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                userId)
-            ?? throw new NotFoundException(
-                "Album access was not found.");
+        var access = await albums.GetAccessAsync(albumId, userId)
+            ?? throw new NotFoundException("Album access was not found.");
 
-        await albums.DeleteAccessAsync(
-            access);
+        await albums.DeleteAccessAsync(access);
     }
 
+    // Checks album access before allowing a file to be uploaded.
     public async Task<Album> GetForUploadAsync(
         long albumId,
         User currentUser,
@@ -3341,58 +3041,49 @@ public sealed class AlbumService(
             false);
     }
 
+    // Checks whether the user is allowed to download files from the album.
     public async Task<bool> CanDownloadAsync(
         long albumId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await albums.GetByIdAsync(
-                albumId)
+        var album = await albums.GetByIdAsync(albumId)
             ?? throw new NotFoundException(
                 "The requested album was not found.");
 
-        if (role == UserRole.Admin ||
-            album.CreatedBy == currentUser.Id)
+        if (role == UserRole.Admin || album.CreatedBy == currentUser.Id)
         {
             return true;
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                currentUser.Id);
+        var access = await albums.GetAccessAsync(
+            albumId,
+            currentUser.Id);
 
-        return access is not null &&
-               access.CanDownload;
+        return access is not null && access.CanDownload;
     }
 
-    private async Task<Album>
-        GetAuthorizedAlbumAsync(
-            long albumId,
-            User currentUser,
-            UserRole role,
-            bool canView)
+    // Checks whether the user can view or manage the album based on ownership, role, and access permissions.
+    private async Task<Album> GetAuthorizedAlbumAsync(
+        long albumId,
+        User currentUser,
+        UserRole role,
+        bool canView)
     {
-        var album =
-            await albums.GetByIdAsync(
-                albumId)
+        var album = await albums.GetByIdAsync(albumId)
             ?? throw new NotFoundException(
                 "The requested album was not found.");
 
-        if (role == UserRole.Admin ||
-            album.CreatedBy == currentUser.Id)
+        if (role == UserRole.Admin || album.CreatedBy == currentUser.Id)
         {
             return album;
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                currentUser.Id);
+        var access = await albums.GetAccessAsync(
+            albumId,
+            currentUser.Id);
 
-        if (access is null ||
-            (canView && !access.CanView))
+        if (access is null || (canView && !access.CanView))
         {
             throw new ForbiddenException(
                 "You are not allowed to access this album.");
@@ -3407,14 +3098,12 @@ public sealed class AlbumService(
         return album;
     }
 
-    private static void ValidateAlbumName(
-        string name)
+    // Rejects empty album names and names longer than 200 characters.
+    private static void ValidateAlbumName(string name)
     {
-        if (string.IsNullOrWhiteSpace(
-                name))
+        if (string.IsNullOrWhiteSpace(name))
         {
-            throw new BadRequestException(
-                "Album name is required.");
+            throw new BadRequestException("Album name is required.");
         }
 
         if (name.Trim().Length > 200)
@@ -3424,8 +3113,8 @@ public sealed class AlbumService(
         }
     }
 
-    private static AlbumResponse ToResponse(
-        Album album)
+    // Maps an album entity to the response returned by the API.
+    private static AlbumResponse ToResponse(Album album)
     {
         return new AlbumResponse(
             album.Id,
@@ -3436,7 +3125,6 @@ public sealed class AlbumService(
             album.UpdatedAt);
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\AzureBlobStorageService.cs
@@ -3449,17 +3137,14 @@ using WinCapture.Exceptions;
 
 namespace WinCapture.Services;
 
-public sealed class AzureBlobStorageService(
-    BlobContainerClient containerClient,
-    ILogger<AzureBlobStorageService> logger) : IStorageService
+public sealed class AzureBlobStorageService(BlobContainerClient containerClient, ILogger<AzureBlobStorageService> logger) : IStorageService
 {
+    // Generates a unique name to prevent files with the same original name from overwriting each other.
     public async Task<string> SaveAsync(IFormFile file)
     {
         if (file is null)
         {
-            throw new StorageException(
-                "The file could not be stored in Azure Blob Storage.",
-                new ArgumentNullException(nameof(file)));
+            throw new StorageException("The file could not be stored in Azure Blob Storage.", new ArgumentNullException(nameof(file)));
         }
 
         var extension = Path.GetExtension(file.FileName);
@@ -3470,31 +3155,24 @@ public sealed class AzureBlobStorageService(
         {
             await using var stream = file.OpenReadStream();
 
-            await blobClient.UploadAsync(
-                stream,
-                new BlobUploadOptions
+            await blobClient.UploadAsync(stream, new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
                 {
-                    HttpHeaders = new BlobHttpHeaders
-                    {
-                        ContentType = file.ContentType
-                    }
-                });
+                    ContentType = file.ContentType
+                }
+            });
 
             return storedFileName;
         }
         catch (RequestFailedException exception)
         {
-            logger.LogError(
-                exception,
-                "Failed to store file in Azure Blob Storage. StoredFileName: {StoredFileName}",
-                storedFileName);
-
-            throw new StorageException(
-                "The file could not be stored in Azure Blob Storage.",
-                exception);
+            logger.LogError(exception, "Failed to store file in Azure Blob Storage. StoredFileName: {StoredFileName}", storedFileName);
+            throw new StorageException("The file could not be stored in Azure Blob Storage.", exception);
         }
     }
 
+    // Uses DeleteBlobIfExistsAsync so cleanup does not fail just because the blob is already missing.
     public async Task DeleteAsync(string storedFileName)
     {
         try
@@ -3503,50 +3181,34 @@ public sealed class AzureBlobStorageService(
         }
         catch (RequestFailedException exception)
         {
-            logger.LogError(
-                exception,
-                "Failed to delete file from Azure Blob Storage. StoredFileName: {StoredFileName}",
-                storedFileName);
+            logger.LogError(exception, "Failed to delete file from Azure Blob Storage. StoredFileName: {StoredFileName}", storedFileName);
 
-            throw new StorageException(
-                "The file could not be deleted from Azure Blob Storage.",
-                exception);
+            throw new StorageException("The file could not be deleted from Azure Blob Storage.", exception);
         }
     }
 
+    // Handles a missing blob separately because it may still be referenced by the database.
     public async Task<Stream> GetAsync(string storedFileName)
     {
         try
         {
-            var response = await containerClient
-                .GetBlobClient(storedFileName)
-                .DownloadStreamingAsync();
-
+            var response = await containerClient.GetBlobClient(storedFileName).DownloadStreamingAsync();
             return response.Value.Content;
         }
         catch (RequestFailedException exception)
             when (exception.Status == StatusCodes.Status404NotFound)
         {
-            logger.LogError(
-                exception,
-                "Metadata points to a missing Blob. StoredFileName: {StoredFileName}",
-                storedFileName);
-
+            logger.LogError(exception, "Metadata points to a missing Blob. StoredFileName: {StoredFileName}", storedFileName);
             throw new NotFoundException("The requested file was not found in storage.");
         }
         catch (RequestFailedException exception)
         {
-            logger.LogError(
-                exception,
-                "Failed to read file from Azure Blob Storage. StoredFileName: {StoredFileName}",
-                storedFileName);
-
-            throw new StorageException(
-                "The file could not be read from Azure Blob Storage.",
-                exception);
+            logger.LogError(exception, "Failed to read file from Azure Blob Storage. StoredFileName: {StoredFileName}", storedFileName);
+            throw new StorageException("The file could not be read from Azure Blob Storage.", exception);
         }
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\FileService.cs
@@ -3568,56 +3230,37 @@ public sealed class FileService(
     IAlbumRepository albums,
     ILogger<FileService> logger) : IFileService
 {
-    public async Task<FileResponse> UploadAsync(
-        IFormFile file,
-        int userId)
+    // Validates the file, stores it in Azure Blob Storage, and saves its metadata.
+    public async Task<FileResponse> UploadAsync(IFormFile file, int userId)
     {
         await validator.ValidateAsync(file);
 
-        var storedFileName =
-            await storage.SaveAsync(file);
+        var storedFileName = await storage.SaveAsync(file);
 
         var metadata = new FileMetadata
         {
-            OriginalFileName =
-                Path.GetFileName(
-                    file.FileName),
-
-            StoredFileName =
-                storedFileName,
-
-            ContentType =
-                file.ContentType,
-
-            FileSize =
-                file.Length,
-
-            UploadedBy =
-                userId,
-
-            UploadedAt =
-                DateTime.UtcNow
+            OriginalFileName = Path.GetFileName(file.FileName),
+            StoredFileName = storedFileName,
+            ContentType = file.ContentType,
+            FileSize = file.Length,
+            UploadedBy = userId,
+            UploadedAt = DateTime.UtcNow
         };
 
         try
         {
-            await files.AddAsync(
-                metadata);
+            await files.AddAsync(metadata);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(
-                storedFileName);
-
+            await TryDeleteStoredFileAsync(storedFileName);
             throw;
         }
 
-        return ToResponse(
-            metadata,
-            false,
-            true);
+        return ToResponse(metadata, false, true);
     }
 
+    // Replaces the file and removes the old blob after the database update succeeds.
     public async Task<FileResponse> ReplaceAsync(
         long fileId,
         IFormFile file,
@@ -3626,124 +3269,96 @@ public sealed class FileService(
     {
         await validator.ValidateAsync(file);
 
-        var existing =
-            await GetAuthorizedFileAsync(
-                fileId,
-                userId,
-                userRole);
+        var existing = await GetAuthorizedFileAsync(
+            fileId,
+            userId,
+            userRole,
+            requireManage: true);
 
-        var oldStoredFileName =
-            existing.StoredFileName;
+        var oldStoredFileName = existing.StoredFileName;
+        var newStoredFileName = await storage.SaveAsync(file);
 
-        var newStoredFileName =
-            await storage.SaveAsync(file);
-
-        existing.OriginalFileName =
-            Path.GetFileName(
-                file.FileName);
-
-        existing.StoredFileName =
-            newStoredFileName;
-
-        existing.ContentType =
-            file.ContentType;
-
-        existing.FileSize =
-            file.Length;
-
-        existing.UploadedAt =
-            DateTime.UtcNow;
+        existing.OriginalFileName = Path.GetFileName(file.FileName);
+        existing.StoredFileName = newStoredFileName;
+        existing.ContentType = file.ContentType;
+        existing.FileSize = file.Length;
+        existing.UploadedAt = DateTime.UtcNow;
 
         try
         {
-            await files.UpdateAsync(
-                existing);
+            await files.UpdateAsync(existing);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(
-                newStoredFileName);
-
+            await TryDeleteStoredFileAsync(newStoredFileName);
             throw;
         }
 
-        await TryDeleteStoredFileAsync(
-            oldStoredFileName);
+        await TryDeleteStoredFileAsync(oldStoredFileName);
 
-        var isFavorite =
-            await files.GetFavoriteAsync(
-                userId,
-                fileId) is not null;
+        var isFavorite = await files.GetFavoriteAsync(userId, fileId) is not null;
 
-        return ToResponse(
-            existing,
-            isFavorite,
-            true);
+        return ToResponse(existing, isFavorite, true);
     }
 
-    public async Task<IReadOnlyList<FileResponse>>
-        GetGalleryAsync(
-            int userId)
+    // Returns the current user's uploaded files with their favorite status.
+    public async Task<IReadOnlyList<FileResponse>> GetGalleryAsync(int userId)
     {
-        var galleryFiles =
-            await files.GetByUserIdAsync(
-                userId);
-
-        var favoriteIds =
-            await files.GetFavoriteFileIdsByUserIdAsync(
-                userId);
-
-        var favoriteIdSet =
-            favoriteIds.ToHashSet();
+        var galleryFiles = await files.GetByUserIdAsync(userId);
+        var favoriteIds = await files.GetFavoriteFileIdsByUserIdAsync(userId);
+        var favoriteIdSet = favoriteIds.ToHashSet();
 
         return galleryFiles
-            .Select(
-                file =>
-                    ToResponse(
-                        file,
-                        favoriteIdSet.Contains(
-                            file.Id),
-                        true))
+            .Select(file => ToResponse(
+                file,
+                favoriteIdSet.Contains(file.Id),
+                true))
             .ToList();
     }
 
+    // Returns a file after checking access permissions and retrieving its favorite status.
     public async Task<FileResponse> GetAsync(
         long fileId,
         int userId,
         UserRole userRole)
     {
-        var file =
-            await GetAuthorizedFileAsync(
-                fileId,
-                userId,
-                userRole);
+        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
+        var isFavorite = await files.GetFavoriteAsync(userId, fileId) is not null;
 
-        var isFavorite =
-            await files.GetFavoriteAsync(
-                userId,
-                fileId) is not null;
+        var permissions = await GetFilePermissionsAsync(file, userId, userRole);
 
-        return ToResponse(
-            file,
-            isFavorite,
-            true);
+        return ToResponse(file, isFavorite, permissions.CanManage);
     }
 
-    public async Task<FileDownloadResult>
-        DownloadAsync(
-            long fileId,
-            int userId,
-            UserRole userRole)
+    // Checks file and album download permissions before returning the file content.
+    public async Task<FileDownloadResult> DownloadAsync(
+        long fileId,
+        int userId,
+        UserRole userRole)
     {
-        var file =
-            await GetAuthorizedFileAsync(
-                fileId,
-                userId,
-                userRole);
+        var file = await GetAuthorizedFileAsync(fileId, userId, userRole);
 
-        var content =
-            await storage.GetAsync(
-                file.StoredFileName);
+        if (userRole != UserRole.Admin && file.AlbumId.HasValue)
+        {
+            var album = await albums.GetByIdAsync(file.AlbumId.Value);
+
+            if (album is null)
+            {
+                throw new NotFoundException("The requested album was not found.");
+            }
+
+            if (album.CreatedBy != userId)
+            {
+                var access = await albums.GetAccessAsync(file.AlbumId.Value, userId);
+
+                if (access?.CanDownload != true)
+                {
+                    throw new ForbiddenException("You are not allowed to download this file.");
+                }
+            }
+        }
+
+        var content = await storage.GetAsync(file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -3751,160 +3366,132 @@ public sealed class FileService(
             file.OriginalFileName);
     }
 
+    // Deletes the stored blob before removing its database metadata.
     public async Task DeleteAsync(
         long fileId,
         int userId,
         UserRole userRole)
     {
-        var file =
-            await GetAuthorizedFileAsync(
-                fileId,
-                userId,
-                userRole);
+        var file = await GetAuthorizedFileAsync(
+            fileId,
+            userId,
+            userRole,
+            requireManage: true);
 
-        // Remove the blob first. If storage fails, keep the metadata so the
-        // user can retry the deletion and the database does not claim success.
-        await storage.DeleteAsync(
-            file.StoredFileName);
+        // Keeps the metadata available if blob deletion fails so the operation can be retried.
+        await storage.DeleteAsync(file.StoredFileName);
 
-        await files.DeleteAsync(
-            file);
+        await files.DeleteAsync(file);
     }
 
-    public async Task<IReadOnlyList<AdminFileResponse>>
-        GetAllAsync() =>
-        (await files.GetAllAsync())
-            .Select(ToAdminResponse)
-            .ToList();
-
-    public async Task<IReadOnlyList<AdminFileResponse>>
-        GetAdminFilesByUploaderIdAsync(int userId) =>
-        (await files.GetAdminFilesByUploaderIdAsync(userId))
-            .Select(ToAdminResponse)
-            .ToList();
-
-    public async Task<IReadOnlyList<FileResponse>>
-        GetFavoritesAsync(
-            int userId,
-            UserRole userRole)
+    // Returns all files with their uploader and album details for admin management.
+    public async Task<IReadOnlyList<AdminFileResponse>> GetAllAsync()
     {
-        var favoriteFiles =
-            await files.GetFavoriteFilesByUserIdAsync(
-                userId);
+        var allFiles = await files.GetAllAsync();
 
-        var result =
-            new List<FileResponse>();
+        return allFiles
+            .Select(ToAdminResponse)
+            .ToList();
+    }
+
+    // Returns the files uploaded by the specified admin.
+    public async Task<IReadOnlyList<AdminFileResponse>> GetAdminFilesByUploaderIdAsync(int userId)
+    {
+        var adminFiles = await files.GetAdminFilesByUploaderIdAsync(userId);
+
+        return adminFiles
+            .Select(ToAdminResponse)
+            .ToList();
+    }
+
+    // Returns the user's favorite files that they are still allowed to view.
+    public async Task<IReadOnlyList<FileResponse>> GetFavoritesAsync(
+        int userId,
+        UserRole userRole)
+    {
+        var favoriteFiles = await files.GetFavoriteFilesByUserIdAsync(userId);
+        var result = new List<FileResponse>();
 
         foreach (var file in favoriteFiles)
         {
-            var permissions =
-                await GetFilePermissionsAsync(
-                    file,
-                    userId,
-                    userRole);
+            var permissions = await GetFilePermissionsAsync(file, userId, userRole);
 
             if (!permissions.CanView)
             {
                 continue;
             }
 
-            result.Add(
-                ToResponse(
-                    file,
-                    true,
-                    permissions.CanManage));
+            result.Add(ToResponse(file, true, permissions.CanManage));
         }
 
         return result;
     }
 
+    // Adds a file to the user's favorites if they are allowed to view it.
     public async Task AddFavoriteAsync(
         long fileId,
         int userId,
         UserRole userRole)
     {
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
-        var permissions =
-            await GetFilePermissionsAsync(
-                file,
-                userId,
-                userRole);
+        var permissions = await GetFilePermissionsAsync(file, userId, userRole);
 
         if (!permissions.CanView)
         {
-            throw new ForbiddenException(
-                "You are not allowed to favorite this file.");
+            throw new ForbiddenException("You are not allowed to favorite this file.");
         }
 
-        var existing =
-            await files.GetFavoriteAsync(
-                userId,
-                fileId);
+        var existing = await files.GetFavoriteAsync(userId, fileId);
 
         if (existing is not null)
         {
             return;
         }
 
-        await files.AddFavoriteAsync(
-            new Favorite
-            {
-                UserId =
-                    userId,
-
-                FileId =
-                    fileId,
-
-                FavoritedAt =
-                    DateTime.UtcNow
-            });
+        await files.AddFavoriteAsync(new Favorite
+        {
+            UserId = userId,
+            FileId = fileId,
+            FavoritedAt = DateTime.UtcNow
+        });
     }
 
-    public async Task RemoveFavoriteAsync(
-        long fileId,
-        int userId)
+    // Removes the file from the user's favorites if it exists.
+    public async Task RemoveFavoriteAsync(long fileId, int userId)
     {
-        var favorite =
-            await files.GetFavoriteAsync(
-                userId,
-                fileId);
+        var favorite = await files.GetFavoriteAsync(userId, fileId);
 
         if (favorite is null)
         {
             return;
         }
 
-        await files.DeleteFavoriteAsync(
-            favorite);
+        await files.DeleteFavoriteAsync(favorite);
     }
 
-    private async Task<FileMetadata>
-        GetAuthorizedFileAsync(
-            long fileId,
-            int userId,
-            UserRole userRole)
+    // Retrieves a file and checks whether the user can view or manage it.
+    private async Task<FileMetadata> GetAuthorizedFileAsync(
+        long fileId,
+        int userId,
+        UserRole userRole,
+        bool requireManage = false)
     {
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
-        if (userRole != UserRole.Admin &&
-            file.UploadedBy != userId)
+        var permissions = await GetFilePermissionsAsync(file, userId, userRole);
+
+        if (!permissions.CanView || (requireManage && !permissions.CanManage))
         {
-            throw new ForbiddenException(
-                "You are not allowed to access this file.");
+            throw new ForbiddenException("You are not allowed to access this file.");
         }
 
         return file;
     }
 
+    // Determines file access based on the user's role, ownership, and album permissions.
     private async Task<(bool CanView, bool CanManage)> GetFilePermissionsAsync(
         FileMetadata file,
         int userId,
@@ -3917,17 +3504,12 @@ public sealed class FileService(
 
         if (file.AlbumId is null)
         {
-            var ownsFile =
-                file.UploadedBy == userId;
+            var ownsFile = file.UploadedBy == userId;
 
-            return (
-                ownsFile,
-                ownsFile);
+            return (ownsFile, ownsFile);
         }
 
-        var album =
-            await albums.GetByIdAsync(
-                file.AlbumId.Value);
+        var album = await albums.GetByIdAsync(file.AlbumId.Value);
 
         if (album is null)
         {
@@ -3939,23 +3521,17 @@ public sealed class FileService(
             return (true, true);
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                file.AlbumId.Value,
-                userId);
+        var access = await albums.GetAccessAsync(file.AlbumId.Value, userId);
 
-        return (
-            access?.CanView == true,
-            false);
+        return (access?.CanView == true, false);
     }
 
-    private async Task TryDeleteStoredFileAsync(
-        string storedFileName)
+    // Attempts to remove a stored blob during cleanup and logs any failure.
+    private async Task TryDeleteStoredFileAsync(string storedFileName)
     {
         try
         {
-            await storage.DeleteAsync(
-                storedFileName);
+            await storage.DeleteAsync(storedFileName);
         }
         catch (Exception exception)
         {
@@ -3966,20 +3542,19 @@ public sealed class FileService(
         }
     }
 
+    // Builds the file response with the appropriate URLs and user permissions.
     private static FileResponse ToResponse(
         FileMetadata file,
         bool isFavorite,
         bool canManage)
     {
-        var url =
-            file.AlbumId.HasValue
-                ? $"/api/albums/{file.AlbumId.Value}/files/{file.Id}"
-                : $"/api/files/{file.Id}";
+        var url = file.AlbumId.HasValue
+            ? $"/api/albums/{file.AlbumId.Value}/files/{file.Id}"
+            : $"/api/files/{file.Id}";
 
-        var downloadUrl =
-            file.AlbumId.HasValue
-                ? $"/api/albums/{file.AlbumId.Value}/files/{file.Id}/download"
-                : $"/api/files/{file.Id}/download";
+        var downloadUrl = file.AlbumId.HasValue
+            ? $"/api/albums/{file.AlbumId.Value}/files/{file.Id}/download"
+            : $"/api/files/{file.Id}/download";
 
         return new FileResponse(
             file.Id,
@@ -3993,9 +3568,10 @@ public sealed class FileService(
             canManage);
     }
 
-    private static AdminFileResponse ToAdminResponse(
-        FileMetadata file) =>
-        new(
+    // Maps file metadata and its uploader and album details to the admin response.
+    private static AdminFileResponse ToAdminResponse(FileMetadata file)
+    {
+        return new AdminFileResponse(
             file.Id,
             file.OriginalFileName,
             file.ContentType,
@@ -4005,8 +3581,8 @@ public sealed class FileService(
             file.User.Name,
             file.AlbumId,
             file.Album?.AlbumName);
+    }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IAlbumFileService.cs
@@ -4020,35 +3596,49 @@ namespace WinCapture.Services;
 
 public interface IAlbumFileService
 {
+    // Uploads a file to the specified album.
     Task<FileResponse> UploadAsync(
         long albumId,
         IFormFile file,
         User currentUser,
         UserRole role);
 
+    // Replaces an existing file in the specified album.
+    Task<FileResponse> ReplaceAsync(
+        long albumId,
+        long fileId,
+        IFormFile file,
+        User currentUser,
+        UserRole role);
+
+    // Returns the files in an album with their favorite status and management permissions.
     Task<IReadOnlyList<FileResponse>> GetAsync(
         long albumId,
         User currentUser,
         UserRole role);
 
+    // Retrieves a specific file from an album.
     Task<FileResponse> GetOneAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role);
 
+    // Returns the file content for preview.
     Task<FileDownloadResult> PreviewAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role);
 
+    // Returns the file content for download.
     Task<FileDownloadResult> DownloadAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role);
 
+    // Deletes a file from the specified album.
     Task DeleteAsync(
         long albumId,
         long fileId,
@@ -4067,44 +3657,54 @@ namespace WinCapture.Services;
 
 public interface IAlbumService
 {
+    // Creates a new album for the current user.
     Task<AlbumResponse> CreateAsync(
         CreateAlbumRequest request,
         User currentUser);
 
+    // Returns the albums the current user is allowed to access.
     Task<IReadOnlyList<AlbumResponse>> GetAccessibleAsync(
         User currentUser);
 
+    // Returns only the albums owned by the specified user.
     Task<IReadOnlyList<AlbumResponse>> GetOwnedByUserAsync(int userId);
 
+    // Returns all albums for admin management.
     Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync();
 
+    // Retrieves an album after checking the user's access permissions.
     Task<AlbumResponse> GetAsync(
         long albumId,
         User currentUser,
         UserRole role);
 
+    // Updates an album after checking the user's permissions.
     Task<AlbumResponse> UpdateAsync(
         long albumId,
         UpdateAlbumRequest request,
         User currentUser,
         UserRole role);
 
+    // Deletes an album and its associated files.
     Task DeleteAsync(
         long albumId,
         User currentUser,
         UserRole role);
 
+    // Returns the members who have access to an album and their permissions.
     Task<IReadOnlyList<AlbumMemberResponse>> GetMembersAsync(
         long albumId,
         User currentUser,
         UserRole role);
 
+    // Adds a user to an album with the specified permissions.
     Task AddMemberAsync(
         long albumId,
         AddAlbumMemberRequest request,
         User currentUser,
         UserRole role);
 
+    // Updates a member's permissions for an album.
     Task UpdateMemberAsync(
         long albumId,
         int userId,
@@ -4112,23 +3712,25 @@ public interface IAlbumService
         User currentUser,
         UserRole role);
 
+    // Removes a member's access to an album.
     Task RemoveMemberAsync(
         long albumId,
         int userId,
         User currentUser,
         UserRole role);
 
+    // Checks album access before allowing a file to be uploaded.
     Task<Album> GetForUploadAsync(
         long albumId,
         User currentUser,
         UserRole role);
 
+    // Checks whether the user is allowed to download files from an album.
     Task<bool> CanDownloadAsync(
         long albumId,
         User currentUser,
         UserRole role);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IFileService.cs
@@ -4142,56 +3744,62 @@ namespace WinCapture.Services;
 
 public interface IFileService
 {
+    // Uploads a file for the specified user.
     Task<FileResponse> UploadAsync(
         IFormFile file,
         int userId);
 
+    // Replaces an existing file after checking the user's permissions.
     Task<FileResponse> ReplaceAsync(
         long fileId,
         IFormFile file,
         int userId,
         UserRole userRole);
 
-    Task<IReadOnlyList<FileResponse>>
-        GetGalleryAsync(
-            int userId);
+    // Returns the files uploaded by the specified user.
+    Task<IReadOnlyList<FileResponse>> GetGalleryAsync(
+        int userId);
 
+    // Retrieves a file after checking the user's access permissions.
     Task<FileResponse> GetAsync(
         long fileId,
         int userId,
         UserRole userRole);
 
+    // Returns the file content for download after checking access permissions.
     Task<FileDownloadResult> DownloadAsync(
         long fileId,
         int userId,
         UserRole userRole);
 
+    // Deletes a file after checking the user's management permissions.
     Task DeleteAsync(
         long fileId,
         int userId,
         UserRole userRole);
 
-    Task<IReadOnlyList<AdminFileResponse>>
-        GetAllAsync();
+    // Returns all files with uploader and album details for admin management.
+    Task<IReadOnlyList<AdminFileResponse>> GetAllAsync();
 
-    Task<IReadOnlyList<AdminFileResponse>>
-        GetAdminFilesByUploaderIdAsync(int userId);
+    // Returns the files uploaded by the specified admin.
+    Task<IReadOnlyList<AdminFileResponse>> GetAdminFilesByUploaderIdAsync(int userId);
 
-    Task<IReadOnlyList<FileResponse>>
-        GetFavoritesAsync(
-            int userId,
-            UserRole userRole);
+    // Returns the user's favorite files that they are allowed to view.
+    Task<IReadOnlyList<FileResponse>> GetFavoritesAsync(
+        int userId,
+        UserRole userRole);
 
+    // Adds a file to the user's favorites if it is accessible to them.
     Task AddFavoriteAsync(
         long fileId,
         int userId,
         UserRole userRole);
 
+    // Removes a file from the user's favorites.
     Task RemoveFavoriteAsync(
         long fileId,
         int userId);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\IStorageService.cs
@@ -4203,11 +3811,15 @@ namespace WinCapture.Services;
 
 public interface IStorageService
 {
+    // Saves the uploaded file and returns the name used to store it.
     Task<string> SaveAsync(IFormFile file);
+
+    // Deletes the specified file from storage.
     Task DeleteAsync(string storedFileName);
+
+    // Retrieves the stored file content as a stream.
     Task<Stream> GetAsync(string storedFileName);
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\MicrosoftIdentityClaimsTransformation.cs
@@ -4222,6 +3834,7 @@ namespace WinCapture.Services;
 public sealed class MicrosoftIdentityClaimsTransformation(
     MicrosoftUserService microsoftUserService) : IClaimsTransformation
 {
+    // Maps the authenticated Microsoft Entra account to a WinCapture user and adds the required claims.
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (!principal.Identity?.IsAuthenticated ?? true)
@@ -4229,7 +3842,8 @@ public sealed class MicrosoftIdentityClaimsTransformation(
             return principal;
         }
 
-        var identity = principal.Identities.FirstOrDefault(identity => identity.IsAuthenticated);
+        var identity = principal.Identities
+            .FirstOrDefault(identity => identity.IsAuthenticated);
 
         if (identity is null)
         {
@@ -4279,6 +3893,7 @@ public sealed class MicrosoftIdentityClaimsTransformation(
         return principal;
     }
 
+    // Maps the Microsoft Entra app role to the corresponding WinCapture user role.
     private static UserRole? GetRole(ClaimsPrincipal principal)
     {
         var roles = principal.FindAll("roles")
@@ -4298,6 +3913,7 @@ public sealed class MicrosoftIdentityClaimsTransformation(
         return null;
     }
 
+    // Removes existing claims of the specified type before adding updated values.
     private static void RemoveClaim(ClaimsIdentity identity, string claimType)
     {
         foreach (var claim in identity.FindAll(claimType).ToList())
@@ -4306,7 +3922,6 @@ public sealed class MicrosoftIdentityClaimsTransformation(
         }
     }
 }
-
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Services\MicrosoftUserService.cs
@@ -4319,21 +3934,17 @@ using WinCapture.Repositories;
 
 namespace WinCapture.Services;
 
-public sealed class MicrosoftUserService(
-    IUserRepository userRepository)
+public sealed class MicrosoftUserService(IUserRepository userRepository)
 {
+    // Validates the Microsoft account details and creates or updates the local user.
     public async Task<User> GetOrCreateAsync(
         string name,
         string email,
         string entraObjectId,
         UserRole role)
     {
-        var normalizedEmail =
-            email.Trim()
-                .ToLowerInvariant();
-
-        var normalizedObjectId =
-            entraObjectId.Trim();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedObjectId = entraObjectId.Trim();
 
         if (!IsValidEmail(normalizedEmail))
         {
@@ -4341,49 +3952,29 @@ public sealed class MicrosoftUserService(
                 "The Microsoft account email address is invalid.");
         }
 
-        if (string.IsNullOrWhiteSpace(
-                normalizedObjectId))
+        if (string.IsNullOrWhiteSpace(normalizedObjectId))
         {
             throw new UnauthorizedException(
                 "The Microsoft account object ID is missing.");
         }
 
-        var normalizedName =
-            string.IsNullOrWhiteSpace(name)
-                ? normalizedEmail.Split('@')[0]
-                : name.Trim();
+        var normalizedName = string.IsNullOrWhiteSpace(name)
+            ? normalizedEmail.Split('@')[0]
+            : name.Trim();
 
         if (normalizedName.Length > 200)
         {
-            normalizedName =
-                normalizedName[..200];
+            normalizedName = normalizedName[..200];
         }
 
-        // ========================================================
-        // First identify the user by Microsoft Entra object ID.
-        // This is the authoritative identity binding.
-        // ========================================================
+        // Uses the Entra object ID as the stable identity key for the account.
+        var user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId);
 
-        var user =
-            await userRepository.GetByEntraObjectIdAsync(
-                normalizedObjectId);
-
-        // ========================================================
-        // Legacy/email fallback.
-        // This allows an existing WinCapture record to be linked
-        // to its Microsoft Entra object ID.
-        // ========================================================
-
+        // Links an existing account by email when it has not been linked to Entra yet.
         if (user is null)
         {
-            user =
-                await userRepository.GetByEmailAsync(
-                    normalizedEmail);
+            user = await userRepository.GetByEmailAsync(normalizedEmail);
         }
-
-        // ========================================================
-        // Create new user
-        // ========================================================
 
         if (user is null)
         {
@@ -4403,11 +3994,9 @@ public sealed class MicrosoftUserService(
             catch (DbUpdateException exception)
                 when (IsDuplicateKeyException(exception))
             {
-                user =
-                    await userRepository.GetByEntraObjectIdAsync(
-                        normalizedObjectId)
-                    ?? await userRepository.GetByEmailAsync(
-                        normalizedEmail)
+                // Loads the account created by another request if a duplicate key occurs.
+                user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId)
+                    ?? await userRepository.GetByEmailAsync(normalizedEmail)
                     ?? throw new UnauthorizedException(
                         "The Microsoft user could not be created or loaded.");
             }
@@ -4415,10 +4004,7 @@ public sealed class MicrosoftUserService(
             return user;
         }
 
-        // ========================================================
-        // Sync Microsoft identity information
-        // ========================================================
-
+        // Keeps the local user details and role in sync with Microsoft Entra.
         var changed = false;
 
         if (!string.Equals(
@@ -4426,9 +4012,7 @@ public sealed class MicrosoftUserService(
                 normalizedObjectId,
                 StringComparison.Ordinal))
         {
-            user.EntraObjectId =
-                normalizedObjectId;
-
+            user.EntraObjectId = normalizedObjectId;
             changed = true;
         }
 
@@ -4437,9 +4021,7 @@ public sealed class MicrosoftUserService(
                 normalizedEmail,
                 StringComparison.OrdinalIgnoreCase))
         {
-            user.Email =
-                normalizedEmail;
-
+            user.Email = normalizedEmail;
             changed = true;
         }
 
@@ -4448,18 +4030,14 @@ public sealed class MicrosoftUserService(
                 normalizedName,
                 StringComparison.Ordinal))
         {
-            user.Name =
-                normalizedName;
-
+            user.Name = normalizedName;
             changed = true;
         }
 
-        // The Entra application role is authoritative.
+        // Uses the Entra application role as the source of truth for the user's role.
         if (user.Role != role)
         {
-            user.Role =
-                role;
-
+            user.Role = role;
             changed = true;
         }
 
@@ -4471,14 +4049,12 @@ public sealed class MicrosoftUserService(
         return user;
     }
 
-    private static bool IsValidEmail(
-        string email)
+    // Checks whether the supplied value is a valid email address.
+    private static bool IsValidEmail(string email)
     {
         try
         {
-            var address =
-                new System.Net.Mail.MailAddress(
-                    email);
+            var address = new System.Net.Mail.MailAddress(email);
 
             return string.Equals(
                 address.Address,
@@ -4491,8 +4067,8 @@ public sealed class MicrosoftUserService(
         }
     }
 
-    private static bool IsDuplicateKeyException(
-        DbUpdateException exception)
+    // Identifies SQL Server duplicate-key errors that can occur during concurrent account creation.
+    private static bool IsDuplicateKeyException(DbUpdateException exception)
     {
         return exception.InnerException is
                    Microsoft.Data.SqlClient.SqlException sqlException &&
@@ -4505,6 +4081,16 @@ public sealed class MicrosoftUserService(
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\backend\Validators\FileValidator.cs
 ============================================================
 
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Linq;
 using Microsoft.AspNetCore.Http;
 using WinCapture.Exceptions;
 
@@ -4512,32 +4098,50 @@ namespace WinCapture.Validators;
 
 public sealed class FileValidator
 {
-    public const long MaximumFileSize =
-        10L * 1024L * 1024L;
+    public const long MaximumFileSize = 10L * 1024L * 1024L;
 
-    private static readonly Dictionary<string, string>
-        AllowedContentTypes =
-            new(StringComparer.OrdinalIgnoreCase)
-            {
-                [".jpg"] = "image/jpeg",
-                [".jpeg"] = "image/jpeg",
-                [".png"] = "image/png",
-                [".gif"] = "image/gif",
-                [".pdf"] = "application/pdf"
-            };
+    private const long MaximumExpandedArchiveSize = 64L * 1024L * 1024L;
+    private const int MaximumArchiveEntries = 2048;
+    private const int MaximumXmlCharacters = 1024 * 1024;
+    private const int BufferSize = 81920;
 
-    public Task ValidateAsync(IFormFile file)
+    private static readonly IReadOnlyDictionary<string, string> AllowedContentTypes =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg",
+            [".png"] = "image/png",
+            [".webp"] = "image/webp",
+            [".pdf"] = "application/pdf",
+            [".txt"] = "text/plain",
+            [".csv"] = "text/csv",
+            [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            [".mp4"] = "video/mp4",
+            [".mov"] = "video/quicktime",
+            [".webm"] = "video/webm",
+            [".mp3"] = "audio/mpeg",
+            [".wav"] = "audio/wav",
+            [".m4a"] = "audio/mp4",
+            [".zip"] = "application/zip"
+        };
+
+    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+    private static readonly UTF8Encoding Utf8WithBom = new(true, true);
+    private static readonly uint[] PngCrcTable = CreatePngCrcTable();
+
+    // Checks the file size, extension, content type, and actual file structure before accepting an upload.
+    public async Task ValidateAsync(IFormFile file)
     {
         if (file is null)
         {
-            throw new BadRequestException(
-                "A file is required.");
+            throw new BadRequestException("A file is required.");
         }
 
         if (file.Length == 0)
         {
-            throw new BadRequestException(
-                "The uploaded file cannot be empty.");
+            throw new BadRequestException("The uploaded file cannot be empty.");
         }
 
         if (file.Length > MaximumFileSize)
@@ -4546,16 +4150,11 @@ public sealed class FileValidator
                 "The uploaded file exceeds the maximum allowed size of 10 MB.");
         }
 
-        var extension =
-            Path.GetExtension(
-                file.FileName);
+        var extension = Path.GetExtension(file.FileName);
 
-        if (!AllowedContentTypes.TryGetValue(
-                extension,
-                out var expectedContentType))
+        if (!AllowedContentTypes.TryGetValue(extension, out var expectedContentType))
         {
-            throw new BadRequestException(
-                "The uploaded file must be a supported JPG, PNG, GIF, or PDF file.");
+            throw new BadRequestException("The uploaded file type is not supported.");
         }
 
         if (!string.Equals(
@@ -4563,13 +4162,1254 @@ public sealed class FileValidator
                 expectedContentType,
                 StringComparison.OrdinalIgnoreCase))
         {
-            throw new BadRequestException(
-                "The uploaded file content type is invalid.");
+            throw new BadRequestException("The uploaded file content type is invalid.");
         }
 
-        return Task.CompletedTask;
+        var content = await ReadContentAsync(file);
+
+        if (!HasValidContent(extension, content))
+        {
+            throw new BadRequestException(
+                "The uploaded file content does not match its file type or is malformed.");
+        }
+    }
+
+    // Reads the file into memory while enforcing the upload size limit and checking for incomplete input.
+    private static async Task<byte[]> ReadContentAsync(IFormFile file)
+    {
+        await using var stream = file.OpenReadStream();
+        using var buffer = new MemoryStream((int)file.Length);
+
+        var chunk = new byte[BufferSize];
+        long totalRead = 0;
+
+        while (true)
+        {
+            var count = await stream.ReadAsync(chunk.AsMemory());
+
+            if (count == 0)
+            {
+                break;
+            }
+
+            totalRead += count;
+
+            if (totalRead > MaximumFileSize)
+            {
+                throw new PayloadTooLargeException(
+                    "The uploaded file exceeds the maximum allowed size of 10 MB.");
+            }
+
+            await buffer.WriteAsync(chunk.AsMemory(0, count));
+        }
+
+        if (totalRead != file.Length)
+        {
+            throw new BadRequestException(
+                "The uploaded file is incomplete or malformed.");
+        }
+
+        return buffer.ToArray();
+    }
+
+    // Selects the content validator that matches the uploaded file extension.
+    private static bool HasValidContent(string extension, byte[] content) =>
+        extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => IsValidJpeg(content),
+            ".png" => IsValidPng(content),
+            ".webp" => IsValidWebP(content),
+            ".pdf" => IsValidPdf(content),
+            ".txt" => IsValidText(content),
+            ".csv" => IsValidCsv(content),
+            ".docx" => IsValidOfficePackage(
+                content,
+                "word/document.xml",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"),
+            ".xlsx" => IsValidOfficePackage(
+                content,
+                "xl/workbook.xml",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"),
+            ".pptx" => IsValidOfficePackage(
+                content,
+                "ppt/presentation.xml",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"),
+            ".mp4" => IsValidIsoBmff(content, "mp4"),
+            ".mov" => IsValidIsoBmff(content, "mov"),
+            ".webm" => IsValidWebM(content),
+            ".mp3" => IsValidMp3(content),
+            ".wav" => IsValidWav(content),
+            ".m4a" => IsValidIsoBmff(content, "m4a"),
+            ".zip" => IsValidZip(content),
+            _ => false
+        };
+
+    // Checks JPEG markers and walks image scan data until the end marker or another valid segment is found.
+    private static bool IsValidJpeg(ReadOnlySpan<byte> content)
+    {
+        if (content.Length < 12 ||
+            content[0] != 0xFF || content[1] != 0xD8 ||
+            content[^2] != 0xFF || content[^1] != 0xD9)
+        {
+            return false;
+        }
+
+        var offset = 2;
+        var hasFrame = false;
+        var hasScan = false;
+        var hasScanData = false;
+
+        while (offset < content.Length)
+        {
+            if (content[offset] != 0xFF)
+            {
+                return false;
+            }
+
+            while (offset < content.Length && content[offset] == 0xFF)
+            {
+                offset++;
+            }
+
+            if (offset >= content.Length)
+            {
+                return false;
+            }
+
+            var marker = content[offset++];
+
+            if (marker == 0xD9)
+            {
+                return hasFrame && hasScan && hasScanData && offset == content.Length;
+            }
+
+            // These markers do not contain a length field; a second SOI marker is not valid here.
+            if (marker == 0xD8)
+            {
+                return false;
+            }
+
+            if (marker == 0x01)
+            {
+                continue;
+            }
+
+            if (marker is >= 0xD0 and <= 0xD7)
+            {
+                return false;
+            }
+
+            if (offset > content.Length - 2)
+            {
+                return false;
+            }
+
+            var segmentLength = BinaryPrimitives.ReadUInt16BigEndian(content[offset..]);
+
+            if (segmentLength < 2 || segmentLength > content.Length - offset)
+            {
+                return false;
+            }
+
+            var segmentEnd = offset + segmentLength;
+
+            if (marker is >= 0xC0 and <= 0xCF && marker is not 0xC4 and not 0xC8 and not 0xCC)
+            {
+                if (segmentLength < 11)
+                {
+                    return false;
+                }
+
+                var frameData = content.Slice(offset + 2, segmentLength - 2);
+                var height = BinaryPrimitives.ReadUInt16BigEndian(frameData[1..]);
+                var width = BinaryPrimitives.ReadUInt16BigEndian(frameData[3..]);
+                var componentCount = frameData[5];
+
+                if (width == 0 || height == 0 || componentCount == 0 ||
+                    segmentLength != 8 + 3 * componentCount)
+                {
+                    return false;
+                }
+
+                hasFrame = true;
+            }
+
+            offset = segmentEnd;
+
+            if (marker != 0xDA)
+            {
+                continue;
+            }
+
+            if (!hasFrame || segmentLength < 8)
+            {
+                return false;
+            }
+
+            var scanData = content.Slice(offset - segmentLength + 2, segmentLength - 2);
+            var scanComponentCount = scanData[0];
+
+            if (scanComponentCount == 0 || segmentLength != 6 + 2 * scanComponentCount)
+            {
+                return false;
+            }
+
+            hasScan = true;
+            hasScanData = false;
+
+            // Within scan data, FF 00 is a stuffed byte and D0-D7 are restart markers.
+            while (offset < content.Length)
+            {
+                if (content[offset] != 0xFF)
+                {
+                    hasScanData = true;
+                    offset++;
+                    continue;
+                }
+
+                var markerStart = offset++;
+
+                while (offset < content.Length && content[offset] == 0xFF)
+                {
+                    offset++;
+                }
+
+                if (offset >= content.Length)
+                {
+                    return false;
+                }
+
+                var scanMarker = content[offset];
+
+                if (scanMarker == 0x00 || scanMarker is >= 0xD0 and <= 0xD7)
+                {
+                    hasScanData = true;
+                    offset++;
+                    continue;
+                }
+
+                if (!hasScanData)
+                {
+                    return false;
+                }
+
+                // Let the outer loop process the next marker, including EOI or another scan segment.
+                offset = markerStart;
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    // Checks PNG chunk lengths, CRC values, chunk ordering, and required image data.
+    private static bool IsValidPng(ReadOnlySpan<byte> content)
+    {
+        ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
+
+        if (content.Length < 45 || !content.StartsWith(signature))
+        {
+            return false;
+        }
+
+        var offset = 8;
+        var sawHeader = false;
+        var sawPalette = false;
+        var sawImageData = false;
+        var imageDataEnded = false;
+        var sawEnd = false;
+        byte colorType = 0;
+        byte bitDepth = 0;
+
+        while (offset <= content.Length - 12)
+        {
+            var length = BinaryPrimitives.ReadUInt32BigEndian(content[offset..]);
+
+            if (length > int.MaxValue || length > content.Length - offset - 12)
+            {
+                return false;
+            }
+
+            var dataLength = (int)length;
+            var type = content.Slice(offset + 4, 4);
+
+            if (!IsValidPngChunkType(type))
+            {
+                return false;
+            }
+
+            var data = content.Slice(offset + 8, dataLength);
+            var expectedCrc = BinaryPrimitives.ReadUInt32BigEndian(
+                content.Slice(offset + 8 + dataLength, 4));
+
+            if (ComputePngCrc(type, data) != expectedCrc)
+            {
+                return false;
+            }
+
+            if (!sawHeader)
+            {
+                if (!type.SequenceEqual("IHDR"u8) || dataLength != 13)
+                {
+                    return false;
+                }
+
+                var width = BinaryPrimitives.ReadUInt32BigEndian(data);
+                var height = BinaryPrimitives.ReadUInt32BigEndian(data[4..]);
+                bitDepth = data[8];
+                colorType = data[9];
+
+                if (width == 0 || height == 0 ||
+                    data[10] != 0 || data[11] != 0 || data[12] > 1 ||
+                    !IsValidPngBitDepth(colorType, bitDepth))
+                {
+                    return false;
+                }
+
+                sawHeader = true;
+            }
+            else if (type.SequenceEqual("IHDR"u8))
+            {
+                return false;
+            }
+
+            if (type.SequenceEqual("PLTE"u8))
+            {
+                if (sawImageData || sawPalette || dataLength == 0 || dataLength % 3 != 0 || dataLength > 768 ||
+                    colorType is 0 or 4 ||
+                    colorType == 3 && dataLength / 3 > (1 << bitDepth))
+                {
+                    return false;
+                }
+
+                sawPalette = true;
+            }
+
+            if (type.SequenceEqual("IDAT"u8))
+            {
+                if (imageDataEnded)
+                {
+                    return false;
+                }
+
+                sawImageData = true;
+            }
+            else if (sawImageData && !type.SequenceEqual("IEND"u8))
+            {
+                imageDataEnded = true;
+            }
+
+            // Unknown critical chunks cannot safely be ignored by this structural validator.
+            if (!IsKnownPngChunk(type) && type[0] >= (byte)'A' && type[0] <= (byte)'Z')
+            {
+                return false;
+            }
+
+            offset += 12 + dataLength;
+
+            if (type.SequenceEqual("IEND"u8))
+            {
+                sawEnd = dataLength == 0 && offset == content.Length;
+                break;
+            }
+        }
+
+        return sawHeader && sawImageData && sawEnd && (colorType != 3 || sawPalette);
+    }
+
+    // Rejects chunk names that do not follow the PNG chunk-type format.
+    private static bool IsValidPngChunkType(ReadOnlySpan<byte> type)
+    {
+        if (type.Length != 4)
+        {
+            return false;
+        }
+
+        foreach (var value in type)
+        {
+            var isUppercase = value >= (byte)'A' && value <= (byte)'Z';
+            var isLowercase = value >= (byte)'a' && value <= (byte)'z';
+
+            if (!isUppercase && !isLowercase)
+            {
+                return false;
+            }
+        }
+
+        return type[2] >= (byte)'A' && type[2] <= (byte)'Z';
+    }
+
+    // Recognizes PNG chunk types handled by this validator or defined as common ancillary chunks.
+    private static bool IsKnownPngChunk(ReadOnlySpan<byte> type) =>
+        type.SequenceEqual("IHDR"u8) ||
+        type.SequenceEqual("PLTE"u8) ||
+        type.SequenceEqual("IDAT"u8) ||
+        type.SequenceEqual("IEND"u8) ||
+        type.SequenceEqual("tRNS"u8) ||
+        type.SequenceEqual("gAMA"u8) ||
+        type.SequenceEqual("cHRM"u8) ||
+        type.SequenceEqual("sRGB"u8) ||
+        type.SequenceEqual("iCCP"u8) ||
+        type.SequenceEqual("sBIT"u8) ||
+        type.SequenceEqual("bKGD"u8) ||
+        type.SequenceEqual("pHYs"u8) ||
+        type.SequenceEqual("tEXt"u8) ||
+        type.SequenceEqual("zTXt"u8) ||
+        type.SequenceEqual("iTXt"u8) ||
+        type.SequenceEqual("eXIf"u8) ||
+        type.SequenceEqual("hIST"u8);
+
+    // Checks whether the PNG bit depth is supported for the selected color type.
+    private static bool IsValidPngBitDepth(byte colorType, byte bitDepth) =>
+        colorType switch
+        {
+            0 => bitDepth is 1 or 2 or 4 or 8 or 16,
+            2 => bitDepth is 8 or 16,
+            3 => bitDepth is 1 or 2 or 4 or 8,
+            4 or 6 => bitDepth is 8 or 16,
+            _ => false
+        };
+
+    // Calculates the CRC used to verify PNG chunks.
+    private static uint ComputePngCrc(ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
+    {
+        var crc = 0xFFFFFFFFu;
+
+        foreach (var value in type)
+        {
+            crc = PngCrcTable[(int)((crc ^ value) & 0xFF)] ^ (crc >> 8);
+        }
+
+        foreach (var value in data)
+        {
+            crc = PngCrcTable[(int)((crc ^ value) & 0xFF)] ^ (crc >> 8);
+        }
+
+        return ~crc;
+    }
+
+    // Creates the lookup table used for PNG CRC calculations.
+    private static uint[] CreatePngCrcTable()
+    {
+        var table = new uint[256];
+
+        for (var index = 0; index < table.Length; index++)
+        {
+            var value = (uint)index;
+
+            for (var bit = 0; bit < 8; bit++)
+            {
+                value = (value & 1) == 1
+                    ? 0xEDB88320u ^ (value >> 1)
+                    : value >> 1;
+            }
+
+            table[index] = value;
+        }
+
+        return table;
+    }
+
+    // Checks the WebP container size, chunk boundaries, and presence of an image chunk.
+    private static bool IsValidWebP(ReadOnlySpan<byte> content)
+    {
+        if (content.Length < 20 ||
+            !content[..4].SequenceEqual("RIFF"u8) ||
+            !content.Slice(8, 4).SequenceEqual("WEBP"u8) ||
+            BinaryPrimitives.ReadUInt32LittleEndian(content[4..]) != content.Length - 8)
+        {
+            return false;
+        }
+
+        var offset = 12;
+        var hasImage = false;
+
+        while (offset <= content.Length - 8)
+        {
+            var chunkLength = BinaryPrimitives.ReadUInt32LittleEndian(content[(offset + 4)..]);
+
+            if (chunkLength > int.MaxValue || chunkLength > content.Length - offset - 8)
+            {
+                return false;
+            }
+
+            var chunkType = content.Slice(offset, 4);
+
+            if ((chunkType.SequenceEqual("VP8 "u8) ||
+                 chunkType.SequenceEqual("VP8L"u8)) && chunkLength > 0)
+            {
+                hasImage = true;
+            }
+
+            if (chunkType.SequenceEqual("VP8X"u8) && chunkLength != 10)
+            {
+                return false;
+            }
+
+            offset += 8 + (int)chunkLength + ((chunkLength & 1) == 1 ? 1 : 0);
+
+            if (offset > content.Length)
+            {
+                return false;
+            }
+        }
+
+        return offset == content.Length && hasImage;
+    }
+
+    // Checks the PDF header and requires an end-of-file marker near the end of the file.
+    private static bool IsValidPdf(ReadOnlySpan<byte> content)
+    {
+        if (content.Length < 16 || !content[..5].SequenceEqual("%PDF-"u8))
+        {
+            return false;
+        }
+
+        var searchStart = Math.Max(0, content.Length - 2048);
+        var eofIndex = content[searchStart..].LastIndexOf("%%EOF"u8);
+
+        if (eofIndex < 0)
+        {
+            return false;
+        }
+
+        var trailing = content[(searchStart + eofIndex + 5)..];
+
+        foreach (var value in trailing)
+        {
+            if (value is not 0x00 and not 0x09 and not 0x0A and not 0x0C and not 0x0D and not 0x20)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Decodes supported text encodings and rejects invalid byte sequences.
+    private static bool TryDecodeText(ReadOnlySpan<byte> content, out string text)
+    {
+        try
+        {
+            if (content.StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }))
+            {
+                text = Utf8WithBom.GetString(content).TrimStart('\uFEFF');
+            }
+            else if (content.StartsWith(new byte[] { 0xFF, 0xFE }))
+            {
+                text = new UnicodeEncoding(false, true, true).GetString(content[2..]);
+            }
+            else if (content.StartsWith(new byte[] { 0xFE, 0xFF }))
+            {
+                text = new UnicodeEncoding(true, true, true).GetString(content[2..]);
+            }
+            else
+            {
+                text = StrictUtf8.GetString(content);
+            }
+
+            return true;
+        }
+        catch (DecoderFallbackException)
+        {
+            text = string.Empty;
+            return false;
+        }
+    }
+
+    // Rejects empty text and text containing unsupported control characters.
+    private static bool IsValidText(ReadOnlySpan<byte> content) =>
+        TryDecodeText(content, out var text) &&
+        !string.IsNullOrWhiteSpace(text) &&
+        ContainsOnlyTextCharacters(text);
+
+    // Checks CSV field quoting and line endings after decoding the file.
+    private static bool IsValidCsv(ReadOnlySpan<byte> content)
+    {
+        if (!TryDecodeText(content, out var text) ||
+            string.IsNullOrWhiteSpace(text) ||
+            !ContainsOnlyTextCharacters(text))
+        {
+            return false;
+        }
+
+        var insideQuotes = false;
+        var afterQuote = false;
+        var atFieldStart = true;
+
+        for (var index = 0; index < text.Length; index++)
+        {
+            var character = text[index];
+
+            if (insideQuotes)
+            {
+                if (character == '"')
+                {
+                    if (index + 1 < text.Length && text[index + 1] == '"')
+                    {
+                        index++;
+                    }
+                    else
+                    {
+                        insideQuotes = false;
+                        afterQuote = true;
+                    }
+                }
+                else if (character == '\r' &&
+                         (index + 1 >= text.Length || text[index + 1] != '\n'))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (afterQuote)
+            {
+                if (character == ',')
+                {
+                    afterQuote = false;
+                    atFieldStart = true;
+                    continue;
+                }
+
+                if (character == '\n' ||
+                    (character == '\r' && index + 1 < text.Length && text[index + 1] == '\n'))
+                {
+                    if (character == '\r')
+                    {
+                        index++;
+                    }
+
+                    afterQuote = false;
+                    atFieldStart = true;
+                    continue;
+                }
+
+                return false;
+            }
+
+            if (character == '"')
+            {
+                if (!atFieldStart)
+                {
+                    return false;
+                }
+
+                insideQuotes = true;
+                atFieldStart = false;
+            }
+            else if (character == ',')
+            {
+                atFieldStart = true;
+            }
+            else if (character == '\n' ||
+                     (character == '\r' && index + 1 < text.Length && text[index + 1] == '\n'))
+            {
+                if (character == '\r')
+                {
+                    index++;
+                }
+
+                atFieldStart = true;
+            }
+            else
+            {
+                if (character == '\r')
+                {
+                    return false;
+                }
+
+                atFieldStart = false;
+            }
+        }
+
+        return !insideQuotes;
+    }
+
+    // Allows ordinary text characters, tabs, and line breaks while rejecting other control characters.
+    private static bool ContainsOnlyTextCharacters(string text) =>
+        text.All(character =>
+            !char.IsControl(character) || character is '\t' or '\r' or '\n');
+
+    // Checks Office package parts, expanded size, required XML, content types, and root relationships.
+    private static bool IsValidOfficePackage(
+        byte[] content,
+        string mainPart,
+        string mainContentType)
+    {
+        try
+        {
+            using var stream = new MemoryStream(content, writable: false);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+
+            if (archive.Entries.Count > MaximumArchiveEntries)
+            {
+                return false;
+            }
+
+            var parts = new HashSet<string>(StringComparer.Ordinal);
+            long expandedLength = 0;
+
+            foreach (var entry in archive.Entries)
+            {
+                if (!IsSafeArchiveEntryName(entry.FullName) ||
+                    entry.Length < 0 ||
+                    entry.Length > MaximumExpandedArchiveSize - expandedLength ||
+                    !parts.Add(entry.FullName))
+                {
+                    return false;
+                }
+
+                expandedLength += entry.Length;
+
+                using var entryStream = entry.Open();
+
+                if (CopyWithLimit(entryStream, Stream.Null, entry.Length) != entry.Length)
+                {
+                    return false;
+                }
+            }
+
+            if (!parts.Contains("[Content_Types].xml") ||
+                !parts.Contains("_rels/.rels") ||
+                !parts.Contains(mainPart))
+            {
+                return false;
+            }
+
+            var contentTypes = ReadXmlEntry(archive, "[Content_Types].xml");
+            var relationships = ReadXmlEntry(archive, "_rels/.rels");
+            _ = ReadXmlEntry(archive, mainPart);
+
+            XNamespace contentTypeNamespace =
+                "http://schemas.openxmlformats.org/package/2006/content-types";
+
+            XNamespace relationshipNamespace =
+                "http://schemas.openxmlformats.org/package/2006/relationships";
+
+            var hasExpectedContentType = contentTypes
+                .Root?
+                .Elements(contentTypeNamespace + "Override")
+                .Any(element =>
+                    string.Equals(
+                        (string?)element.Attribute("PartName"),
+                        $"/{mainPart}",
+                        StringComparison.Ordinal) &&
+                    string.Equals(
+                        (string?)element.Attribute("ContentType"),
+                        mainContentType,
+                        StringComparison.Ordinal)) == true;
+
+            var hasOfficeDocumentRelationship = relationships
+                .Root?
+                .Elements(relationshipNamespace + "Relationship")
+                .Any(element =>
+                    string.Equals(
+                        (string?)element.Attribute("Type"),
+                        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+                        StringComparison.Ordinal) &&
+                    !string.Equals(
+                        (string?)element.Attribute("TargetMode"),
+                        "External",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    NormalizePackagePart((string?)element.Attribute("Target")) == mainPart) == true;
+
+            return hasExpectedContentType && hasOfficeDocumentRelationship;
+        }
+        catch (Exception exception) when (
+            exception is IOException or XmlException or ArgumentException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    // Rejects absolute or traversal-like archive paths before processing package entries.
+    private static bool IsSafeArchiveEntryName(string name) =>
+        !string.IsNullOrWhiteSpace(name) &&
+        !name.StartsWith("/", StringComparison.Ordinal) &&
+        !name.StartsWith('\\') &&
+        !name.Contains('\\') &&
+        !name.Contains(":", StringComparison.Ordinal) &&
+        !name.Split('/').Any(part => part is "." or "..");
+
+    // Reads an Office XML entry without allowing DTD processing or excessive document sizes.
+    private static XDocument ReadXmlEntry(ZipArchive archive, string name)
+    {
+        var entry = archive.GetEntry(name)
+            ?? throw new InvalidDataException();
+
+        if (entry.Length > MaximumXmlCharacters)
+        {
+            throw new InvalidDataException();
+        }
+
+        using var stream = entry.Open();
+
+        using var reader = XmlReader.Create(stream, new XmlReaderSettings
+        {
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = MaximumXmlCharacters
+        });
+
+        return XDocument.Load(reader);
+    }
+
+    // Removes a leading slash from an Office package relationship target.
+    private static string NormalizePackagePart(string? target) =>
+        (target ?? string.Empty).TrimStart('/');
+
+    // Copies a stream while rejecting content that exceeds its allowed length.
+    private static long CopyWithLimit(Stream source, Stream destination, long limit)
+    {
+        var buffer = new byte[BufferSize];
+        long total = 0;
+        int count;
+
+        while ((count = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            total += count;
+
+            if (total > limit)
+            {
+                throw new InvalidDataException();
+            }
+
+            destination.Write(buffer, 0, count);
+        }
+
+        return total;
+    }
+
+    // Checks ZIP structure and limits the number and expanded size of its entries.
+    private static bool IsValidZip(ReadOnlySpan<byte> content)
+    {
+        if (content.Length < 22 ||
+            content[0] != (byte)'P' ||
+            content[1] != (byte)'K' ||
+            content[2] is not 0x03 and not 0x05 and not 0x07)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var stream = new MemoryStream(content.ToArray(), writable: false);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+
+            if (archive.Entries.Count > MaximumArchiveEntries)
+            {
+                return false;
+            }
+
+            long expandedLength = 0;
+
+            foreach (var entry in archive.Entries)
+            {
+                if (!IsSafeArchiveEntryName(entry.FullName) ||
+                    entry.Length < 0 ||
+                    entry.Length > MaximumExpandedArchiveSize - expandedLength)
+                {
+                    return false;
+                }
+
+                expandedLength += entry.Length;
+
+                using var entryStream = entry.Open();
+
+                if (CopyWithLimit(entryStream, Stream.Null, entry.Length) != entry.Length)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is IOException or ArgumentException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    // Validates ISO Base Media File Format boxes and the expected brands for MP4, MOV, or M4A.
+    private static bool IsValidIsoBmff(ReadOnlySpan<byte> content, string format)
+    {
+        if (content.Length < 24)
+        {
+            return false;
+        }
+
+        var offset = 0;
+        var hasFtyp = false;
+        var hasMediaData = false;
+        var hasMovie = false;
+        var compatibleBrands = new HashSet<string>(StringComparer.Ordinal);
+
+        while (offset <= content.Length - 8)
+        {
+            var boxSize = BinaryPrimitives.ReadUInt32BigEndian(content[offset..]);
+            var headerSize = 8;
+            ulong actualSize = boxSize;
+
+            if (boxSize == 1)
+            {
+                if (offset > content.Length - 16)
+                {
+                    return false;
+                }
+
+                actualSize = BinaryPrimitives.ReadUInt64BigEndian(content[(offset + 8)..]);
+                headerSize = 16;
+            }
+            else if (boxSize == 0)
+            {
+                actualSize = (ulong)(content.Length - offset);
+            }
+
+            if (actualSize < (ulong)headerSize ||
+                actualSize > (ulong)(content.Length - offset))
+            {
+                return false;
+            }
+
+            var boxType = content.Slice(offset + 4, 4);
+
+            if (boxType.SequenceEqual("ftyp"u8))
+            {
+                if (hasFtyp ||
+                    actualSize < (ulong)(headerSize + 8) ||
+                    (actualSize - (ulong)headerSize - 8) % 4 != 0)
+                {
+                    return false;
+                }
+
+                hasFtyp = true;
+
+                var payload = content.Slice(offset + headerSize, (int)actualSize - headerSize);
+                compatibleBrands.Add(Encoding.ASCII.GetString(payload[..4]));
+
+                for (var brandOffset = 8; brandOffset + 4 <= payload.Length; brandOffset += 4)
+                {
+                    compatibleBrands.Add(Encoding.ASCII.GetString(payload.Slice(brandOffset, 4)));
+                }
+            }
+            else if (boxType.SequenceEqual("mdat"u8))
+            {
+                hasMediaData |= actualSize > (ulong)headerSize;
+            }
+            else if (boxType.SequenceEqual("moov"u8) || boxType.SequenceEqual("moof"u8))
+            {
+                hasMovie |= actualSize > (ulong)headerSize;
+            }
+
+            offset += (int)actualSize;
+        }
+
+        if (offset != content.Length || !hasFtyp || !hasMediaData || !hasMovie)
+        {
+            return false;
+        }
+
+        return format switch
+        {
+            "mov" => compatibleBrands.Contains("qt  "),
+            "m4a" => compatibleBrands.Contains("M4A ") || compatibleBrands.Contains("M4B "),
+            _ => compatibleBrands.Overlaps(new[] { "isom", "iso2", "mp41", "mp42", "avc1", "M4V " })
+        };
+    }
+
+    // Validates the WebM header, document type, segment, and required media elements.
+    private static bool IsValidWebM(ReadOnlySpan<byte> content)
+    {
+        if (content.Length < 32 ||
+            !content[..4].SequenceEqual(new byte[] { 0x1A, 0x45, 0xDF, 0xA3 }))
+        {
+            return false;
+        }
+
+        var offset = 4;
+
+        if (!TryReadEbmlVInt(content, ref offset, false, out var headerSize, out var unknownSize) ||
+            unknownSize ||
+            headerSize > (ulong)(content.Length - offset))
+        {
+            return false;
+        }
+
+        var headerEnd = offset + (int)headerSize;
+        var hasWebmDocType = false;
+
+        while (offset < headerEnd)
+        {
+            if (!TryReadEbmlVInt(content, ref offset, true, out var elementId, out _) ||
+                !TryReadEbmlVInt(content, ref offset, false, out var elementSize, out var elementUnknown) ||
+                elementUnknown ||
+                elementSize > (ulong)(headerEnd - offset))
+            {
+                return false;
+            }
+
+            if (elementId == 0x4282 &&
+                Encoding.ASCII.GetString(content.Slice(offset, (int)elementSize)) == "webm")
+            {
+                hasWebmDocType = true;
+            }
+
+            offset += (int)elementSize;
+        }
+
+        if (!hasWebmDocType ||
+            offset > content.Length - 4 ||
+            !TryReadEbmlVInt(content, ref offset, true, out var segmentId, out _) ||
+            segmentId != 0x18538067 ||
+            !TryReadEbmlVInt(content, ref offset, false, out var segmentSize, out var segmentUnknown))
+        {
+            return false;
+        }
+
+        if (!segmentUnknown && segmentSize > (ulong)(content.Length - offset))
+        {
+            return false;
+        }
+
+        var segmentEnd = segmentUnknown ? content.Length : offset + (int)segmentSize;
+        var hasInfo = false;
+        var hasTracks = false;
+        var hasCluster = false;
+
+        while (offset < segmentEnd)
+        {
+            if (!TryReadEbmlVInt(content, ref offset, true, out var elementId, out _) ||
+                !TryReadEbmlVInt(content, ref offset, false, out var elementSize, out var elementUnknown))
+            {
+                return false;
+            }
+
+            if (elementUnknown)
+            {
+                if (elementId != 0x1F43B675)
+                {
+                    return false;
+                }
+
+                hasCluster = true;
+                offset = segmentEnd;
+                break;
+            }
+
+            if (elementSize > (ulong)(segmentEnd - offset))
+            {
+                return false;
+            }
+
+            if (elementId == 0x1549A966)
+            {
+                hasInfo = true;
+            }
+
+            if (elementId == 0x1654AE6B)
+            {
+                hasTracks = true;
+            }
+
+            if (elementId == 0x1F43B675)
+            {
+                hasCluster = true;
+            }
+
+            offset += (int)elementSize;
+        }
+
+        return offset == content.Length && hasInfo && hasTracks && hasCluster;
+    }
+
+    // Reads an EBML variable-length integer and checks its length and unknown-size marker.
+    private static bool TryReadEbmlVInt(
+        ReadOnlySpan<byte> content,
+        ref int offset,
+        bool isIdentifier,
+        out ulong value,
+        out bool unknownSize)
+    {
+        value = 0;
+        unknownSize = false;
+
+        if (offset >= content.Length || content[offset] == 0)
+        {
+            return false;
+        }
+
+        var first = content[offset];
+        var length = 1;
+        var mask = 0x80;
+
+        while ((first & mask) == 0)
+        {
+            length++;
+            mask >>= 1;
+        }
+
+        if (length > (isIdentifier ? 4 : 8) || length > content.Length - offset)
+        {
+            return false;
+        }
+
+        value = isIdentifier ? first : (ulong)(first & (mask - 1));
+
+        for (var index = 1; index < length; index++)
+        {
+            value = (value << 8) | content[offset + index];
+        }
+
+        offset += length;
+
+        if (!isIdentifier)
+        {
+            var valueBits = length * 7;
+            unknownSize = value == (1UL << valueBits) - 1;
+        }
+
+        return true;
+    }
+
+    // Checks the MP3 frame header and verifies that an audio frame fits within the file.
+    private static bool IsValidMp3(ReadOnlySpan<byte> content)
+    {
+        var offset = 0;
+
+        if (content.Length >= 10 && content[..3].SequenceEqual("ID3"u8))
+        {
+            if ((content[6] | content[7] | content[8] | content[9]) >= 0x80)
+            {
+                return false;
+            }
+
+            var tagSize = (content[6] << 21) |
+                          (content[7] << 14) |
+                          (content[8] << 7) |
+                          content[9];
+
+            offset = 10 + tagSize + ((content[5] & 0x10) != 0 ? 10 : 0);
+
+            if (offset > content.Length)
+            {
+                return false;
+            }
+        }
+
+        while (offset <= content.Length - 4)
+        {
+            var header = BinaryPrimitives.ReadUInt32BigEndian(content[offset..]);
+
+            if ((header & 0xFFE00000) == 0xFFE00000)
+            {
+                var version = (int)((header >> 19) & 0x3);
+                var layer = (int)((header >> 17) & 0x3);
+                var bitrateIndex = (int)((header >> 12) & 0xF);
+                var sampleIndex = (int)((header >> 10) & 0x3);
+
+                if (version != 1 && layer == 1 && bitrateIndex is > 0 and < 15 && sampleIndex < 3)
+                {
+                    var mpeg1Layer3Bitrates = new[]
+                    {
+                        0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320
+                    };
+
+                    var mpeg2Layer3Bitrates = new[]
+                    {
+                        0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160
+                    };
+
+                    var sampleRates = version switch
+                    {
+                        3 => new[] { 44100, 48000, 32000 },
+                        2 => new[] { 22050, 24000, 16000 },
+                        _ => new[] { 11025, 12000, 8000 }
+                    };
+
+                    var bitrate = (version == 3
+                        ? mpeg1Layer3Bitrates
+                        : mpeg2Layer3Bitrates)[bitrateIndex] * 1000;
+
+                    var frameLength = (version == 3 ? 144 : 72) * bitrate /
+                                      sampleRates[sampleIndex] +
+                                      (int)((header >> 9) & 1);
+
+                    return frameLength >= 24 && frameLength <= content.Length - offset;
+                }
+            }
+
+            offset++;
+        }
+
+        return false;
+    }
+
+    // Checks the WAV header, format chunk, audio data, and declared RIFF size.
+    private static bool IsValidWav(ReadOnlySpan<byte> content)
+    {
+        if (content.Length < 44 ||
+            !content[..4].SequenceEqual("RIFF"u8) ||
+            !content.Slice(8, 4).SequenceEqual("WAVE"u8) ||
+            BinaryPrimitives.ReadUInt32LittleEndian(content[4..]) != content.Length - 8)
+        {
+            return false;
+        }
+
+        var offset = 12;
+        var hasFormat = false;
+        var hasAudio = false;
+
+        while (offset <= content.Length - 8)
+        {
+            var chunkSize = BinaryPrimitives.ReadUInt32LittleEndian(content[(offset + 4)..]);
+
+            if (chunkSize > int.MaxValue || chunkSize > content.Length - offset - 8)
+            {
+                return false;
+            }
+
+            var chunkType = content.Slice(offset, 4);
+            var chunkData = content.Slice(offset + 8, (int)chunkSize);
+
+            if (chunkType.SequenceEqual("fmt "u8))
+            {
+                if (chunkSize < 16)
+                {
+                    return false;
+                }
+
+                var channels = BinaryPrimitives.ReadUInt16LittleEndian(chunkData[2..]);
+                var sampleRate = BinaryPrimitives.ReadUInt32LittleEndian(chunkData[4..]);
+                var blockAlign = BinaryPrimitives.ReadUInt16LittleEndian(chunkData[12..]);
+                var bitsPerSample = BinaryPrimitives.ReadUInt16LittleEndian(chunkData[14..]);
+
+                if (channels == 0 || sampleRate == 0 || blockAlign == 0 || bitsPerSample == 0)
+                {
+                    return false;
+                }
+
+                hasFormat = true;
+            }
+            else if (chunkType.SequenceEqual("data"u8))
+            {
+                hasAudio |= chunkSize > 0;
+            }
+
+            offset += 8 + (int)chunkSize + ((chunkSize & 1) == 1 ? 1 : 0);
+
+            if (offset > content.Length)
+            {
+                return false;
+            }
+        }
+
+        return offset == content.Length && hasFormat && hasAudio;
     }
 }
+
 
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\.env.example
@@ -5772,6 +6612,7 @@ interface FileCardProps {
   onFavoriteToggle: () => void;
   onReplace: () => void;
   onDetails: () => void;
+  onPreview: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }
@@ -5796,6 +6637,7 @@ export default function FileCard({
   onFavoriteToggle,
   onReplace,
   onDetails,
+  onPreview,
   onDownload,
   onDelete,
 }: FileCardProps) {
@@ -5817,7 +6659,13 @@ export default function FileCard({
           <img
             src={previewUrl}
             alt={file.originalFileName}
-            className="h-full w-full object-cover transition-[transform,filter] duration-[350ms] group-hover:scale-[1.04] group-hover:saturate-[1.03]"
+            loading="lazy"
+            role="button"
+            tabIndex={0}
+            aria-label={`Open full-screen preview of ${file.originalFileName}`}
+            onClick={onPreview}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPreview(); } }}
+            className="h-full w-full cursor-zoom-in object-cover transition-[transform,filter] duration-[350ms] group-hover:scale-[1.04] group-hover:saturate-[1.03]"
           />
         ) : (
           <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${category === "document" ? "bg-[linear-gradient(145deg,#f1efff,#e7e8ff)] text-[#5d67c9]" : category === "file" ? "bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]" : ""}`}>
@@ -5890,7 +6738,7 @@ export default function FileCard({
                 {formatFileType(file.contentType)}
 
                 <span aria-hidden="true">
-                  Ã‚Â·
+                  {"\u00B7"}
                 </span>
 
                 {formatFileSize(file.fileSize)}
@@ -6241,6 +7089,7 @@ interface FileCardGridProps {
   onFavoriteToggle: (file: FileResponse) => void;
   onReplace: (file: FileResponse) => void;
   onDetails: (file: FileResponse) => void;
+  onPreview: (file: FileResponse) => void;
   onDownload: (file: FileResponse) => void;
   onDelete: (file: FileResponse) => void;
   empty?: ReactNode;
@@ -6254,6 +7103,7 @@ export default function FileCardGrid({
   onFavoriteToggle,
   onReplace,
   onDetails,
+  onPreview,
   onDownload,
   onDelete,
   empty,
@@ -6284,6 +7134,7 @@ export default function FileCardGrid({
             }
             onReplace={() => onReplace(file)}
             onDetails={() => onDetails(file)}
+            onPreview={() => onPreview(file)}
             onDownload={() => onDownload(file)}
             onDelete={() => onDelete(file)}
           />
@@ -6375,6 +7226,22 @@ export default function FileDetailsDialog({
 ============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\components\files\ImagePreviewModal.tsx
 ============================================================
+
+import { useEffect } from "react";
+import { X } from "lucide-react";
+import type { FileResponse } from "../../types/file";
+
+export default function ImagePreviewModal({ file, src, onClose }: { file: FileResponse; src?: string; onClose: () => void }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-5" role="dialog" aria-modal="true" aria-label={`Preview ${file.originalFileName}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <button type="button" onClick={onClose} aria-label="Close image preview" className="absolute right-5 top-5 rounded-full bg-white/15 p-3 text-white hover:bg-white/25"><X aria-hidden="true" /></button>
+    {src ? <img src={src} alt={file.originalFileName} className="max-h-[90vh] max-w-[95vw] object-contain" /> : <p className="text-white">Preview unavailable</p>}
+  </div>;
+}
 
 
 ============================================================
@@ -7103,7 +7970,7 @@ export default function useFileFavorites({
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\hooks\useFilePreviews.ts
 ============================================================
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { FileResponse } from "../types/file";
 
@@ -7123,31 +7990,22 @@ export default function useFilePreviews(
   const [previewUrls, setPreviewUrls] =
     useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
+  const cache = useRef(new Map<number, string>());
+  const pending = useRef(new Map<number, Promise<string>>());
 
   useEffect(() => {
     let active = true;
-    let cleanupRequested = false;
-    const createdUrls: string[] = [];
-
-    const registerUrl = (url: string) => {
-      if (cleanupRequested) {
-        URL.revokeObjectURL(url);
-        return;
-      }
-
-      createdUrls.push(url);
-    };
 
     const imageFiles = files.filter((file) =>
       file.contentType.startsWith("image/"),
     );
 
-    setPreviewUrls({});
+    setPreviewUrls(Object.fromEntries(imageFiles.flatMap(file => cache.current.has(file.id) ? [[file.id, cache.current.get(file.id)!]] : [])));
     setLoading(imageFiles.length > 0);
 
     if (imageFiles.length === 0) {
       return () => {
-        cleanupRequested = true;
+        active = false;
       };
     }
 
@@ -7155,12 +8013,19 @@ export default function useFilePreviews(
       const results = await Promise.all(
         imageFiles.map(async (file) => {
           try {
-            const url = await loadPreview(file);
-            registerUrl(url);
+            let request = pending.current.get(file.id);
+            if (!request) {
+              request = loadPreview(file);
+              pending.current.set(file.id, request);
+            }
+            const url = cache.current.get(file.id) ?? await request;
+            cache.current.set(file.id, url);
 
             return [file.id, url] as const;
           } catch {
             return null;
+          } finally {
+            pending.current.delete(file.id);
           }
         }),
       );
@@ -7184,13 +8049,13 @@ export default function useFilePreviews(
 
     return () => {
       active = false;
-      cleanupRequested = true;
-
-      createdUrls.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
     };
   }, [files, loadPreview]);
+
+  useEffect(() => () => {
+    cache.current.forEach((url) => URL.revokeObjectURL(url));
+    cache.current.clear();
+  }, []);
 
   return {
     previewUrls,
@@ -8062,7 +8927,7 @@ export default function AdminPage() {
   };
 
   const handleDeleteAlbum = async (album: AlbumResponse) => {
-    if (!account || !window.confirm(`Delete â€œ${album.albumName}â€ and all its files? This cannot be undone.`)) return;
+    if (!account || !window.confirm(`Delete "${album.albumName}" and all its files? This cannot be undone.`)) return;
     try {
       setError(null);
       await deleteAlbum(instance, account, album.id);
@@ -8073,7 +8938,7 @@ export default function AdminPage() {
   };
 
   const handleDeleteFile = async (file: AdminFileResponse) => {
-    if (!account || !window.confirm(`Delete â€œ${file.originalFileName}â€? This cannot be undone.`)) return;
+    if (!account || !window.confirm(`Delete "${file.originalFileName}"? This cannot be undone.`)) return;
     try {
       setError(null);
       await deleteFile(instance, account, file.id);
@@ -8256,8 +9121,8 @@ export default function AdminPage() {
                   <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[8px] text-[#879aa9]">
                     Uploaded by: {file.uploaderName} (#{file.uploadedBy})
                     {file.albumId !== null
-                      ? ` Â· Album: ${file.albumName ?? "Unknown album"} (#${file.albumId})`
-                      : " Â· Personal file"}
+                      ? ` \u00B7 Album: ${file.albumName ?? "Unknown album"} (#${file.albumId})`
+                      : " \u00B7 Personal file"}
                   </span>
                 </div>
                 <div className="grid flex-none gap-0.5 text-right max-[520px]:hidden">
@@ -8341,6 +9206,7 @@ import ErrorBanner from "../components/ui/ErrorBanner";
 import Pagination from "../components/ui/Pagination";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
+import ImagePreviewModal from "../components/files/ImagePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import usePagination from "../hooks/usePagination";
@@ -8393,6 +9259,7 @@ export default function AlbumDetailPage() {
 
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
 
   const [members, setMembers] =
     useState<AlbumMemberResponse[]>([]);
@@ -8460,18 +9327,15 @@ export default function AlbumDetailPage() {
     ],
   );
 
-  const {
-    previewUrls,
-    loading: previewsLoading,
-  } = useFilePreviews(
-    files,
-    loadPreview,
-  );
   const pagination = usePagination(
     files,
     currentPage,
     PAGE_SIZE,
   );
+  const {
+    previewUrls,
+    loading: previewsLoading,
+  } = useFilePreviews(pagination.items, loadPreview);
   const albumCoverPreview = files.find(
     (file) =>
       file.contentType.startsWith("image/") &&
@@ -8815,7 +9679,7 @@ export default function AlbumDetailPage() {
       return;
     }
 
-    if (!window.confirm(`Delete â€œ${album.albumName}â€? This cannot be undone.`)) {
+    if (!window.confirm(`Delete "${album.albumName}"? This cannot be undone.`)) {
       return;
     }
 
@@ -9319,6 +10183,7 @@ export default function AlbumDetailPage() {
             }
           }}
           onDetails={(file) => void handleShowFileDetails(file)}
+          onPreview={setPreviewFile}
           onDownload={(file) =>
             void handleDownload(
               file,
@@ -9781,6 +10646,7 @@ export default function AlbumDetailPage() {
           onClose={() => setFileDetails(null)}
         />
       )}
+      {previewFile && <ImagePreviewModal file={previewFile} src={previewUrls[previewFile.id]} onClose={() => setPreviewFile(null)} />}
     </div>
   );
 }
@@ -10651,7 +11517,7 @@ export default function Dashboard() {
                         file.contentType,
                       )}
                       <span aria-hidden="true">
-                        {" Ã‚Â· "}
+                        {" \u00B7 "}
                       </span>
                       {formatFileSize(
                         file.fileSize,
@@ -10722,6 +11588,7 @@ import {
 } from "../components/ui/uiClasses";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
+import ImagePreviewModal from "../components/files/ImagePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import usePagination from "../hooks/usePagination";
@@ -10772,6 +11639,7 @@ export default function FilesPage() {
     useState("");
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
+  const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
 
   const loadPreview = useCallback(
     async (file: FileResponse) => {
@@ -10798,14 +11666,6 @@ export default function FilesPage() {
     [account, instance],
   );
 
-  const {
-    previewUrls,
-    loading: previewsLoading,
-  } = useFilePreviews(
-    files,
-    loadPreview,
-  );
-
   const normalizedQuery =
     searchQuery.trim().toLocaleLowerCase();
 
@@ -10826,6 +11686,10 @@ export default function FilesPage() {
     currentPage,
     PAGE_SIZE,
   );
+  const {
+    previewUrls,
+    loading: previewsLoading,
+  } = useFilePreviews(pagination.items, loadPreview);
 
   const loadFiles = async (
     nextView: FileView = view,
@@ -11317,6 +12181,7 @@ export default function FilesPage() {
             }
             onReplace={openReplace}
             onDetails={(file) => void handleShowFileDetails(file)}
+            onPreview={setPreviewFile}
             onDownload={(file) =>
               void handleDownload(file)
             }
@@ -11339,6 +12204,7 @@ export default function FilesPage() {
           onClose={() => setFileDetails(null)}
         />
       )}
+      {previewFile && <ImagePreviewModal file={previewFile} src={previewUrls[previewFile.id]} onClose={() => setPreviewFile(null)} />}
     </div>
   );
 }

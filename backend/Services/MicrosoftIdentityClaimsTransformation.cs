@@ -7,6 +7,7 @@ namespace WinCapture.Services;
 public sealed class MicrosoftIdentityClaimsTransformation(
     MicrosoftUserService microsoftUserService) : IClaimsTransformation
 {
+    // Maps the authenticated Microsoft Entra account to a WinCapture user and adds the required claims.
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (!principal.Identity?.IsAuthenticated ?? true)
@@ -14,7 +15,8 @@ public sealed class MicrosoftIdentityClaimsTransformation(
             return principal;
         }
 
-        var identity = principal.Identities.FirstOrDefault(identity => identity.IsAuthenticated);
+        var identity = principal.Identities
+            .FirstOrDefault(identity => identity.IsAuthenticated);
 
         if (identity is null)
         {
@@ -64,6 +66,7 @@ public sealed class MicrosoftIdentityClaimsTransformation(
         return principal;
     }
 
+    // Maps the Microsoft Entra app role to the corresponding WinCapture user role.
     private static UserRole? GetRole(ClaimsPrincipal principal)
     {
         var roles = principal.FindAll("roles")
@@ -83,6 +86,7 @@ public sealed class MicrosoftIdentityClaimsTransformation(
         return null;
     }
 
+    // Removes existing claims of the specified type before adding updated values.
     private static void RemoveClaim(ClaimsIdentity identity, string claimType)
     {
         foreach (var claim in identity.FindAll(claimType).ToList())

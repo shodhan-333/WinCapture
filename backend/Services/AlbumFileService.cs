@@ -14,202 +14,155 @@ public sealed class AlbumFileService(
     IAlbumService albumService,
     ILogger<AlbumFileService> logger) : IAlbumFileService
 {
-    public async Task<FileResponse> ReplaceAsync(long albumId, long fileId, IFormFile file, User currentUser, UserRole role)
+    // Saves the replacement first so the existing file remains available if the database update fails.
+    public async Task<FileResponse> ReplaceAsync(
+        long albumId,
+        long fileId,
+        IFormFile file,
+        User currentUser,
+        UserRole role)
     {
         var album = await albumService.GetForUploadAsync(albumId, currentUser, role);
+
         var existing = await files.GetByIdAsync(fileId)
             ?? throw new NotFoundException("The requested file was not found.");
+
         if (existing.AlbumId != albumId)
+        {
             throw new NotFoundException("The requested file was not found in this album.");
+        }
+
         await validator.ValidateAsync(file);
+
         var oldName = existing.StoredFileName;
         var newName = await storage.SaveAsync(file);
+
         existing.StoredFileName = newName;
         existing.OriginalFileName = Path.GetFileName(file.FileName);
         existing.ContentType = file.ContentType;
         existing.FileSize = file.Length;
         existing.UploadedAt = DateTime.UtcNow;
-        try { await files.UpdateAsync(existing); }
-        catch { await TryDeleteStoredFileAsync(newName); throw; }
+
+        try
+        {
+            await files.UpdateAsync(existing);
+        }
+        catch
+        {
+            await TryDeleteStoredFileAsync(newName);
+            throw;
+        }
+
         await TryDeleteStoredFileAsync(oldName);
-        var favorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
-        return ToResponse(existing, albumId, favorite, role == UserRole.Admin || album.CreatedBy == currentUser.Id);
+
+        var isFavorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
+        var canManage = role == UserRole.Admin || album.CreatedBy == currentUser.Id;
+
+        return ToResponse(existing, albumId, isFavorite, canManage);
     }
 
+    // Saves the uploaded file and removes the stored blob if saving its metadata fails.
     public async Task<FileResponse> UploadAsync(
         long albumId,
         IFormFile file,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await albumService.GetForUploadAsync(
-                albumId,
-                currentUser,
-                role);
+        var album = await albumService.GetForUploadAsync(albumId, currentUser, role);
 
-        await validator.ValidateAsync(
-            file);
+        await validator.ValidateAsync(file);
 
-        var storedFileName =
-            await storage.SaveAsync(
-                file);
+        var storedFileName = await storage.SaveAsync(file);
 
         var metadata = new FileMetadata
         {
-            OriginalFileName =
-                Path.GetFileName(
-                    file.FileName),
-
-            StoredFileName =
-                storedFileName,
-
-            ContentType =
-                file.ContentType,
-
-            FileSize =
-                file.Length,
-
-            UploadedBy =
-                currentUser.Id,
-
-            AlbumId =
-                albumId,
-
-            UploadedAt =
-                DateTime.UtcNow
+            OriginalFileName = Path.GetFileName(file.FileName),
+            StoredFileName = storedFileName,
+            ContentType = file.ContentType,
+            FileSize = file.Length,
+            UploadedBy = currentUser.Id,
+            AlbumId = albumId,
+            UploadedAt = DateTime.UtcNow
         };
 
         try
         {
-            await files.AddAsync(
-                metadata);
+            await files.AddAsync(metadata);
         }
         catch
         {
-            await TryDeleteStoredFileAsync(
-                storedFileName);
-
+            await TryDeleteStoredFileAsync(storedFileName);
             throw;
         }
 
-        var canManage =
-            role == UserRole.Admin ||
-            album.CreatedBy == currentUser.Id;
+        var canManage = role == UserRole.Admin || album.CreatedBy == currentUser.Id;
 
-        return ToResponse(
-            metadata,
-            albumId,
-            false,
-            canManage);
+        return ToResponse(metadata, albumId, false, canManage);
     }
 
-    public async Task<IReadOnlyList<FileResponse>>
-        GetAsync(
-            long albumId,
-            User currentUser,
-            UserRole role)
+    // Returns album files with their favorite status and management permissions.
+    public async Task<IReadOnlyList<FileResponse>> GetAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
     {
-        var album =
-            await albumService.GetAsync(
-                albumId,
-                currentUser,
-                role);
+        var album = await albumService.GetAsync(albumId, currentUser, role);
+        var albumFiles = await files.GetByAlbumIdAsync(albumId);
+        var favoriteIds = await files.GetFavoriteFileIdsByUserIdAsync(currentUser.Id);
+        var favoriteIdSet = favoriteIds.ToHashSet();
 
-        var albumFiles =
-            await files.GetByAlbumIdAsync(
-                albumId);
-
-        var favoriteIds =
-            await files.GetFavoriteFileIdsByUserIdAsync(
-                currentUser.Id);
-
-        var favoriteIdSet =
-            favoriteIds.ToHashSet();
-
-        var canManage =
-            role == UserRole.Admin ||
-            album.OwnerId == currentUser.Id;
+        var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
 
         return albumFiles
-            .Select(
-                file =>
-                    ToResponse(
-                        file,
-                        albumId,
-                        favoriteIdSet.Contains(
-                            file.Id),
-                        canManage))
+            .Select(file => ToResponse(
+                file,
+                albumId,
+                favoriteIdSet.Contains(file.Id),
+                canManage))
             .ToList();
     }
 
+    // Checks album access and verifies that the file belongs to the album before returning its details.
     public async Task<FileResponse> GetOneAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await albumService.GetAsync(
-                albumId,
-                currentUser,
-                role);
+        var album = await albumService.GetAsync(albumId, currentUser, role);
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        var isFavorite =
-            await files.GetFavoriteAsync(
-                currentUser.Id,
-                fileId) is not null;
+        var isFavorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
+        var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
 
-        var canManage =
-            role == UserRole.Admin ||
-            album.OwnerId == currentUser.Id;
-
-        return ToResponse(
-            file,
-            albumId,
-            isFavorite,
-            canManage);
+        return ToResponse(file, albumId, isFavorite, canManage);
     }
 
-    public async Task<FileDownloadResult>
-        PreviewAsync(
-            long albumId,
-            long fileId,
-            User currentUser,
-            UserRole role)
+    // Checks album access and returns the stored file content for preview.
+    public async Task<FileDownloadResult> PreviewAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role)
     {
-        await albumService.GetAsync(
-            albumId,
-            currentUser,
-            role);
+        await albumService.GetAsync(albumId, currentUser, role);
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        var content =
-            await storage.GetAsync(
-                file.StoredFileName);
+        var content = await storage.GetAsync(file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -217,37 +170,28 @@ public sealed class AlbumFileService(
             file.OriginalFileName);
     }
 
-    public async Task<FileDownloadResult>
-        DownloadAsync(
-            long albumId,
-            long fileId,
-            User currentUser,
-            UserRole role)
+    // Checks download permission before returning the stored file content.
+    public async Task<FileDownloadResult> DownloadAsync(
+        long albumId,
+        long fileId,
+        User currentUser,
+        UserRole role)
     {
-        if (!await albumService.CanDownloadAsync(
-                albumId,
-                currentUser,
-                role))
+        if (!await albumService.CanDownloadAsync(albumId, currentUser, role))
         {
             throw new ForbiddenException(
                 "You are not allowed to download files from this album.");
         }
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        var content =
-            await storage.GetAsync(
-                file.StoredFileName);
+        var content = await storage.GetAsync(file.StoredFileName);
 
         return new FileDownloadResult(
             content,
@@ -255,44 +199,33 @@ public sealed class AlbumFileService(
             file.OriginalFileName);
     }
 
+    // Deletes the blob before its metadata so a storage failure leaves the database record available for retry.
     public async Task DeleteAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role)
     {
-        await albumService.GetForUploadAsync(
-            albumId,
-            currentUser,
-            role);
+        await albumService.GetForUploadAsync(albumId, currentUser, role);
 
-        var file =
-            await files.GetByIdAsync(
-                fileId)
-            ?? throw new NotFoundException(
-                "The requested file was not found.");
+        var file = await files.GetByIdAsync(fileId)
+            ?? throw new NotFoundException("The requested file was not found.");
 
         if (file.AlbumId != albumId)
         {
-            throw new NotFoundException(
-                "The requested file was not found in this album.");
+            throw new NotFoundException("The requested file was not found in this album.");
         }
 
-        // Keep metadata when storage deletion fails so the operation can be retried.
-        await storage.DeleteAsync(
-            file.StoredFileName);
-
-        await files.DeleteAsync(
-            file);
+        await storage.DeleteAsync(file.StoredFileName);
+        await files.DeleteAsync(file);
     }
 
-    private async Task TryDeleteStoredFileAsync(
-        string storedFileName)
+    // Logs cleanup failures without hiding the result of the main operation.
+    private async Task TryDeleteStoredFileAsync(string storedFileName)
     {
         try
         {
-            await storage.DeleteAsync(
-                storedFileName);
+            await storage.DeleteAsync(storedFileName);
         }
         catch (Exception exception)
         {
@@ -303,6 +236,7 @@ public sealed class AlbumFileService(
         }
     }
 
+    // Builds the file response with its URLs, favorite status, and management permission.
     private static FileResponse ToResponse(
         FileMetadata file,
         long albumId,

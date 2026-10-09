@@ -11,51 +11,40 @@ public sealed class AlbumService(
     IFileRepository files,
     IStorageService storage) : IAlbumService
 {
+    // Validates the album name, saves the album, and returns its details.
     public async Task<AlbumResponse> CreateAsync(
         CreateAlbumRequest request,
         User currentUser)
     {
-        ValidateAlbumName(
-            request.AlbumName);
+        ValidateAlbumName(request.AlbumName);
 
         var album = new Album
         {
-            AlbumName =
-                request.AlbumName.Trim(),
-
-            CreatedBy =
-                currentUser.Id,
-
-            CreatedAt =
-                DateTime.UtcNow
+            AlbumName = request.AlbumName.Trim(),
+            CreatedBy = currentUser.Id,
+            CreatedAt = DateTime.UtcNow
         };
 
-        await albums.AddAsync(
-            album);
+        await albums.AddAsync(album);
 
-        album.Owner =
-            currentUser;
+        album.Owner = currentUser;
 
-        return ToResponse(
-            album);
+        return ToResponse(album);
     }
 
-    public async Task<IReadOnlyList<AlbumResponse>>
-        GetAccessibleAsync(
-            User currentUser)
+    // Returns the albums owned by the user or shared with them.
+    public async Task<IReadOnlyList<AlbumResponse>> GetAccessibleAsync(
+        User currentUser)
     {
-        var result =
-            await albums.GetAccessibleByUserIdAsync(
-                currentUser.Id);
+        var result = await albums.GetAccessibleByUserIdAsync(currentUser.Id);
 
         return result
-            .Select(
-                ToResponse)
+            .Select(ToResponse)
             .ToList();
     }
 
-    public async Task<IReadOnlyList<AlbumResponse>>
-        GetOwnedByUserAsync(int userId)
+    // Returns only the albums owned by the specified user.
+    public async Task<IReadOnlyList<AlbumResponse>> GetOwnedByUserAsync(int userId)
     {
         var result = await albums.GetOwnedByUserIdAsync(userId);
 
@@ -64,98 +53,83 @@ public sealed class AlbumService(
             .ToList();
     }
 
-    public async Task<IReadOnlyList<AlbumResponse>>
-        GetAllForAdminAsync()
+    // Returns all albums for admin management.
+    public async Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync()
     {
-        var result =
-            await albums.GetAllAsync();
+        var result = await albums.GetAllAsync();
 
         return result
-            .Select(
-                ToResponse)
+            .Select(ToResponse)
             .ToList();
     }
 
+    // Retrieves an album after checking whether the user can view it.
     public async Task<AlbumResponse> GetAsync(
         long albumId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await GetAuthorizedAlbumAsync(
-                albumId,
-                currentUser,
-                role,
-                true);
+        var album = await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            true);
 
-        return ToResponse(
-            album);
+        return ToResponse(album);
     }
 
+    // Validates the album name and updates the album details.
     public async Task<AlbumResponse> UpdateAsync(
         long albumId,
         UpdateAlbumRequest request,
         User currentUser,
         UserRole role)
     {
-        ValidateAlbumName(
-            request.AlbumName);
+        ValidateAlbumName(request.AlbumName);
 
-        var album =
-            await GetAuthorizedAlbumAsync(
-                albumId,
-                currentUser,
-                role,
-                false);
+        var album = await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
 
-        album.AlbumName =
-            request.AlbumName.Trim();
+        album.AlbumName = request.AlbumName.Trim();
+        album.UpdatedBy = currentUser.Id;
+        album.UpdatedAt = DateTime.UtcNow;
 
-        album.UpdatedBy =
-            currentUser.Id;
+        await albums.UpdateAsync(album);
 
-        album.UpdatedAt =
-            DateTime.UtcNow;
-
-        await albums.UpdateAsync(
-            album);
-
-        return ToResponse(
-            album);
+        return ToResponse(album);
     }
 
+    // Deletes the stored files before deleting the album and its database records.
     public async Task DeleteAsync(
         long albumId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await GetAuthorizedAlbumAsync(
-                albumId,
-                currentUser,
-                role,
-                false);
+        var album = await GetAuthorizedAlbumAsync(
+            albumId,
+            currentUser,
+            role,
+            false);
 
-        var albumFiles =
-            await files.GetByAlbumIdAsync(
-                albumId);
+        var albumFiles = await files.GetByAlbumIdAsync(albumId);
 
+        // Keeps the album and its database records if a blob deletion fails.
         foreach (var file in albumFiles)
         {
-            // Do not remove album or file metadata unless every blob delete succeeds.
-            await storage.DeleteAsync(
-                file.StoredFileName);
+            await storage.DeleteAsync(file.StoredFileName);
         }
 
-        await albums.DeleteAsync(
-            album);
+        await albums.DeleteAsync(album);
     }
 
-    public async Task<IReadOnlyList<AlbumMemberResponse>>
-        GetMembersAsync(
-            long albumId,
-            User currentUser,
-            UserRole role)
+    // Returns the members who have access to the album and their permissions.
+    public async Task<IReadOnlyList<AlbumMemberResponse>> GetMembersAsync(
+        long albumId,
+        User currentUser,
+        UserRole role)
     {
         await GetAuthorizedAlbumAsync(
             albumId,
@@ -163,23 +137,20 @@ public sealed class AlbumService(
             role,
             false);
 
-        var access =
-            await albums.GetAccessListAsync(
-                albumId);
+        var access = await albums.GetAccessListAsync(albumId);
 
         return access
-            .Select(
-                item =>
-                    new AlbumMemberResponse(
-                        item.UserId,
-                        item.User.Name,
-                        item.User.Email,
-                        item.CanView,
-                        item.CanDownload,
-                        item.GrantedAt))
+            .Select(item => new AlbumMemberResponse(
+                item.UserId,
+                item.User.Name,
+                item.User.Email,
+                item.CanView,
+                item.CanDownload,
+                item.GrantedAt))
             .ToList();
     }
 
+    // Grants an existing WinCapture user access to the album with the requested permissions.
     public async Task AddMemberAsync(
         long albumId,
         AddAlbumMemberRequest request,
@@ -192,20 +163,15 @@ public sealed class AlbumService(
             role,
             false);
 
-        var email =
-            request.Email.Trim()
-                .ToLowerInvariant();
+        var email = request.Email.Trim().ToLowerInvariant();
 
-        if (!request.CanView &&
-            request.CanDownload)
+        if (!request.CanView && request.CanDownload)
         {
             throw new BadRequestException(
                 "CanDownload cannot be true when CanView is false.");
         }
 
-        var user =
-            await users.GetByEmailAsync(
-                email)
+        var user = await users.GetByEmailAsync(email)
             ?? throw new NotFoundException(
                 "The user must register in WinCapture before they can be added to an album.");
 
@@ -215,10 +181,7 @@ public sealed class AlbumService(
                 "The album owner already has full access.");
         }
 
-        var existing =
-            await albums.GetAccessAsync(
-                albumId,
-                user.Id);
+        var existing = await albums.GetAccessAsync(albumId, user.Id);
 
         if (existing is not null)
         {
@@ -226,30 +189,18 @@ public sealed class AlbumService(
                 "This user already has access to the album.");
         }
 
-        await albums.AddAccessAsync(
-            new AlbumAccess
-            {
-                AlbumId =
-                    albumId,
-
-                UserId =
-                    user.Id,
-
-                CanView =
-                    request.CanView,
-
-                CanDownload =
-                    request.CanView &&
-                    request.CanDownload,
-
-                GrantedAt =
-                    DateTime.UtcNow,
-
-                GrantedBy =
-                    currentUser.Id
-            });
+        await albums.AddAccessAsync(new AlbumAccess
+        {
+            AlbumId = albumId,
+            UserId = user.Id,
+            CanView = request.CanView,
+            CanDownload = request.CanView && request.CanDownload,
+            GrantedAt = DateTime.UtcNow,
+            GrantedBy = currentUser.Id
+        });
     }
 
+    // Updates a member's viewing and downloading permissions for the album.
     public async Task UpdateMemberAsync(
         long albumId,
         int userId,
@@ -263,31 +214,22 @@ public sealed class AlbumService(
             role,
             false);
 
-        if (!request.CanView &&
-            request.CanDownload)
+        if (!request.CanView && request.CanDownload)
         {
             throw new BadRequestException(
                 "CanDownload cannot be true when CanView is false.");
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                userId)
-            ?? throw new NotFoundException(
-                "Album access was not found.");
+        var access = await albums.GetAccessAsync(albumId, userId)
+            ?? throw new NotFoundException("Album access was not found.");
 
-        access.CanView =
-            request.CanView;
+        access.CanView = request.CanView;
+        access.CanDownload = request.CanView && request.CanDownload;
 
-        access.CanDownload =
-            request.CanView &&
-            request.CanDownload;
-
-        await albums.UpdateAccessAsync(
-            access);
+        await albums.UpdateAccessAsync(access);
     }
 
+    // Removes a member's access to the specified album.
     public async Task RemoveMemberAsync(
         long albumId,
         int userId,
@@ -300,17 +242,13 @@ public sealed class AlbumService(
             role,
             false);
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                userId)
-            ?? throw new NotFoundException(
-                "Album access was not found.");
+        var access = await albums.GetAccessAsync(albumId, userId)
+            ?? throw new NotFoundException("Album access was not found.");
 
-        await albums.DeleteAccessAsync(
-            access);
+        await albums.DeleteAccessAsync(access);
     }
 
+    // Checks album access before allowing a file to be uploaded.
     public async Task<Album> GetForUploadAsync(
         long albumId,
         User currentUser,
@@ -323,58 +261,49 @@ public sealed class AlbumService(
             false);
     }
 
+    // Checks whether the user is allowed to download files from the album.
     public async Task<bool> CanDownloadAsync(
         long albumId,
         User currentUser,
         UserRole role)
     {
-        var album =
-            await albums.GetByIdAsync(
-                albumId)
+        var album = await albums.GetByIdAsync(albumId)
             ?? throw new NotFoundException(
                 "The requested album was not found.");
 
-        if (role == UserRole.Admin ||
-            album.CreatedBy == currentUser.Id)
+        if (role == UserRole.Admin || album.CreatedBy == currentUser.Id)
         {
             return true;
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                currentUser.Id);
+        var access = await albums.GetAccessAsync(
+            albumId,
+            currentUser.Id);
 
-        return access is not null &&
-               access.CanDownload;
+        return access is not null && access.CanDownload;
     }
 
-    private async Task<Album>
-        GetAuthorizedAlbumAsync(
-            long albumId,
-            User currentUser,
-            UserRole role,
-            bool canView)
+    // Checks whether the user can view or manage the album based on ownership, role, and access permissions.
+    private async Task<Album> GetAuthorizedAlbumAsync(
+        long albumId,
+        User currentUser,
+        UserRole role,
+        bool canView)
     {
-        var album =
-            await albums.GetByIdAsync(
-                albumId)
+        var album = await albums.GetByIdAsync(albumId)
             ?? throw new NotFoundException(
                 "The requested album was not found.");
 
-        if (role == UserRole.Admin ||
-            album.CreatedBy == currentUser.Id)
+        if (role == UserRole.Admin || album.CreatedBy == currentUser.Id)
         {
             return album;
         }
 
-        var access =
-            await albums.GetAccessAsync(
-                albumId,
-                currentUser.Id);
+        var access = await albums.GetAccessAsync(
+            albumId,
+            currentUser.Id);
 
-        if (access is null ||
-            (canView && !access.CanView))
+        if (access is null || (canView && !access.CanView))
         {
             throw new ForbiddenException(
                 "You are not allowed to access this album.");
@@ -389,14 +318,12 @@ public sealed class AlbumService(
         return album;
     }
 
-    private static void ValidateAlbumName(
-        string name)
+    // Rejects empty album names and names longer than 200 characters.
+    private static void ValidateAlbumName(string name)
     {
-        if (string.IsNullOrWhiteSpace(
-                name))
+        if (string.IsNullOrWhiteSpace(name))
         {
-            throw new BadRequestException(
-                "Album name is required.");
+            throw new BadRequestException("Album name is required.");
         }
 
         if (name.Trim().Length > 200)
@@ -406,8 +333,8 @@ public sealed class AlbumService(
         }
     }
 
-    private static AlbumResponse ToResponse(
-        Album album)
+    // Maps an album entity to the response returned by the API.
+    private static AlbumResponse ToResponse(Album album)
     {
         return new AlbumResponse(
             album.Id,

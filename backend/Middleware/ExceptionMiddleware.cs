@@ -4,10 +4,9 @@ using WinCapture.Exceptions;
 
 namespace WinCapture.Middleware;
 
-public sealed class ExceptionMiddleware(
-    RequestDelegate next,
-    ILogger<ExceptionMiddleware> logger)
+public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
 {
+    // Catches exceptions from the request pipeline and passes them to the central handler.
     public async Task InvokeAsync(HttpContext context)
     {
         try
@@ -20,9 +19,8 @@ public sealed class ExceptionMiddleware(
         }
     }
 
-    private async Task HandleExceptionAsync(
-        HttpContext context,
-        Exception exception)
+    // Converts exceptions into HTTP responses and logs unexpected server errors.
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         var statusCode = exception switch
         {

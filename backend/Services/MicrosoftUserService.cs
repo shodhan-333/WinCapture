@@ -5,21 +5,17 @@ using WinCapture.Repositories;
 
 namespace WinCapture.Services;
 
-public sealed class MicrosoftUserService(
-    IUserRepository userRepository)
+public sealed class MicrosoftUserService(IUserRepository userRepository)
 {
+    // Validates the Microsoft account details and creates or updates the local user.
     public async Task<User> GetOrCreateAsync(
         string name,
         string email,
         string entraObjectId,
         UserRole role)
     {
-        var normalizedEmail =
-            email.Trim()
-                .ToLowerInvariant();
-
-        var normalizedObjectId =
-            entraObjectId.Trim();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedObjectId = entraObjectId.Trim();
 
         if (!IsValidEmail(normalizedEmail))
         {
@@ -27,49 +23,29 @@ public sealed class MicrosoftUserService(
                 "The Microsoft account email address is invalid.");
         }
 
-        if (string.IsNullOrWhiteSpace(
-                normalizedObjectId))
+        if (string.IsNullOrWhiteSpace(normalizedObjectId))
         {
             throw new UnauthorizedException(
                 "The Microsoft account object ID is missing.");
         }
 
-        var normalizedName =
-            string.IsNullOrWhiteSpace(name)
-                ? normalizedEmail.Split('@')[0]
-                : name.Trim();
+        var normalizedName = string.IsNullOrWhiteSpace(name)
+            ? normalizedEmail.Split('@')[0]
+            : name.Trim();
 
         if (normalizedName.Length > 200)
         {
-            normalizedName =
-                normalizedName[..200];
+            normalizedName = normalizedName[..200];
         }
 
-        // ========================================================
-        // First identify the user by Microsoft Entra object ID.
-        // This is the authoritative identity binding.
-        // ========================================================
+        // Uses the Entra object ID as the stable identity key for the account.
+        var user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId);
 
-        var user =
-            await userRepository.GetByEntraObjectIdAsync(
-                normalizedObjectId);
-
-        // ========================================================
-        // Legacy/email fallback.
-        // This allows an existing WinCapture record to be linked
-        // to its Microsoft Entra object ID.
-        // ========================================================
-
+        // Links an existing account by email when it has not been linked to Entra yet.
         if (user is null)
         {
-            user =
-                await userRepository.GetByEmailAsync(
-                    normalizedEmail);
+            user = await userRepository.GetByEmailAsync(normalizedEmail);
         }
-
-        // ========================================================
-        // Create new user
-        // ========================================================
 
         if (user is null)
         {
@@ -89,11 +65,9 @@ public sealed class MicrosoftUserService(
             catch (DbUpdateException exception)
                 when (IsDuplicateKeyException(exception))
             {
-                user =
-                    await userRepository.GetByEntraObjectIdAsync(
-                        normalizedObjectId)
-                    ?? await userRepository.GetByEmailAsync(
-                        normalizedEmail)
+                // Loads the account created by another request if a duplicate key occurs.
+                user = await userRepository.GetByEntraObjectIdAsync(normalizedObjectId)
+                    ?? await userRepository.GetByEmailAsync(normalizedEmail)
                     ?? throw new UnauthorizedException(
                         "The Microsoft user could not be created or loaded.");
             }
@@ -101,10 +75,7 @@ public sealed class MicrosoftUserService(
             return user;
         }
 
-        // ========================================================
-        // Sync Microsoft identity information
-        // ========================================================
-
+        // Keeps the local user details and role in sync with Microsoft Entra.
         var changed = false;
 
         if (!string.Equals(
@@ -112,9 +83,7 @@ public sealed class MicrosoftUserService(
                 normalizedObjectId,
                 StringComparison.Ordinal))
         {
-            user.EntraObjectId =
-                normalizedObjectId;
-
+            user.EntraObjectId = normalizedObjectId;
             changed = true;
         }
 
@@ -123,9 +92,7 @@ public sealed class MicrosoftUserService(
                 normalizedEmail,
                 StringComparison.OrdinalIgnoreCase))
         {
-            user.Email =
-                normalizedEmail;
-
+            user.Email = normalizedEmail;
             changed = true;
         }
 
@@ -134,18 +101,14 @@ public sealed class MicrosoftUserService(
                 normalizedName,
                 StringComparison.Ordinal))
         {
-            user.Name =
-                normalizedName;
-
+            user.Name = normalizedName;
             changed = true;
         }
 
-        // The Entra application role is authoritative.
+        // Uses the Entra application role as the source of truth for the user's role.
         if (user.Role != role)
         {
-            user.Role =
-                role;
-
+            user.Role = role;
             changed = true;
         }
 
@@ -157,14 +120,12 @@ public sealed class MicrosoftUserService(
         return user;
     }
 
-    private static bool IsValidEmail(
-        string email)
+    // Checks whether the supplied value is a valid email address.
+    private static bool IsValidEmail(string email)
     {
         try
         {
-            var address =
-                new System.Net.Mail.MailAddress(
-                    email);
+            var address = new System.Net.Mail.MailAddress(email);
 
             return string.Equals(
                 address.Address,
@@ -177,8 +138,8 @@ public sealed class MicrosoftUserService(
         }
     }
 
-    private static bool IsDuplicateKeyException(
-        DbUpdateException exception)
+    // Identifies SQL Server duplicate-key errors that can occur during concurrent account creation.
+    private static bool IsDuplicateKeyException(DbUpdateException exception)
     {
         return exception.InnerException is
                    Microsoft.Data.SqlClient.SqlException sqlException &&

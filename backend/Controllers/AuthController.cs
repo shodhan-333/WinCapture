@@ -9,70 +9,51 @@ namespace WinCapture.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
+    // Returns the authenticated WinCapture user's details after validating the mapped user ID and role.
     [Authorize]
     [HttpGet("me")]
-    [ProducesResponseType<CurrentUserResponse>(
-        StatusCodes.Status200OK)]
-    [ProducesResponseType(
-        StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(
-        StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<CurrentUserResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public ActionResult<CurrentUserResponse> Me()
     {
-        var userId =
-            User.FindFirst(
-                "wincapture_user_id")?.Value;
+        var userId = User.FindFirst("wincapture_user_id")?.Value;
 
-        if (!int.TryParse(
-                userId,
-                out var parsedUserId) ||
-            parsedUserId <= 0)
+        if (!int.TryParse(userId, out var parsedUserId) || parsedUserId <= 0)
         {
-            throw new UnauthorizedException(
-                "The authenticated WinCapture user ID is missing or invalid.");
+            throw new UnauthorizedException("The authenticated WinCapture user ID is missing or invalid.");
         }
 
-        var role =
-            GetWinCaptureRole();
+        var role = GetWinCaptureRole();
 
         if (role is null)
         {
-            throw new ForbiddenException(
-                "The Microsoft account is authenticated but is not assigned to a WinCapture role.");
+            throw new ForbiddenException("The Microsoft account is authenticated but is not assigned to a WinCapture role.");
         }
 
-        var name =
-            User.FindFirst("name")?.Value
+        var name = User.FindFirst("name")?.Value ?? string.Empty;
+        var email = User.FindFirst("preferred_username")?.Value
+            ?? User.FindFirst("email")?.Value
+            ?? User.FindFirst("upn")?.Value
             ?? string.Empty;
 
-        var email =
-            User.FindFirst(
-                "preferred_username")?.Value
-            ?? User.FindFirst(
-                "email")?.Value
-            ?? User.FindFirst(
-                "upn")?.Value
-            ?? string.Empty;
-
-        return Ok(
-            new CurrentUserResponse(
-                parsedUserId,
-                name,
-                email,
-                role,
-                "Microsoft Entra ID"));
+        return Ok(new CurrentUserResponse(
+            parsedUserId,
+            name,
+            email,
+            role,
+            "Microsoft Entra ID"));
     }
 
+    // Maps the Microsoft Entra app role to the role name returned by WinCapture.
     private string? GetWinCaptureRole()
     {
-        if (User.IsInRole(
-                "WinCapture.Admin"))
+        if (User.IsInRole("WinCapture.Admin"))
         {
             return "Admin";
         }
 
-        if (User.IsInRole(
-                "WinCapture.User"))
+        if (User.IsInRole("WinCapture.User"))
         {
             return "User";
         }
