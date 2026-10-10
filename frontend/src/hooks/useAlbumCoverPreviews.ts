@@ -3,6 +3,7 @@ import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser"
 
 import { getAlbumFiles, getFilePreviewUrl } from "../api/apiClient";
 import type { AlbumResponse } from "../types/album";
+import { getAccountKey } from "../utils/accountKey";
 
 export default function useAlbumCoverPreviews(
   albums: AlbumResponse[],
@@ -12,6 +13,7 @@ export default function useAlbumCoverPreviews(
   isAdmin = false,
 ): Record<number, string> {
   const [coverUrls, setCoverUrls] = useState<Record<number, string>>({});
+  const accountKey = getAccountKey(account);
 
   useEffect(() => {
     let active = true;
@@ -73,7 +75,7 @@ export default function useAlbumCoverPreviews(
       cleanupRequested = true;
       createdUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [account, albums, instance, isAdmin, userId]);
+  }, [accountKey, albums, instance, isAdmin, userId]);
 
   return coverUrls;
 }

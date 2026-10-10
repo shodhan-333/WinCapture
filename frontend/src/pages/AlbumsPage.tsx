@@ -20,12 +20,14 @@ import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import { formatDate } from "../utils/formatters";
+import { getAccountKey } from "../utils/accountKey";
 
 const PAGE_SIZE = 9;
 
 export default function AlbumsPage() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
+  const accountKey = getAccountKey(account);
   const navigate = useNavigate();
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
@@ -73,7 +75,7 @@ export default function AlbumsPage() {
 
   useEffect(() => {
     void loadAlbums();
-  }, [account, instance]);
+  }, [accountKey, instance]);
 
   const handleCreateAlbum = async () => {
     if (!account || !albumName.trim()) {

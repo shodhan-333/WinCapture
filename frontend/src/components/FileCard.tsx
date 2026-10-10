@@ -1,10 +1,17 @@
 import {
+  FileArchive,
+  FileAudio,
+  FileImage,
+  FileSpreadsheet,
   FileText,
+  FileVideo,
+  Presentation,
   Star,
 } from "lucide-react";
 
 import FileActionMenu from "./files/FileActionMenu";
 import type { FileResponse } from "../types/file";
+import { getFileCategory, isPreviewableFile } from "../constants/fileSupport";
 import {
   formatDate,
   formatFileSize,
@@ -24,18 +31,6 @@ interface FileCardProps {
   onDelete: () => void;
 }
 
-function getFileCategory(contentType: string): string {
-  if (contentType.startsWith("image/")) {
-    return "image";
-  }
-
-  if (contentType === "application/pdf") {
-    return "document";
-  }
-
-  return "file";
-}
-
 export default function FileCard({
   file,
   previewUrl,
@@ -48,14 +43,26 @@ export default function FileCard({
   onDownload,
   onDelete,
 }: FileCardProps) {
-  const isImage =
-    file.contentType.startsWith("image/");
+  const fileCategory = getFileCategory(file.originalFileName);
+  const isImage = fileCategory === "Images";
 
   const effectiveCanManage =
     canManage ?? file.canManage;
 
-  const category =
-    getFileCategory(file.contentType);
+  const lowerFileName = file.originalFileName.toLocaleLowerCase();
+  const Icon = fileCategory === "Images"
+    ? FileImage
+    : fileCategory === "Videos"
+      ? FileVideo
+      : fileCategory === "Audio"
+        ? FileAudio
+        : fileCategory === "Archives"
+          ? FileArchive
+          : lowerFileName.endsWith(".xlsx") || lowerFileName.endsWith(".csv")
+            ? FileSpreadsheet
+            : lowerFileName.endsWith(".pptx")
+              ? Presentation
+              : FileText;
 
   return (
     <article className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-[3px] hover:border-[rgba(178,207,231,0.68)] hover:shadow-[0_17px_34px_rgba(49,103,149,0.12),inset_0_0_0_1px_rgba(201,222,237,0.22)]">
@@ -75,9 +82,9 @@ export default function FileCard({
             className="h-full w-full cursor-zoom-in object-cover transition-[transform,filter] duration-[350ms] group-hover:scale-[1.04] group-hover:saturate-[1.03]"
           />
         ) : (
-          <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${category === "document" ? "bg-[linear-gradient(145deg,#f1efff,#e7e8ff)] text-[#5d67c9]" : category === "file" ? "bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]" : ""}`}>
-            <span className={`grid h-[57px] w-[57px] place-items-center rounded-[17px] bg-[rgba(255,255,255,0.66)] text-[#3788da] shadow-[0_9px_20px_rgba(49,109,161,0.07),inset_0_1px_rgba(255,255,255,0.76)] ${category === "document" ? "text-[#656fd3]" : ""}`}>
-              <FileText
+          <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${fileCategory === "Documents" ? "bg-[linear-gradient(145deg,#f1efff,#e7e8ff)] text-[#5d67c9]" : fileCategory === "Archives" ? "bg-[linear-gradient(145deg,#fff6e9,#f8ead7)] text-[#a66a23]" : "bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]"}`}>
+            <span className={`grid h-[57px] w-[57px] place-items-center rounded-[17px] bg-[rgba(255,255,255,0.66)] text-[#3788da] shadow-[0_9px_20px_rgba(49,109,161,0.07),inset_0_1px_rgba(255,255,255,0.76)] ${fileCategory === "Documents" ? "text-[#656fd3]" : ""}`}>
+              <Icon
                 aria-hidden="true"
                 size={38}
                 strokeWidth={1.45}
@@ -156,6 +163,8 @@ export default function FileCard({
               fileName={file.originalFileName}
               canManage={effectiveCanManage}
               onDetails={onDetails}
+              onPreview={onPreview}
+              canPreview={isPreviewableFile(file.originalFileName)}
               onReplace={onReplace}
               onDownload={onDownload}
               onDelete={onDelete}

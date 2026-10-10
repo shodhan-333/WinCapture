@@ -6,7 +6,7 @@ import useFilePreviews from "../../../frontend/src/hooks/useFilePreviews";
 
 const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
   id,
-  originalFileName: `image-${id}.png`,
+  originalFileName: `file-${id}.${contentType === "application/pdf" ? "pdf" : "png"}`,
   contentType,
   fileSize: 100,
   uploadedAt: "2025-01-01T00:00:00.000Z",
@@ -17,14 +17,14 @@ const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
 });
 
 describe("useFilePreviews", () => {
-  it("requests previews only for the supplied visible image files", async () => {
+  it("requests previews only for supplied visible previewable files", async () => {
     const loadPreview = vi.fn(async (file: FileResponse) => `blob:${file.id}`);
     const files = [makeFile(1), makeFile(2), makeFile(3, "application/pdf")];
     const { result } = renderHook(() => useFilePreviews(files, loadPreview));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(loadPreview.mock.calls.map(([file]) => file.id)).toEqual([1, 2]);
-    expect(result.current.previewUrls).toEqual({ 1: "blob:1", 2: "blob:2" });
+    expect(loadPreview.mock.calls.map(([file]) => file.id)).toEqual([1, 2, 3]);
+    expect(result.current.previewUrls).toEqual({ 1: "blob:1", 2: "blob:2", 3: "blob:3" });
   });
 
   it("shares in-flight requests for repeated file ids", async () => {

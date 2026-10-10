@@ -63,6 +63,18 @@ describe("useAlbumCoverPreviews", () => {
     expect(getFilePreviewUrl).toHaveBeenCalledWith(instance, account, image.id, album.id, true);
   });
 
+  it("does not reload album files when the account object changes but its identity does not", async () => {
+    vi.mocked(getAlbumFiles).mockResolvedValueOnce([]);
+    const { rerender } = renderHook(
+      ({ currentAccount }) => useAlbumCoverPreviews(albums, instance, currentAccount),
+      { initialProps: { currentAccount: account } },
+    );
+
+    await waitFor(() => expect(getAlbumFiles).toHaveBeenCalledTimes(1));
+    rerender({ currentAccount: { ...account } });
+    expect(getAlbumFiles).toHaveBeenCalledTimes(1);
+  });
+
   it("releases URLs created for a hook that unmounts before its request finishes", async () => {
     let resolveUrl!: (url: string) => void;
     vi.mocked(getAlbumFiles).mockResolvedValueOnce([image]);

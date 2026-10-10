@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -59,14 +60,24 @@ import type {
   AlbumResponse,
 } from "../types/album";
 import type { FileResponse } from "../types/file";
+import {
+  FILE_CATEGORY_FILTERS,
+  getFileCategory,
+  SUPPORTED_FILE_ACCEPT,
+  validateUploadFile,
+  type FileCategoryFilter,
+} from "../constants/fileSupport";
 import { formatDate } from "../utils/formatters";
+import { getAccountKey } from "../utils/accountKey";
 
 const PAGE_SIZE = 12;
 
 const sharePanelClass =
   "min-w-0 p-5 max-[760px]:p-[17px] max-[520px]:p-[14px]";
+
 const permissionToggleClass =
   "inline-flex h-7 min-w-[52px] cursor-pointer items-center justify-center gap-[5px] rounded-full border border-[#dde7ee] bg-[#f4f7fa] px-2 text-[8px] font-bold text-[#8b9aa6] transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
+
 const memberPermissionClass =
   "inline-flex min-h-[26px] cursor-pointer items-center justify-center gap-1 rounded-[7px] border border-[#dce8ef] bg-[#f4f8fa] px-[7px] text-[7px] font-[650] text-[#7c91a2] transition-[color,background,border-color] duration-[160ms] disabled:cursor-not-allowed disabled:opacity-[0.47]";
 
@@ -74,69 +85,41 @@ export default function AlbumDetailPage() {
   const { instance } = useMsal();
   const navigate = useNavigate();
 
-  const {
-    account,
-    user,
-  } = useAuth();
+  const { account, user } = useAuth();
+  const accountKey = getAccountKey(account);
+  const { albumId } = useParams();
 
-  const { albumId } =
-    useParams();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const replaceTargetIdRef = useRef<number | null>(null);
 
-  const fileInputRef =
-    useRef<HTMLInputElement | null>(null);
-
-  const replaceInputRef =
-    useRef<HTMLInputElement | null>(null);
-
-  const replaceTargetIdRef =
-    useRef<number | null>(null);
-
-  const [album, setAlbum] =
-    useState<AlbumResponse | null>(null);
-
-  const [files, setFiles] =
-    useState<FileResponse[]>([]);
-  const [currentPage, setCurrentPage] =
-    useState(1);
+  const [album, setAlbum] = useState<AlbumResponse | null>(null);
+  const [files, setFiles] = useState<FileResponse[]>([]);
+  const [categoryFilter, setCategoryFilter] =
+    useState<FileCategoryFilter>("All");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
-  const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
+  const [previewFile, setPreviewFile] =
+    useState<FileResponse | null>(null);
 
-  const [members, setMembers] =
-    useState<AlbumMemberResponse[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
+  const [members, setMembers] = useState<AlbumMemberResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] =
     useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [deletingAlbum, setDeletingAlbum] = useState(false);
 
-  const [uploading, setUploading] =
-    useState(false);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [canView, setCanView] = useState(true);
+  const [canDownload, setCanDownload] = useState(true);
 
-  const [deletingAlbum, setDeletingAlbum] =
-    useState(false);
+  const [albumNameDraft, setAlbumNameDraft] = useState("");
+  const [editingName, setEditingName] = useState(false);
 
-  const [memberEmail, setMemberEmail] =
-    useState("");
-
-  const [canView, setCanView] =
-    useState(true);
-
-  const [canDownload, setCanDownload] =
-    useState(true);
-
-  const [albumNameDraft, setAlbumNameDraft] =
-    useState("");
-
-  const [editingName, setEditingName] =
-    useState(false);
-
-  const numericAlbumId =
-    Number(
-      albumId ?? "0",
-    );
+  const numericAlbumId = Number(albumId ?? "0");
 
   const canManageAlbum = Boolean(
     album &&
@@ -148,9 +131,7 @@ export default function AlbumDetailPage() {
   const loadPreview = useCallback(
     async (file: FileResponse) => {
       if (!account) {
-        throw new Error(
-          "An authenticated account is required.",
-        );
+        throw new Error("An authenticated account is required.");
       }
 
       return getFilePreviewUrl(
@@ -161,34 +142,56 @@ export default function AlbumDetailPage() {
         canManageAlbum,
       );
     },
-    [
-      account,
-      canManageAlbum,
-      instance,
-      numericAlbumId,
-    ],
+    [accountKey, canManageAlbum, instance, numericAlbumId],
+  );
+
+  // Filter the files before applying pagination.
+  const filteredFiles = useMemo(
+    () =>
+      files.filter(
+        (file) =>
+          categoryFilter === "All" ||
+          getFileCategory(file.originalFileName) === categoryFilter,
+      ),
+    [files, categoryFilter],
   );
 
   const pagination = usePagination(
-    files,
+    filteredFiles,
     currentPage,
     PAGE_SIZE,
   );
-  const {
-    previewUrls,
-    loading: previewsLoading,
-  } = useFilePreviews(pagination.items, loadPreview);
-  const albumCoverPreview = files.find(
-    (file) =>
-      file.contentType.startsWith("image/") &&
-      previewUrls[file.id],
+
+  // Keep the album cover available regardless of the selected filter.
+  const albumCoverFile = files.find((file) =>
+    file.contentType.startsWith("image/"),
   );
 
+  const previewFiles = useMemo(
+    () => [
+      ...pagination.items,
+      ...(albumCoverFile &&
+      !pagination.items.some(
+        (file) => file.id === albumCoverFile.id,
+      )
+        ? [albumCoverFile]
+        : []),
+    ],
+    [pagination.items, albumCoverFile],
+  );
+
+  const { previewUrls } = useFilePreviews(
+    previewFiles,
+    loadPreview,
+  );
+
+  const albumCoverPreview =
+    albumCoverFile && previewUrls[albumCoverFile.id]
+      ? albumCoverFile
+      : undefined;
+
   const loadAlbumData = async () => {
-    if (
-      !account ||
-      !Number.isFinite(numericAlbumId)
-    ) {
+    if (!account || !Number.isFinite(numericAlbumId)) {
       return;
     }
 
@@ -203,20 +206,17 @@ export default function AlbumDetailPage() {
       );
 
       setAlbum(albumResult);
-      setAlbumNameDraft(
-        albumResult.albumName,
-      );
+      setAlbumNameDraft(albumResult.albumName);
 
       const nextCanManageAlbum =
         user?.role === "Admin" ||
         albumResult.ownerId === user?.userId;
 
-      const fileResult =
-        await getAlbumFiles(
-          instance,
-          account,
-          numericAlbumId,
-        );
+      const fileResult = await getAlbumFiles(
+        instance,
+        account,
+        numericAlbumId,
+      );
 
       setFiles(fileResult);
       setCurrentPage(1);
@@ -250,292 +250,263 @@ export default function AlbumDetailPage() {
     }
   };
 
-  useEffect(
-    () => {
-      if (!Number.isSafeInteger(numericAlbumId) || numericAlbumId <= 0) {
-        setAlbum(null);
-        setFiles([]);
-        setMembers([]);
-        setError("The album ID is invalid.");
-        setLoading(false);
-        return;
-      }
-      void loadAlbumData();
+  useEffect(() => {
+    if (
+      !Number.isSafeInteger(numericAlbumId) ||
+      numericAlbumId <= 0
+    ) {
+      setAlbum(null);
+      setFiles([]);
+      setMembers([]);
+      setError("The album ID is invalid.");
+      setLoading(false);
+      return;
+    }
+
+    void loadAlbumData();
+  }, [
+    accountKey,
+    instance,
+    numericAlbumId,
+    user?.role,
+    user?.userId,
+  ]);
+
+  const handleFavoriteSuccess = useCallback(
+    (file: FileResponse, nextFavorite: boolean) => {
+      setFiles((previous) =>
+        previous.map((currentFile) =>
+          currentFile.id === file.id
+            ? {
+                ...currentFile,
+                isFavorite: nextFavorite,
+              }
+            : currentFile,
+        ),
+      );
     },
-    [
-      account,
-      instance,
-      numericAlbumId,
-      user?.role,
-      user?.userId,
-    ],
+    [],
   );
 
-  const handleFavoriteSuccess =
-    useCallback(
-      (
-        file: FileResponse,
-        nextFavorite: boolean,
-      ) => {
-        setFiles((previous) =>
-          previous.map(
-            (currentFile) =>
-              currentFile.id === file.id
-                ? {
-                    ...currentFile,
-                    isFavorite:
-                      nextFavorite,
-                  }
-                : currentFile,
-          ),
-        );
-      },
-      [],
-    );
-
-  const handleFavoriteError =
-    useCallback(
-      (message: string) => {
-        setError(message);
-      },
-      [],
-    );
+  const handleFavoriteError = useCallback(
+    (message: string) => {
+      setError(message);
+    },
+    [],
+  );
 
   const {
-    pendingIds:
-      favoritePendingIds,
+    pendingIds: favoritePendingIds,
     toggleFavorite,
   } = useFileFavorites({
     instance,
     account,
-    onSuccess:
-      handleFavoriteSuccess,
-    onError:
-      handleFavoriteError,
+    onSuccess: handleFavoriteSuccess,
+    onError: handleFavoriteError,
   });
 
-  const handleUpload =
-    async (
-      event: ChangeEvent<HTMLInputElement>,
-    ) => {
-      const selectedFile =
-        event.target.files?.[0];
+  const handleUpload = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFile = event.target.files?.[0];
 
-      if (
-        !selectedFile ||
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        )
-      ) {
-        return;
-      }
+    if (
+      !selectedFile ||
+      !account ||
+      !Number.isFinite(numericAlbumId)
+    ) {
+      return;
+    }
 
-      try {
-        setUploading(true);
-        setError(null);
+    const validationError = validateUploadFile(selectedFile);
 
-        await uploadAlbumFile(
-          instance,
-          account,
-          numericAlbumId,
-          selectedFile,
-        );
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
 
-        event.target.value = "";
+    try {
+      setUploading(true);
+      setError(null);
+      setSuccessMessage(null);
 
-        await loadAlbumData();
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Upload failed.",
-        );
-      } finally {
-        setUploading(false);
-      }
-    };
+      await uploadAlbumFile(
+        instance,
+        account,
+        numericAlbumId,
+        selectedFile,
+      );
 
-  const handleDownload =
-    async (
-      file: FileResponse,
-    ) => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        )
-      ) {
-        return;
-      }
+      setSuccessMessage(
+        `${selectedFile.name} added to the album.`,
+      );
 
-      try {
-        setError(null);
+      event.target.value = "";
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Upload failed.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
 
-        await downloadAlbumFile(
-          instance,
-          account,
-          numericAlbumId,
-          file.id,
-          file.originalFileName,
-        );
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Download failed.",
-        );
-      }
-    };
+  const handleDownload = async (file: FileResponse) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
 
-  const handleDelete =
-    async (
-      fileId: number,
-    ) => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        )
-      ) {
-        return;
-      }
+    try {
+      setError(null);
+      setSuccessMessage(null);
 
-      try {
-        setError(null);
+      await downloadAlbumFile(
+        instance,
+        account,
+        numericAlbumId,
+        file.id,
+        file.originalFileName,
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Download failed.",
+      );
+    }
+  };
 
-        await deleteAlbumFile(
-          instance,
-          account,
-          numericAlbumId,
-          fileId,
-        );
+  const handleDelete = async (fileId: number) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
 
-        await loadAlbumData();
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? `${caughtError.message} The file remains listed, so you can retry after resolving the issue.`
-            : "Delete failed. The file remains listed, so you can retry after resolving the issue.",
-        );
-      }
-    };
+    try {
+      setError(null);
 
-  const handleReplace =
-    async (
-      event: ChangeEvent<HTMLInputElement>,
-    ) => {
-      const selectedFile =
-        event.target.files?.[0];
+      await deleteAlbumFile(
+        instance,
+        account,
+        numericAlbumId,
+        fileId,
+      );
 
-      const fileId =
-        replaceTargetIdRef.current;
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? `${caughtError.message} The file remains listed, so you can retry after resolving the issue.`
+          : "Delete failed. The file remains listed, so you can retry after resolving the issue.",
+      );
+    }
+  };
 
-      if (
-        !selectedFile ||
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        ) ||
-        fileId === null
-      ) {
-        return;
-      }
+  const handleReplace = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const selectedFile = event.target.files?.[0];
+    const fileId = replaceTargetIdRef.current;
 
-      try {
-        setError(null);
+    if (
+      !selectedFile ||
+      !account ||
+      !Number.isFinite(numericAlbumId) ||
+      fileId === null
+    ) {
+      return;
+    }
 
-        await replaceAlbumFile(
-          instance,
-          account,
-          numericAlbumId,
-          fileId,
-          selectedFile,
-        );
+    const validationError = validateUploadFile(selectedFile);
 
-        await loadAlbumData();
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Replace failed.",
-        );
-      } finally {
-        replaceTargetIdRef.current =
-          null;
+    if (validationError) {
+      setError(validationError);
+      event.target.value = "";
+      return;
+    }
 
-        event.target.value = "";
-      }
-    };
+    try {
+      setError(null);
 
-  const handleUpdateAlbum =
-    async () => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        ) ||
-        !albumNameDraft.trim()
-      ) {
-        setError(
-          "Album name is required.",
-        );
+      await replaceAlbumFile(
+        instance,
+        account,
+        numericAlbumId,
+        fileId,
+        selectedFile,
+      );
 
-        return;
-      }
+      setSuccessMessage(
+        `${selectedFile.name} replaced successfully.`,
+      );
 
-      try {
-        setError(null);
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Replace failed.",
+      );
+    } finally {
+      replaceTargetIdRef.current = null;
+      event.target.value = "";
+    }
+  };
 
-        const updated =
-          await updateAlbum(
-            instance,
-            account,
-            numericAlbumId,
-            {
-              albumName:
-                albumNameDraft.trim(),
-            },
-          );
+  const handleUpdateAlbum = async () => {
+    if (
+      !account ||
+      !Number.isFinite(numericAlbumId) ||
+      !albumNameDraft.trim()
+    ) {
+      setError("Album name is required.");
+      return;
+    }
 
-        setAlbum(updated);
+    try {
+      setError(null);
 
-        setAlbumNameDraft(
-          updated.albumName,
-        );
+      const updated = await updateAlbum(
+        instance,
+        account,
+        numericAlbumId,
+        {
+          albumName: albumNameDraft.trim(),
+        },
+      );
 
-        setEditingName(false);
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to update album.",
-        );
-      }
-    };
+      setAlbum(updated);
+      setAlbumNameDraft(updated.albumName);
+      setEditingName(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update album.",
+      );
+    }
+  };
 
   const handleDeleteAlbum = async () => {
     if (!account || !album || deletingAlbum) {
       return;
     }
 
-    if (!window.confirm(`Delete "${album.albumName}"? This cannot be undone.`)) {
+    if (
+      !window.confirm(
+        `Delete "${album.albumName}"? This cannot be undone.`,
+      )
+    ) {
       return;
     }
 
     try {
       setDeletingAlbum(true);
       setError(null);
+
       await deleteAlbum(instance, account, album.id);
       navigate("/albums", { replace: true });
     } catch (caughtError) {
@@ -549,11 +520,16 @@ export default function AlbumDetailPage() {
     }
   };
 
-  const handleShowFileDetails = async (file: FileResponse) => {
-    if (!account) return;
+  const handleShowFileDetails = async (
+    file: FileResponse,
+  ) => {
+    if (!account) {
+      return;
+    }
 
     try {
       setError(null);
+
       setFileDetails(
         await getAlbumFile(
           instance,
@@ -571,135 +547,105 @@ export default function AlbumDetailPage() {
     }
   };
 
-  const handleAddMember =
-    async () => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        ) ||
-        !memberEmail.trim()
-      ) {
-        setError(
-          "An email address is required to share the album.",
-        );
+  const handleAddMember = async () => {
+    if (
+      !account ||
+      !Number.isFinite(numericAlbumId) ||
+      !memberEmail.trim()
+    ) {
+      setError(
+        "An email address is required to share the album.",
+      );
+      return;
+    }
 
-        return;
-      }
+    try {
+      setError(null);
 
-      try {
-        setError(null);
+      await addAlbumMember(
+        instance,
+        account,
+        numericAlbumId,
+        {
+          email: memberEmail.trim(),
+          canView,
+          canDownload,
+        },
+      );
 
-        await addAlbumMember(
-          instance,
-          account,
-          numericAlbumId,
-          {
-            email:
-              memberEmail.trim(),
-            canView,
-            canDownload,
-          },
-        );
+      setMemberEmail("");
+      setCanView(true);
+      setCanDownload(true);
 
-        setMemberEmail("");
-        setCanView(true);
-        setCanDownload(true);
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to share album.",
+      );
+    }
+  };
 
-        await loadAlbumData();
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to share album.",
-        );
-      }
-    };
+  const handleUpdateMember = async (
+    userId: number,
+    nextView: boolean,
+    nextDownload: boolean,
+  ) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
 
-  const handleUpdateMember =
-    async (
-      userId: number,
-      nextView: boolean,
-      nextDownload: boolean,
-    ) => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        )
-      ) {
-        return;
-      }
+    try {
+      setError(null);
 
-      try {
-        setError(null);
+      await updateAlbumMember(
+        instance,
+        account,
+        numericAlbumId,
+        userId,
+        {
+          canView: nextView,
+          canDownload: nextDownload,
+        },
+      );
 
-        await updateAlbumMember(
-          instance,
-          account,
-          numericAlbumId,
-          userId,
-          {
-            canView:
-              nextView,
-            canDownload:
-              nextDownload,
-          },
-        );
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update member access.",
+      );
+    }
+  };
 
-        await loadAlbumData();
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to update member access.",
-        );
-      }
-    };
+  const handleRemoveMember = async (userId: number) => {
+    if (!account || !Number.isFinite(numericAlbumId)) {
+      return;
+    }
 
-  const handleRemoveMember =
-    async (
-      userId: number,
-    ) => {
-      if (
-        !account ||
-        !Number.isFinite(
-          numericAlbumId,
-        )
-      ) {
-        return;
-      }
+    try {
+      setError(null);
 
-      try {
-        setError(null);
+      await removeAlbumMember(
+        instance,
+        account,
+        numericAlbumId,
+        userId,
+      );
 
-        await removeAlbumMember(
-          instance,
-          account,
-          numericAlbumId,
-          userId,
-        );
+      await loadAlbumData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to revoke access.",
+      );
+    }
+  };
 
-        await loadAlbumData();
-      } catch (
-        caughtError
-      ) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to revoke access.",
-        );
-      }
-    };
-
-  if (
-    loading ||
-    previewsLoading
-  ) {
+  if (loading) {
     return (
       <div className="app-page">
         <section className="skeleton-panel relative flex items-center gap-[17px] overflow-hidden rounded-[20px] p-[22px] max-[760px]:flex-wrap max-[760px]:p-[18px]">
@@ -713,14 +659,12 @@ export default function AlbumDetailPage() {
         </section>
 
         <section className="grid grid-cols-3 gap-[17px]">
-          {[1, 2, 3].map(
-            (item) => (
-              <div
-                key={item}
-                className="surface h-[315px] rounded-[17px]"
-              />
-            ),
-          )}
+          {[1, 2, 3].map((item) => (
+            <div
+              key={item}
+              className="surface h-[315px] rounded-[17px]"
+            />
+          ))}
         </section>
       </div>
     );
@@ -741,19 +685,14 @@ export default function AlbumDetailPage() {
             />
           </span>
 
-          <h1>
-            Album not found
-          </h1>
+          <h1>Album not found</h1>
 
           <p>
             {error ??
               "The requested album could not be loaded."}
           </p>
 
-          <Link
-            to="/albums"
-            className="primary-action"
-          >
+          <Link to="/albums" className="primary-action">
             <ArrowLeft
               aria-hidden="true"
               size={16}
@@ -813,8 +752,7 @@ export default function AlbumDetailPage() {
             Album collection
           </div>
 
-          {editingName &&
-          canManageAlbum ? (
+          {editingName && canManageAlbum ? (
             <div className="mt-[6px] flex max-w-[650px] items-center gap-[7px] max-[760px]:flex-wrap">
               <label
                 htmlFor="album-name"
@@ -825,15 +763,9 @@ export default function AlbumDetailPage() {
 
               <input
                 id="album-name"
-                value={
-                  albumNameDraft
-                }
-                onChange={(
-                  event,
-                ) =>
-                  setAlbumNameDraft(
-                    event.target.value,
-                  )
+                value={albumNameDraft}
+                onChange={(event) =>
+                  setAlbumNameDraft(event.target.value)
                 }
                 className="field min-w-0 flex-1 max-[760px]:w-full max-[760px]:basis-full"
                 maxLength={200}
@@ -842,9 +774,7 @@ export default function AlbumDetailPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  void handleUpdateAlbum()
-                }
+                onClick={() => void handleUpdateAlbum()}
                 className="primary-action compact-action"
               >
                 <Save
@@ -858,9 +788,7 @@ export default function AlbumDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setAlbumNameDraft(
-                    album.albumName,
-                  );
+                  setAlbumNameDraft(album.albumName);
                   setEditingName(false);
                 }}
                 className="secondary-action compact-action"
@@ -878,9 +806,7 @@ export default function AlbumDetailPage() {
                 <button
                   type="button"
                   className="grid h-[31px] w-[31px] flex-none place-items-center rounded-[9px] border border-[#dce9f2] bg-[rgba(255,255,255,0.63)] text-[#628097] transition-[color,background] duration-[180ms] hover:bg-[#eef7ff] hover:text-[#1a70cb] max-[520px]:mt-[3px]"
-                  onClick={() =>
-                    setEditingName(true)
-                  }
+                  onClick={() => setEditingName(true)}
                   aria-label="Edit album name"
                   title="Edit album name"
                 >
@@ -896,9 +822,7 @@ export default function AlbumDetailPage() {
 
           <p className="mt-[7px] mb-0 text-[11px] text-[#71889c]">
             {files.length}{" "}
-            {files.length === 1
-              ? "file"
-              : "files"}{" "}
+            {files.length === 1 ? "file" : "files"}
           </p>
 
           <div className="mt-[13px] flex flex-wrap gap-2">
@@ -917,17 +841,12 @@ export default function AlbumDetailPage() {
                 size={14}
                 strokeWidth={1.8}
               />
-              {formatDate(
-                album.createdAt,
-              )}
+              {formatDate(album.createdAt)}
             </span>
 
             {album.updatedAt && (
               <span className="inline-flex items-center gap-[5px] rounded-full border border-[#dceaf3] bg-[rgba(255,255,255,0.47)] px-2 py-[5px] text-[8px] font-semibold text-[#638096] max-[520px]:gap-[5px] max-[520px]:text-[7px]">
-                Updated{" "}
-                {formatDate(
-                  album.updatedAt,
-                )}
+                Updated {formatDate(album.updatedAt)}
               </span>
             )}
           </div>
@@ -937,9 +856,7 @@ export default function AlbumDetailPage() {
           <div className="flex flex-none items-center gap-2 self-center max-[760px]:ml-auto max-[520px]:ml-0 max-[520px]:w-full">
             <button
               type="button"
-              onClick={() =>
-                fileInputRef.current?.click()
-              }
+              onClick={() => fileInputRef.current?.click()}
               disabled={uploading || deletingAlbum}
               className="primary-action flex-none justify-center disabled:opacity-60 disabled:cursor-wait max-[520px]:min-w-0 max-[520px]:flex-1"
             >
@@ -948,13 +865,9 @@ export default function AlbumDetailPage() {
                 size={16}
                 strokeWidth={1.8}
               />
-
-              <span>
-                {uploading
-                  ? "Adding..."
-                  : "Add files"}
-              </span>
+              <span>{uploading ? "Adding..." : "Add files"}</span>
             </button>
+
             <button
               type="button"
               onClick={() => void handleDeleteAlbum()}
@@ -963,8 +876,14 @@ export default function AlbumDetailPage() {
               title="Delete album"
               className="inline-flex h-9 flex-none cursor-pointer items-center justify-center gap-[7px] rounded-[10px] border border-[rgba(203,154,157,0.55)] bg-[rgba(255,248,248,0.72)] px-3 text-[10px] font-semibold text-[#ad5960] transition-[background,border-color,color] duration-[180ms] hover:border-[rgba(195,105,113,0.7)] hover:bg-[rgba(255,236,237,0.9)] hover:text-[#a83f49] disabled:cursor-wait disabled:opacity-60 max-[520px]:min-w-0 max-[520px]:flex-1"
             >
-              <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />
-              <span>{deletingAlbum ? "Deleting..." : "Delete album"}</span>
+              <Trash2
+                aria-hidden="true"
+                size={15}
+                strokeWidth={1.8}
+              />
+              <span>
+                {deletingAlbum ? "Deleting..." : "Delete album"}
+              </span>
             </button>
           </div>
         )}
@@ -972,6 +891,7 @@ export default function AlbumDetailPage() {
         <input
           ref={fileInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleUpload}
         />
@@ -979,15 +899,21 @@ export default function AlbumDetailPage() {
         <input
           ref={replaceInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleReplace}
         />
       </section>
 
-      {error && (
-        <ErrorBanner
-          message={error}
-        />
+      {error && <ErrorBanner message={error} />}
+
+      {successMessage && (
+        <p
+          role="status"
+          className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]"
+        >
+          {successMessage}
+        </p>
       )}
 
       <section className="min-w-0">
@@ -1003,47 +929,50 @@ export default function AlbumDetailPage() {
           </div>
         </div>
 
+        {/* Category filters matching the Files page */}
+        <div
+          className="mb-4 flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter album files by category"
+        >
+          {FILE_CATEGORY_FILTERS.map((category) => (
+            <button
+              key={category}
+              type="button"
+              aria-pressed={categoryFilter === category}
+              onClick={() => {
+                setCategoryFilter(category);
+                setCurrentPage(1);
+              }}
+              className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${
+                categoryFilter === category
+                  ? "border-[#8bbdec] bg-[#edf6fd] text-[#236eaf]"
+                  : ""
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
         <FileCardGrid
           files={pagination.items}
           previewUrls={previewUrls}
-          favoritePendingIds={
-            favoritePendingIds
-          }
-          canManage={
-            canManageAlbum
-          }
-          onFavoriteToggle={(
-            file,
-          ) =>
-            void toggleFavorite(
-              file,
-            )
-          }
+          favoritePendingIds={favoritePendingIds}
+          canManage={canManageAlbum}
+          onFavoriteToggle={(file) => void toggleFavorite(file)}
           onReplace={(file) => {
-            replaceTargetIdRef.current =
-              file.id;
+            replaceTargetIdRef.current = file.id;
 
-            if (
-              replaceInputRef.current
-            ) {
-              replaceInputRef.current.value =
-                "";
-
+            if (replaceInputRef.current) {
+              replaceInputRef.current.value = "";
               replaceInputRef.current.click();
             }
           }}
           onDetails={(file) => void handleShowFileDetails(file)}
           onPreview={setPreviewFile}
-          onDownload={(file) =>
-            void handleDownload(
-              file,
-            )
-          }
-          onDelete={(file) =>
-            void handleDelete(
-              file.id,
-            )
-          }
+          onDownload={(file) => void handleDownload(file)}
+          onDelete={(file) => void handleDelete(file.id)}
           empty={
             <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
               <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] bg-[#e7f3ff] text-[#287dd7] shadow-[inset_0_1px_rgba(255,255,255,0.72),0_7px_18px_rgba(45,111,176,0.06)]">
@@ -1055,21 +984,21 @@ export default function AlbumDetailPage() {
               </span>
 
               <h3 className="mt-4 mb-0 text-[15px] font-[650] text-[#29445d]">
-                No files in this album
+                {files.length === 0
+                  ? "No files in this album"
+                  : `No ${categoryFilter.toLocaleLowerCase()} found`}
               </h3>
 
               <p className="mt-[7px] mb-[18px] max-w-[390px] text-[10px] leading-[1.6] text-[#8497a7]">
-                Add images or PDF documents
-                to start building this
-                collection.
+                {files.length === 0
+                  ? "Add images, documents, videos, audio files, or ZIP archives to start building this collection."
+                  : `There are no ${categoryFilter.toLocaleLowerCase()} in this album. Try another category or select All.`}
               </p>
 
-              {canManageAlbum && (
+              {canManageAlbum && files.length === 0 && (
                 <button
                   type="button"
-                  onClick={() =>
-                    fileInputRef.current?.click()
-                  }
+                  onClick={() => fileInputRef.current?.click()}
                   className="primary-action"
                 >
                   <Upload
@@ -1083,7 +1012,8 @@ export default function AlbumDetailPage() {
             </section>
           }
         />
-        {files.length > 0 && (
+
+        {filteredFiles.length > 0 && (
           <Pagination
             currentPage={pagination.currentPage}
             pageCount={pagination.pageCount}
@@ -1109,8 +1039,7 @@ export default function AlbumDetailPage() {
               </strong>
 
               <small className="text-[8px] text-[#8799a7]">
-                Manage who can view and
-                download this album
+                Manage who can view and download this album
               </small>
             </span>
 
@@ -1132,7 +1061,9 @@ export default function AlbumDetailPage() {
           </summary>
 
           <div className="grid grid-cols-[minmax(280px,0.85fr)_minmax(0,1.45fr)] gap-0 max-[960px]:grid-cols-1 max-[760px]:block max-[520px]:overflow-hidden">
-            <div className={`${sharePanelClass} border-r border-[#e4edf4] max-[960px]:border-r-0 max-[960px]:border-b max-[960px]:border-[#e4edf4]`}>
+            <div
+              className={`${sharePanelClass} border-r border-[#e4edf4] max-[960px]:border-r-0 max-[960px]:border-b max-[960px]:border-[#e4edf4]`}
+            >
               <div className="mb-[15px] flex items-center justify-between gap-[14px]">
                 <div>
                   <p className="dashboard-panel-kicker">
@@ -1153,10 +1084,7 @@ export default function AlbumDetailPage() {
                 </span>
               </div>
 
-              <label
-                htmlFor="share-email"
-                className="field-label"
-              >
+              <label htmlFor="share-email" className="field-label">
                 Email address
               </label>
 
@@ -1164,12 +1092,8 @@ export default function AlbumDetailPage() {
                 id="share-email"
                 type="email"
                 value={memberEmail}
-                onChange={(
-                  event,
-                ) =>
-                  setMemberEmail(
-                    event.target.value,
-                  )
+                onChange={(event) =>
+                  setMemberEmail(event.target.value)
                 }
                 placeholder="name@winwire.com"
                 className="field w-full"
@@ -1183,30 +1107,18 @@ export default function AlbumDetailPage() {
                     </strong>
 
                     <span className="text-[8px] leading-[1.4] text-[#91a1ad]">
-                      Allow this person to
-                      open the album.
+                      Allow this person to open the album.
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    aria-pressed={
-                      canView
-                    }
+                    aria-pressed={canView}
                     onClick={() => {
-                      setCanView(
-                        (
-                          previous,
-                        ) =>
-                          !previous,
-                      );
+                      setCanView((previous) => !previous);
 
-                      if (
-                        canView
-                      ) {
-                        setCanDownload(
-                          false,
-                        );
+                      if (canView) {
+                        setCanDownload(false);
                       }
                     }}
                     className={`${permissionToggleClass} ${
@@ -1215,11 +1127,13 @@ export default function AlbumDetailPage() {
                         : ""
                     }`}
                   >
-                    <span aria-hidden="true" className={`h-[6px] w-[6px] flex-none rounded-full ${canView ? "bg-[#1db18a]" : "bg-[#a7b5c0]"}`} />
-
-                    {canView
-                      ? "On"
-                      : "Off"}
+                    <span
+                      aria-hidden="true"
+                      className={`h-[6px] w-[6px] flex-none rounded-full ${
+                        canView ? "bg-[#1db18a]" : "bg-[#a7b5c0]"
+                      }`}
+                    />
+                    {canView ? "On" : "Off"}
                   </button>
                 </div>
 
@@ -1230,26 +1144,16 @@ export default function AlbumDetailPage() {
                     </strong>
 
                     <span className="text-[8px] leading-[1.4] text-[#91a1ad]">
-                      Allow files to be
-                      downloaded.
+                      Allow files to be downloaded.
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    aria-pressed={
-                      canDownload
-                    }
-                    disabled={
-                      !canView
-                    }
+                    aria-pressed={canDownload}
+                    disabled={!canView}
                     onClick={() =>
-                      setCanDownload(
-                        (
-                          previous,
-                        ) =>
-                          !previous,
-                      )
+                      setCanDownload((previous) => !previous)
                     }
                     className={`${permissionToggleClass} ${
                       canDownload
@@ -1261,20 +1165,20 @@ export default function AlbumDetailPage() {
                         : ""
                     }`}
                   >
-                    <span aria-hidden="true" className={`h-[6px] w-[6px] flex-none rounded-full ${canDownload ? "bg-[#1db18a]" : "bg-[#a7b5c0]"}`} />
-
-                    {canDownload
-                      ? "On"
-                      : "Off"}
+                    <span
+                      aria-hidden="true"
+                      className={`h-[6px] w-[6px] flex-none rounded-full ${
+                        canDownload ? "bg-[#1db18a]" : "bg-[#a7b5c0]"
+                      }`}
+                    />
+                    {canDownload ? "On" : "Off"}
                   </button>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={() =>
-                  void handleAddMember()
-                }
+                onClick={() => void handleAddMember()}
                 className="primary-action mt-4 w-full"
               >
                 <Link2
@@ -1314,151 +1218,122 @@ export default function AlbumDetailPage() {
                   </span>
 
                   <p className="mt-3 mb-0.5 text-[10px] font-semibold text-[#587087]">
-                    No one else has
-                    access yet.
+                    No one else has access yet.
                   </p>
 
                   <small className="text-[8px] text-[#95a4af]">
-                    Invite a WinWire user
-                    using the form.
+                    Invite a WinWire user using the form.
                   </small>
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-[#e4edf3] bg-[rgba(255,255,255,0.24)] max-[760px]:rounded-[10px]">
-                  {members.map(
-                    (
-                      member,
-                    ) => (
-                      <div
-                        key={
-                          member.userId
-                        }
-                        className="flex min-w-0 items-center gap-[9px] border-b border-[#e7eef3] px-[11px] py-[10px] transition-colors duration-[170ms] hover:bg-[rgba(235,244,251,0.48)] last:border-b-0 max-[760px]:flex-wrap"
-                      >
-                        <div className="grid h-[31px] w-[31px] flex-none place-items-center rounded-full bg-[#e8f3ff] text-[9px] font-bold text-[#2f73bb]">
-                          {member.name
-                            ?.charAt(
-                              0,
-                            )
-                            .toUpperCase() ??
-                            member.email
-                              .charAt(
-                                0,
-                              )
-                              .toUpperCase()}
-                        </div>
-
-                        <div className="grid min-w-0 flex-1 gap-0.5">
-                          <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-[650] text-[#3b556b]">
-                            {member.name ||
-                              member.email}
-                          </strong>
-
-                          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[8px] text-[#8899a6]">
-                            {
-                              member.email
-                            }
-                          </span>
-
-                          <small className="text-[7px] text-[#a0aeb8]">
-                            Granted{" "}
-                            {formatDate(
-                              member.grantedAt,
-                            )}
-                          </small>
-                        </div>
-
-                        <div className="flex flex-wrap justify-end gap-1 max-[760px]:w-full max-[760px]:justify-start max-[760px]:pl-10 max-[520px]:pl-10">
-                          <button
-                            type="button"
-                            aria-pressed={
-                              member.canView
-                            }
-                            onClick={() =>
-                              void handleUpdateMember(
-                                member.userId,
-                                !member.canView,
-                                !member.canView &&
-                                member.canDownload
-                                  ? false
-                                  : member.canDownload,
-                              )
-                            }
-                            className={`${memberPermissionClass} ${
-                              member.canView
-                                ? "border-[#d2ece5] bg-[#ebf9f5] text-[#227f6b]"
-                                : ""
-                            }`}
-                          >
-                            {member.canView && (
-                              <Check
-                                aria-hidden="true"
-                                size={12}
-                                strokeWidth={2}
-                              />
-                            )}
-                            View
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-pressed={
-                              member.canDownload
-                            }
-                            disabled={
-                              !member.canView
-                            }
-                            onClick={() =>
-                              void handleUpdateMember(
-                                member.userId,
-                                member.canView,
-                                !member.canDownload,
-                              )
-                            }
-                            className={`${memberPermissionClass} ${
-                              member.canDownload
-                                ? "border-[#d2ece5] bg-[#ebf9f5] text-[#227f6b]"
-                                : ""
-                            } ${
-                              !member.canView
-                                ? "cursor-not-allowed opacity-[0.47]"
-                                : ""
-                            }`}
-                          >
-                            {member.canDownload && (
-                              <Download
-                                aria-hidden="true"
-                                size={12}
-                                strokeWidth={1.9}
-                              />
-                            )}
-                            Download
-                          </button>
-
-                          <button
-                            type="button"
-                            aria-label={`Revoke access for ${member.email}`}
-                            title="Revoke access"
-                            onClick={() =>
-                              void handleRemoveMember(
-                                member.userId,
-                              )
-                            }
-                            className="inline-flex min-h-[26px] cursor-pointer items-center justify-center gap-1 rounded-[7px] border border-[#efd6d8] bg-[#fff3f4] px-[7px] text-[7px] font-[650] text-[#d25259] transition-[color,background,border-color] duration-[160ms] hover:bg-[#ffe9eb] hover:text-[#bd3e47] max-[520px]:w-7 max-[520px]:px-0"
-                          >
-                            <Trash2
-                              aria-hidden="true"
-                              size={15}
-                              strokeWidth={1.8}
-                            />
-                            <span className="max-[520px]:hidden">
-                              Revoke
-                            </span>
-                          </button>
-                        </div>
+                  {members.map((member) => (
+                    <div
+                      key={member.userId}
+                      className="flex min-w-0 items-center gap-[9px] border-b border-[#e7eef3] px-[11px] py-[10px] transition-colors duration-[170ms] hover:bg-[rgba(235,244,251,0.48)] last:border-b-0 max-[760px]:flex-wrap"
+                    >
+                      <div className="grid h-[31px] w-[31px] flex-none place-items-center rounded-full bg-[#e8f3ff] text-[9px] font-bold text-[#2f73bb]">
+                        {member.name
+                          ?.charAt(0)
+                          .toUpperCase() ??
+                          member.email.charAt(0).toUpperCase()}
                       </div>
-                    ),
-                  )}
+
+                      <div className="grid min-w-0 flex-1 gap-0.5">
+                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-[650] text-[#3b556b]">
+                          {member.name || member.email}
+                        </strong>
+
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[8px] text-[#8899a6]">
+                          {member.email}
+                        </span>
+
+                        <small className="text-[7px] text-[#a0aeb8]">
+                          Granted {formatDate(member.grantedAt)}
+                        </small>
+                      </div>
+
+                      <div className="flex flex-wrap justify-end gap-1 max-[760px]:w-full max-[760px]:justify-start max-[760px]:pl-10 max-[520px]:pl-10">
+                        <button
+                          type="button"
+                          aria-pressed={member.canView}
+                          onClick={() =>
+                            void handleUpdateMember(
+                              member.userId,
+                              !member.canView,
+                              !member.canView && member.canDownload
+                                ? false
+                                : member.canDownload,
+                            )
+                          }
+                          className={`${memberPermissionClass} ${
+                            member.canView
+                              ? "border-[#d2ece5] bg-[#ebf9f5] text-[#227f6b]"
+                              : ""
+                          }`}
+                        >
+                          {member.canView && (
+                            <Check
+                              aria-hidden="true"
+                              size={12}
+                              strokeWidth={2}
+                            />
+                          )}
+                          View
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-pressed={member.canDownload}
+                          disabled={!member.canView}
+                          onClick={() =>
+                            void handleUpdateMember(
+                              member.userId,
+                              member.canView,
+                              !member.canDownload,
+                            )
+                          }
+                          className={`${memberPermissionClass} ${
+                            member.canDownload
+                              ? "border-[#d2ece5] bg-[#ebf9f5] text-[#227f6b]"
+                              : ""
+                          } ${
+                            !member.canView
+                              ? "cursor-not-allowed opacity-[0.47]"
+                              : ""
+                          }`}
+                        >
+                          {member.canDownload && (
+                            <Download
+                              aria-hidden="true"
+                              size={12}
+                              strokeWidth={1.9}
+                            />
+                          )}
+                          Download
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label={`Revoke access for ${member.email}`}
+                          title="Revoke access"
+                          onClick={() =>
+                            void handleRemoveMember(member.userId)
+                          }
+                          className="inline-flex min-h-[26px] cursor-pointer items-center justify-center gap-1 rounded-[7px] border border-[#efd6d8] bg-[#fff3f4] px-[7px] text-[7px] font-[650] text-[#d25259] transition-[color,background,border-color] duration-[160ms] hover:bg-[#ffe9eb] hover:text-[#bd3e47] max-[520px]:w-7 max-[520px]:px-0"
+                        >
+                          <Trash2
+                            aria-hidden="true"
+                            size={15}
+                            strokeWidth={1.8}
+                          />
+                          <span className="max-[520px]:hidden">
+                            Revoke
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1482,21 +1357,27 @@ export default function AlbumDetailPage() {
             </strong>
 
             <p className="mt-[3px] text-[9px] text-[#899baa]">
-              You have access to this
-              collection based on the
-              permissions assigned to your
-              account.
+              You have access to this collection based on the
+              permissions assigned to your account.
             </p>
           </div>
         </section>
       )}
+
       {fileDetails && (
         <FileDetailsDialog
           file={fileDetails}
           onClose={() => setFileDetails(null)}
         />
       )}
-      {previewFile && <ImagePreviewModal file={previewFile} src={previewUrls[previewFile.id]} onClose={() => setPreviewFile(null)} />}
+
+      {previewFile && (
+        <ImagePreviewModal
+          file={previewFile}
+          src={previewUrls[previewFile.id]}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
   );
 }

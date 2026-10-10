@@ -26,6 +26,7 @@ import { useAuth } from "../context/AuthContext";
 import usePagination from "../hooks/usePagination";
 import type { AlbumResponse } from "../types/album";
 import type { AdminFileResponse } from "../types/file";
+import { getAccountKey } from "../utils/accountKey";
 import {
   formatDate,
   formatFileSize,
@@ -43,6 +44,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const { instance } = useMsal();
   const { account } = useAuth();
+  const accountKey = getAccountKey(account);
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [files, setFiles] = useState<AdminFileResponse[]>([]);
@@ -96,7 +98,7 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
-  }, [account, instance, scope]);
+  }, [accountKey, instance, scope]);
 
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const filteredAlbums = useMemo(

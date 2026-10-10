@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -39,6 +40,8 @@ import useFilePreviews from "../hooks/useFilePreviews";
 import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
+import { getAccountKey } from "../utils/accountKey";
+import { FILE_CATEGORY_FILTERS, type FileCategoryFilter, getFileCategory, SUPPORTED_FILE_ACCEPT, validateUploadFile } from "../constants/fileSupport";
 
 const fileToolbarClass =
   "flex flex-wrap items-center justify-end gap-2 max-[960px]:w-full max-[960px]:justify-start max-[760px]:grid max-[760px]:grid-cols-1";
@@ -58,6 +61,7 @@ const PAGE_SIZE = 12;
 export default function FilesPage() {
   const { instance } = useMsal();
   const { account } = useAuth();
+  const accountKey = getAccountKey(account);
 
   const fileInputRef =
     useRef<HTMLInputElement | null>(null);
@@ -80,8 +84,10 @@ export default function FilesPage() {
     useState<string | null>(null);
   const [uploading, setUploading] =
     useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] =
     useState("");
+  const [categoryFilter, setCategoryFilter] = useState<FileCategoryFilter>("All");
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
   const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
@@ -108,24 +114,27 @@ export default function FilesPage() {
         file.contentType,
       );
     },
-    [account, instance],
+    [accountKey, instance],
   );
 
   const normalizedQuery =
     searchQuery.trim().toLocaleLowerCase();
 
-  const filteredFiles = normalizedQuery
-    ? files.filter(
-        (file) =>
-          file.originalFileName
-            .toLocaleLowerCase()
-            .includes(normalizedQuery) ||
-          file.contentType
-            .toLocaleLowerCase()
-            .includes(normalizedQuery) ||
-          String(file.id).includes(normalizedQuery),
-      )
-    : files;
+  const filteredFiles = useMemo(
+    () => files.filter((file) => {
+      const matchesCategory = categoryFilter === "All" || getFileCategory(file.originalFileName) === categoryFilter;
+      const matchesQuery = !normalizedQuery ||
+        file.originalFileName
+          .toLocaleLowerCase()
+          .includes(normalizedQuery) ||
+        file.contentType
+          .toLocaleLowerCase()
+          .includes(normalizedQuery) ||
+        String(file.id).includes(normalizedQuery);
+      return matchesCategory && matchesQuery;
+    }),
+    [categoryFilter, files, normalizedQuery],
+  );
   const pagination = usePagination(
     filteredFiles,
     currentPage,
@@ -133,7 +142,6 @@ export default function FilesPage() {
   );
   const {
     previewUrls,
-    loading: previewsLoading,
   } = useFilePreviews(pagination.items, loadPreview);
 
   const loadFiles = async (
@@ -166,7 +174,7 @@ export default function FilesPage() {
 
   useEffect(() => {
     void loadFiles(view);
-  }, [account, instance, view]);
+  }, [accountKey, instance, view]);
 
   const handleUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -177,15 +185,20 @@ export default function FilesPage() {
       return;
     }
 
+    const validationError = validateUploadFile(selectedFile);
+    if (validationError) { setError(validationError); event.target.value = ""; return; }
+
     try {
       setUploading(true);
       setError(null);
+      setSuccessMessage(null);
 
       await uploadFile(
         instance,
         account,
         selectedFile,
       );
+      setSuccessMessage(`${selectedFile.name} uploaded successfully.`);
 
       event.target.value = "";
 
@@ -216,8 +229,12 @@ export default function FilesPage() {
       return;
     }
 
+    const validationError = validateUploadFile(selectedFile);
+    if (validationError) { setError(validationError); event.target.value = ""; return; }
+
     try {
       setError(null);
+      setSuccessMessage(null);
 
       await replaceFile(
         instance,
@@ -225,6 +242,7 @@ export default function FilesPage() {
         fileId,
         selectedFile,
       );
+      setSuccessMessage(`${selectedFile.name} replaced successfully.`);
 
       await loadFiles(view);
     } catch (caughtError) {
@@ -349,7 +367,7 @@ export default function FilesPage() {
     }
   };
 
-  if (loading || previewsLoading) {
+  if (loading) {
     return (
       <div className="app-page">
         <section className={pageHeaderSkeletonClass}>
@@ -514,6 +532,7 @@ export default function FilesPage() {
         <input
           ref={fileInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleUpload}
         />
@@ -521,12 +540,18 @@ export default function FilesPage() {
         <input
           ref={replaceInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleReplace}
         />
       </section>
 
+      {view === "all" && <div className="flex flex-wrap gap-2" role="group" aria-label="Filter files by category">
+        {FILE_CATEGORY_FILTERS.map((category) => <button key={category} type="button" aria-pressed={categoryFilter === category} onClick={() => { setCategoryFilter(category); setCurrentPage(1); }} className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "border-[#8bbdec] bg-[#edf6fd] text-[#236eaf]" : ""}`}>{category}</button>)}
+      </div>}
+
       {error && <ErrorBanner message={error} />}
+      {successMessage && <p role="status" className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]">{successMessage}</p>}
 
       <section
         className="min-w-0"
@@ -563,9 +588,13 @@ export default function FilesPage() {
                 ? searchQuery
                   ? "No favorite files found"
                   : "No favorite files yet"
-                : files.length === 0
+                  : files.length === 0
                   ? "No files uploaded yet"
-                  : "No files match your search"}
+                  : categoryFilter !== "All" && normalizedQuery
+                    ? "No files match these filters"
+                    : categoryFilter !== "All"
+                      ? `No ${categoryFilter.toLocaleLowerCase()} found`
+                      : "No files match your search"}
             </h3>
 
             <p className="mt-[7px] mb-[18px] max-w-[390px] text-[10px] leading-[1.6] text-[#8497a7]">
@@ -573,8 +602,8 @@ export default function FilesPage() {
                 ? searchQuery
                   ? "Try a different filename, type, or ID."
                   : "Favorite a file to keep it close at hand."
-                : files.length === 0
-                  ? "Upload an image or PDF to start building your library."
+                  : files.length === 0
+                  ? "Upload a supported image, document, video, audio file, or ZIP archive to start building your library."
                   : "Try changing your search terms."}
             </p>
 

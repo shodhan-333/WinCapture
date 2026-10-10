@@ -6682,12 +6682,19 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\components\F
 ============================================================
 
 import {
+  FileArchive,
+  FileAudio,
+  FileImage,
+  FileSpreadsheet,
   FileText,
+  FileVideo,
+  Presentation,
   Star,
 } from "lucide-react";
 
 import FileActionMenu from "./files/FileActionMenu";
 import type { FileResponse } from "../types/file";
+import { getFileCategory, isPreviewableFile } from "../constants/fileSupport";
 import {
   formatDate,
   formatFileSize,
@@ -6707,18 +6714,6 @@ interface FileCardProps {
   onDelete: () => void;
 }
 
-function getFileCategory(contentType: string): string {
-  if (contentType.startsWith("image/")) {
-    return "image";
-  }
-
-  if (contentType === "application/pdf") {
-    return "document";
-  }
-
-  return "file";
-}
-
 export default function FileCard({
   file,
   previewUrl,
@@ -6731,14 +6726,26 @@ export default function FileCard({
   onDownload,
   onDelete,
 }: FileCardProps) {
-  const isImage =
-    file.contentType.startsWith("image/");
+  const fileCategory = getFileCategory(file.originalFileName);
+  const isImage = fileCategory === "Images";
 
   const effectiveCanManage =
     canManage ?? file.canManage;
 
-  const category =
-    getFileCategory(file.contentType);
+  const lowerFileName = file.originalFileName.toLocaleLowerCase();
+  const Icon = fileCategory === "Images"
+    ? FileImage
+    : fileCategory === "Videos"
+      ? FileVideo
+      : fileCategory === "Audio"
+        ? FileAudio
+        : fileCategory === "Archives"
+          ? FileArchive
+          : lowerFileName.endsWith(".xlsx") || lowerFileName.endsWith(".csv")
+            ? FileSpreadsheet
+            : lowerFileName.endsWith(".pptx")
+              ? Presentation
+              : FileText;
 
   return (
     <article className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-[3px] hover:border-[rgba(178,207,231,0.68)] hover:shadow-[0_17px_34px_rgba(49,103,149,0.12),inset_0_0_0_1px_rgba(201,222,237,0.22)]">
@@ -6758,9 +6765,9 @@ export default function FileCard({
             className="h-full w-full cursor-zoom-in object-cover transition-[transform,filter] duration-[350ms] group-hover:scale-[1.04] group-hover:saturate-[1.03]"
           />
         ) : (
-          <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${category === "document" ? "bg-[linear-gradient(145deg,#f1efff,#e7e8ff)] text-[#5d67c9]" : category === "file" ? "bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]" : ""}`}>
-            <span className={`grid h-[57px] w-[57px] place-items-center rounded-[17px] bg-[rgba(255,255,255,0.66)] text-[#3788da] shadow-[0_9px_20px_rgba(49,109,161,0.07),inset_0_1px_rgba(255,255,255,0.76)] ${category === "document" ? "text-[#656fd3]" : ""}`}>
-              <FileText
+          <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${fileCategory === "Documents" ? "bg-[linear-gradient(145deg,#f1efff,#e7e8ff)] text-[#5d67c9]" : fileCategory === "Archives" ? "bg-[linear-gradient(145deg,#fff6e9,#f8ead7)] text-[#a66a23]" : "bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]"}`}>
+            <span className={`grid h-[57px] w-[57px] place-items-center rounded-[17px] bg-[rgba(255,255,255,0.66)] text-[#3788da] shadow-[0_9px_20px_rgba(49,109,161,0.07),inset_0_1px_rgba(255,255,255,0.76)] ${fileCategory === "Documents" ? "text-[#656fd3]" : ""}`}>
+              <Icon
                 aria-hidden="true"
                 size={38}
                 strokeWidth={1.45}
@@ -6839,6 +6846,8 @@ export default function FileCard({
               fileName={file.originalFileName}
               canManage={effectiveCanManage}
               onDetails={onDetails}
+              onPreview={onPreview}
+              canPreview={isPreviewableFile(file.originalFileName)}
               onReplace={onReplace}
               onDownload={onDownload}
               onDelete={onDelete}
@@ -6872,6 +6881,7 @@ import {
   Download,
   Info,
   MoreHorizontal,
+  Eye,
   Replace,
   Trash2,
 } from "lucide-react";
@@ -6882,6 +6892,8 @@ interface FileActionMenuProps {
   canManage: boolean;
   onReplace: () => void;
   onDetails: () => void;
+  onPreview: () => void;
+  canPreview: boolean;
   onDownload: () => void;
   onDelete: () => void;
 }
@@ -6899,6 +6911,8 @@ export default function FileActionMenu({
   canManage,
   onReplace,
   onDetails,
+  onPreview,
+  canPreview,
   onDownload,
   onDelete,
 }: FileActionMenuProps) {
@@ -7092,7 +7106,7 @@ export default function FileActionMenu({
           >
             <button
               type="button"
-              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5]"
+              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
               role="menuitem"
               onClick={() => runAction(onDetails)}
             >
@@ -7100,10 +7114,15 @@ export default function FileActionMenu({
               <span>Details</span>
             </button>
 
+            {canPreview && <button type="button" className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]" role="menuitem" onClick={() => runAction(onPreview)}>
+              <Eye aria-hidden="true" size={16} strokeWidth={1.8} />
+              <span>Preview</span>
+            </button>}
+
             {canManage && (
               <button
                 type="button"
-                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5]"
+                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
                 role="menuitem"
                 onClick={() =>
                   runAction(onReplace)
@@ -7121,7 +7140,7 @@ export default function FileActionMenu({
 
             <button
               type="button"
-              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5]"
+              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
               role="menuitem"
               onClick={() =>
                 runAction(onDownload)
@@ -7139,7 +7158,7 @@ export default function FileActionMenu({
             {canManage && (
               <button
                 type="button"
-                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#d85059] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#fff0f1] hover:text-[#c33d46]"
+                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#d85059] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#fff0f1] hover:text-[#c33d46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d85059]"
                 role="menuitem"
                 onClick={() =>
                   runAction(onDelete)
@@ -7318,8 +7337,9 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\components\f
 ============================================================
 
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { FileWarning, X } from "lucide-react";
 import type { FileResponse } from "../../types/file";
+import { getFileExtension } from "../../constants/fileSupport";
 
 export default function ImagePreviewModal({ file, src, onClose }: { file: FileResponse; src?: string; onClose: () => void }) {
   useEffect(() => {
@@ -7327,9 +7347,22 @@ export default function ImagePreviewModal({ file, src, onClose }: { file: FileRe
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
+  const extension = getFileExtension(file.originalFileName);
+  const isImage = [".jpg", ".jpeg", ".png", ".webp"].includes(extension);
+  const isVideo = [".mp4", ".mov", ".webm"].includes(extension);
+  const isAudio = [".mp3", ".wav", ".m4a"].includes(extension);
+  const isPdf = extension === ".pdf";
+  const isText = [".txt", ".csv"].includes(extension);
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-5" role="dialog" aria-modal="true" aria-label={`Preview ${file.originalFileName}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <button type="button" onClick={onClose} aria-label="Close image preview" className="absolute right-5 top-5 rounded-full bg-white/15 p-3 text-white hover:bg-white/25"><X aria-hidden="true" /></button>
-    {src ? <img src={src} alt={file.originalFileName} className="max-h-[90vh] max-w-[95vw] object-contain" /> : <p className="text-white">Preview unavailable</p>}
+    <button type="button" onClick={onClose} aria-label="Close file preview" className="absolute right-5 top-5 rounded-full bg-white/15 p-3 text-white hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"><X aria-hidden="true" /></button>
+    <h2 className="absolute left-5 top-5 max-w-[75vw] overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-white" title={file.originalFileName}>{file.originalFileName}</h2>
+    {!src ? <div className="flex flex-col items-center gap-3 text-white" role="status"><FileWarning aria-hidden="true" size={30} /><p>Preview unavailable</p><p>You can download the file instead.</p></div>
+      : isImage ? <img src={src} alt={file.originalFileName} className="max-h-[90vh] max-w-[95vw] object-contain" />
+      : isVideo ? <video src={src} controls playsInline className="max-h-[85vh] max-w-[95vw]" aria-label={file.originalFileName}>Video preview is not supported by this browser.</video>
+      : isAudio ? <audio src={src} controls aria-label={file.originalFileName}>Audio preview is not supported by this browser.</audio>
+      : isPdf ? <iframe src={src} title={`PDF preview: ${file.originalFileName}`} className="h-[85vh] w-[min(1000px,95vw)] rounded bg-white" />
+      : isText ? <iframe src={src} title={`Text preview: ${file.originalFileName}`} sandbox="" className="h-[85vh] w-[min(1000px,95vw)] rounded bg-white" />
+      : <div className="flex flex-col items-center gap-3 text-white"><FileWarning aria-hidden="true" size={30} /><p>Preview is not available for this file type.</p></div>}
   </div>;
 }
 
@@ -7652,6 +7685,89 @@ export const appShellClass =
 
 
 ============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\constants\fileSupport.ts
+============================================================
+
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+export const FILE_EXTENSIONS = {
+  Images: [".jpg", ".jpeg", ".png", ".webp"],
+  Documents: [".pdf", ".txt", ".csv", ".docx", ".xlsx", ".pptx"],
+  Videos: [".mp4", ".mov", ".webm"],
+  Audio: [".mp3", ".wav", ".m4a"],
+  Archives: [".zip"],
+} as const;
+
+export type FileCategory = keyof typeof FILE_EXTENSIONS;
+export type FileCategoryFilter = "All" | FileCategory;
+
+export const FILE_CATEGORY_FILTERS: FileCategoryFilter[] = [
+  "All",
+  "Images",
+  "Documents",
+  "Videos",
+  "Audio",
+  "Archives",
+];
+
+export const SUPPORTED_FILE_ACCEPT = Object.values(FILE_EXTENSIONS)
+  .flat()
+  .join(",");
+
+export function getFileExtension(fileName: string): string {
+  const lastDot = fileName.lastIndexOf(".");
+  return lastDot >= 0 ? fileName.slice(lastDot).toLocaleLowerCase() : "";
+}
+
+export function getFileCategory(fileName: string): FileCategory | undefined {
+  const extension = getFileExtension(fileName);
+
+  return (
+    Object.entries(FILE_EXTENSIONS) as [
+      FileCategory,
+      readonly string[],
+    ][]
+  ).find(([, extensions]) => extensions.includes(extension))?.[0];
+}
+
+export function validateUploadFile(file: File): string | undefined {
+  if (!getFileCategory(file.name)) {
+    return "Unsupported file format.";
+  }
+
+  if (file.size <= 0) {
+    return "The selected file is empty.";
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return "Files must be 10 MB or smaller.";
+  }
+
+  return undefined;
+}
+
+export function isPreviewableFile(fileName: string): boolean {
+  const extension = getFileExtension(fileName);
+
+  return [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".pdf",
+    ".txt",
+    ".csv",
+    ".mp4",
+    ".mov",
+    ".webm",
+    ".mp3",
+    ".wav",
+    ".m4a",
+  ].includes(extension);
+}
+
+
+============================================================
 FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\context\AuthContext.tsx
 ============================================================
 
@@ -7896,6 +8012,7 @@ import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser"
 
 import { getAlbumFiles, getFilePreviewUrl } from "../api/apiClient";
 import type { AlbumResponse } from "../types/album";
+import { getAccountKey } from "../utils/accountKey";
 
 export default function useAlbumCoverPreviews(
   albums: AlbumResponse[],
@@ -7905,6 +8022,7 @@ export default function useAlbumCoverPreviews(
   isAdmin = false,
 ): Record<number, string> {
   const [coverUrls, setCoverUrls] = useState<Record<number, string>>({});
+  const accountKey = getAccountKey(account);
 
   useEffect(() => {
     let active = true;
@@ -7966,7 +8084,7 @@ export default function useAlbumCoverPreviews(
       cleanupRequested = true;
       createdUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [account, albums, instance, isAdmin, userId]);
+  }, [accountKey, albums, instance, isAdmin, userId]);
 
   return coverUrls;
 }
@@ -8084,6 +8202,7 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\hooks\useFil
 import { useEffect, useRef, useState } from "react";
 
 import type { FileResponse } from "../types/file";
+import { isPreviewableFile } from "../constants/fileSupport";
 
 export type FilePreviewLoader = (
   file: FileResponse,
@@ -8108,9 +8227,7 @@ export default function useFilePreviews(
   useEffect(() => {
     let active = true;
 
-    const imageFiles = files.filter((file) =>
-      file.contentType.startsWith("image/"),
-    );
+    const imageFiles = files.filter((file) => isPreviewableFile(file.originalFileName));
 
     const signatureFor = (file: FileResponse) =>
       `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
@@ -8960,6 +9077,7 @@ import { useAuth } from "../context/AuthContext";
 import usePagination from "../hooks/usePagination";
 import type { AlbumResponse } from "../types/album";
 import type { AdminFileResponse } from "../types/file";
+import { getAccountKey } from "../utils/accountKey";
 import {
   formatDate,
   formatFileSize,
@@ -8977,6 +9095,7 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const { instance } = useMsal();
   const { account } = useAuth();
+  const accountKey = getAccountKey(account);
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [files, setFiles] = useState<AdminFileResponse[]>([]);
@@ -9030,7 +9149,7 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
-  }, [account, instance, scope]);
+  }, [accountKey, instance, scope]);
 
   const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
   const filteredAlbums = useMemo(
@@ -9362,7 +9481,9 @@ import type {
   AlbumResponse,
 } from "../types/album";
 import type { FileResponse } from "../types/file";
+import { SUPPORTED_FILE_ACCEPT, validateUploadFile } from "../constants/fileSupport";
 import { formatDate } from "../utils/formatters";
+import { getAccountKey } from "../utils/accountKey";
 
 const PAGE_SIZE = 12;
 
@@ -9381,6 +9502,7 @@ export default function AlbumDetailPage() {
     account,
     user,
   } = useAuth();
+  const accountKey = getAccountKey(account);
 
   const { albumId } =
     useParams();
@@ -9414,6 +9536,7 @@ export default function AlbumDetailPage() {
 
   const [error, setError] =
     useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [uploading, setUploading] =
     useState(false);
@@ -9465,7 +9588,7 @@ export default function AlbumDetailPage() {
       );
     },
     [
-      account,
+      accountKey,
       canManageAlbum,
       instance,
       numericAlbumId,
@@ -9479,7 +9602,6 @@ export default function AlbumDetailPage() {
   );
   const {
     previewUrls,
-    loading: previewsLoading,
   } = useFilePreviews(pagination.items, loadPreview);
   const albumCoverPreview = files.find(
     (file) =>
@@ -9566,7 +9688,7 @@ export default function AlbumDetailPage() {
       void loadAlbumData();
     },
     [
-      account,
+      accountKey,
       instance,
       numericAlbumId,
       user?.role,
@@ -9634,9 +9756,13 @@ export default function AlbumDetailPage() {
         return;
       }
 
+      const validationError = validateUploadFile(selectedFile);
+      if (validationError) { setError(validationError); event.target.value = ""; return; }
+
       try {
         setUploading(true);
         setError(null);
+        setSuccessMessage(null);
 
         await uploadAlbumFile(
           instance,
@@ -9644,6 +9770,7 @@ export default function AlbumDetailPage() {
           numericAlbumId,
           selectedFile,
         );
+        setSuccessMessage(`${selectedFile.name} added to the album.`);
 
         event.target.value = "";
 
@@ -9676,6 +9803,7 @@ export default function AlbumDetailPage() {
 
       try {
         setError(null);
+        setSuccessMessage(null);
 
         await downloadAlbumFile(
           instance,
@@ -9751,6 +9879,9 @@ export default function AlbumDetailPage() {
         return;
       }
 
+      const validationError = validateUploadFile(selectedFile);
+      if (validationError) { setError(validationError); event.target.value = ""; return; }
+
       try {
         setError(null);
 
@@ -9761,6 +9892,7 @@ export default function AlbumDetailPage() {
           fileId,
           selectedFile,
         );
+        setSuccessMessage(`${selectedFile.name} replaced successfully.`);
 
         await loadAlbumData();
       } catch (
@@ -9999,10 +10131,7 @@ export default function AlbumDetailPage() {
       }
     };
 
-  if (
-    loading ||
-    previewsLoading
-  ) {
+  if (loading) {
     return (
       <div className="app-page">
         <section className="skeleton-panel relative flex items-center gap-[17px] overflow-hidden rounded-[20px] p-[22px] max-[760px]:flex-wrap max-[760px]:p-[18px]">
@@ -10275,6 +10404,7 @@ export default function AlbumDetailPage() {
         <input
           ref={fileInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleUpload}
         />
@@ -10282,6 +10412,7 @@ export default function AlbumDetailPage() {
         <input
           ref={replaceInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleReplace}
         />
@@ -10292,6 +10423,7 @@ export default function AlbumDetailPage() {
           message={error}
         />
       )}
+      {successMessage && <p role="status" className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]">{successMessage}</p>}
 
       <section className="min-w-0">
         <div className="mb-[15px] flex items-end justify-between gap-[18px]">
@@ -10831,12 +10963,14 @@ import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import { formatDate } from "../utils/formatters";
+import { getAccountKey } from "../utils/accountKey";
 
 const PAGE_SIZE = 9;
 
 export default function AlbumsPage() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
+  const accountKey = getAccountKey(account);
   const navigate = useNavigate();
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
@@ -10884,7 +11018,7 @@ export default function AlbumsPage() {
 
   useEffect(() => {
     void loadAlbums();
-  }, [account, instance]);
+  }, [accountKey, instance]);
 
   const handleCreateAlbum = async () => {
     if (!account || !albumName.trim()) {
@@ -11235,6 +11369,7 @@ import {
   formatFileSize,
   formatFileType,
 } from "../utils/formatters";
+import { getAccountKey } from "../utils/accountKey";
 
 const dashboardPanelClass =
   "surface min-w-0 overflow-hidden rounded-[18px]";
@@ -11248,6 +11383,7 @@ const dashboardIconClass =
 export default function Dashboard() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
+  const accountKey = getAccountKey(account);
   const navigate = useNavigate();
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
@@ -11270,7 +11406,7 @@ export default function Dashboard() {
       }
       return getFilePreviewUrl(instance, account, file.id);
     },
-    [account, instance],
+    [accountKey, instance],
   );
   const { previewUrls: recentFilePreviewUrls } = useFilePreviews(
     recentFiles,
@@ -11718,6 +11854,7 @@ FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\pages\FilesP
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -11756,6 +11893,8 @@ import useFilePreviews from "../hooks/useFilePreviews";
 import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
+import { getAccountKey } from "../utils/accountKey";
+import { FILE_CATEGORY_FILTERS, type FileCategoryFilter, getFileCategory, SUPPORTED_FILE_ACCEPT, validateUploadFile } from "../constants/fileSupport";
 
 const fileToolbarClass =
   "flex flex-wrap items-center justify-end gap-2 max-[960px]:w-full max-[960px]:justify-start max-[760px]:grid max-[760px]:grid-cols-1";
@@ -11775,6 +11914,7 @@ const PAGE_SIZE = 12;
 export default function FilesPage() {
   const { instance } = useMsal();
   const { account } = useAuth();
+  const accountKey = getAccountKey(account);
 
   const fileInputRef =
     useRef<HTMLInputElement | null>(null);
@@ -11797,8 +11937,10 @@ export default function FilesPage() {
     useState<string | null>(null);
   const [uploading, setUploading] =
     useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] =
     useState("");
+  const [categoryFilter, setCategoryFilter] = useState<FileCategoryFilter>("All");
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
   const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
@@ -11825,24 +11967,27 @@ export default function FilesPage() {
         file.contentType,
       );
     },
-    [account, instance],
+    [accountKey, instance],
   );
 
   const normalizedQuery =
     searchQuery.trim().toLocaleLowerCase();
 
-  const filteredFiles = normalizedQuery
-    ? files.filter(
-        (file) =>
-          file.originalFileName
-            .toLocaleLowerCase()
-            .includes(normalizedQuery) ||
-          file.contentType
-            .toLocaleLowerCase()
-            .includes(normalizedQuery) ||
-          String(file.id).includes(normalizedQuery),
-      )
-    : files;
+  const filteredFiles = useMemo(
+    () => files.filter((file) => {
+      const matchesCategory = categoryFilter === "All" || getFileCategory(file.originalFileName) === categoryFilter;
+      const matchesQuery = !normalizedQuery ||
+        file.originalFileName
+          .toLocaleLowerCase()
+          .includes(normalizedQuery) ||
+        file.contentType
+          .toLocaleLowerCase()
+          .includes(normalizedQuery) ||
+        String(file.id).includes(normalizedQuery);
+      return matchesCategory && matchesQuery;
+    }),
+    [categoryFilter, files, normalizedQuery],
+  );
   const pagination = usePagination(
     filteredFiles,
     currentPage,
@@ -11850,7 +11995,6 @@ export default function FilesPage() {
   );
   const {
     previewUrls,
-    loading: previewsLoading,
   } = useFilePreviews(pagination.items, loadPreview);
 
   const loadFiles = async (
@@ -11883,7 +12027,7 @@ export default function FilesPage() {
 
   useEffect(() => {
     void loadFiles(view);
-  }, [account, instance, view]);
+  }, [accountKey, instance, view]);
 
   const handleUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -11894,15 +12038,20 @@ export default function FilesPage() {
       return;
     }
 
+    const validationError = validateUploadFile(selectedFile);
+    if (validationError) { setError(validationError); event.target.value = ""; return; }
+
     try {
       setUploading(true);
       setError(null);
+      setSuccessMessage(null);
 
       await uploadFile(
         instance,
         account,
         selectedFile,
       );
+      setSuccessMessage(`${selectedFile.name} uploaded successfully.`);
 
       event.target.value = "";
 
@@ -11933,8 +12082,12 @@ export default function FilesPage() {
       return;
     }
 
+    const validationError = validateUploadFile(selectedFile);
+    if (validationError) { setError(validationError); event.target.value = ""; return; }
+
     try {
       setError(null);
+      setSuccessMessage(null);
 
       await replaceFile(
         instance,
@@ -11942,6 +12095,7 @@ export default function FilesPage() {
         fileId,
         selectedFile,
       );
+      setSuccessMessage(`${selectedFile.name} replaced successfully.`);
 
       await loadFiles(view);
     } catch (caughtError) {
@@ -12066,7 +12220,7 @@ export default function FilesPage() {
     }
   };
 
-  if (loading || previewsLoading) {
+  if (loading) {
     return (
       <div className="app-page">
         <section className={pageHeaderSkeletonClass}>
@@ -12231,6 +12385,7 @@ export default function FilesPage() {
         <input
           ref={fileInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleUpload}
         />
@@ -12238,12 +12393,18 @@ export default function FilesPage() {
         <input
           ref={replaceInputRef}
           type="file"
+          accept={SUPPORTED_FILE_ACCEPT}
           className="hidden"
           onChange={handleReplace}
         />
       </section>
 
+      {view === "all" && <div className="flex flex-wrap gap-2" role="group" aria-label="Filter files by category">
+        {FILE_CATEGORY_FILTERS.map((category) => <button key={category} type="button" aria-pressed={categoryFilter === category} onClick={() => { setCategoryFilter(category); setCurrentPage(1); }} className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "border-[#8bbdec] bg-[#edf6fd] text-[#236eaf]" : ""}`}>{category}</button>)}
+      </div>}
+
       {error && <ErrorBanner message={error} />}
+      {successMessage && <p role="status" className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]">{successMessage}</p>}
 
       <section
         className="min-w-0"
@@ -12280,9 +12441,13 @@ export default function FilesPage() {
                 ? searchQuery
                   ? "No favorite files found"
                   : "No favorite files yet"
-                : files.length === 0
+                  : files.length === 0
                   ? "No files uploaded yet"
-                  : "No files match your search"}
+                  : categoryFilter !== "All" && normalizedQuery
+                    ? "No files match these filters"
+                    : categoryFilter !== "All"
+                      ? `No ${categoryFilter.toLocaleLowerCase()} found`
+                      : "No files match your search"}
             </h3>
 
             <p className="mt-[7px] mb-[18px] max-w-[390px] text-[10px] leading-[1.6] text-[#8497a7]">
@@ -12290,8 +12455,8 @@ export default function FilesPage() {
                 ? searchQuery
                   ? "Try a different filename, type, or ID."
                   : "Favorite a file to keep it close at hand."
-                : files.length === 0
-                  ? "Upload an image or PDF to start building your library."
+                  : files.length === 0
+                  ? "Upload a supported image, document, video, audio file, or ZIP archive to start building your library."
                   : "Try changing your search terms."}
             </p>
 
@@ -12479,6 +12644,20 @@ export interface AdminFileResponse {
   albumName: string | null;
 }
 
+
+
+============================================================
+FILE: C:\Users\ShodhanVemulapalli\Downloads\WinCapture\frontend\src\utils\accountKey.ts
+============================================================
+
+import type { AccountInfo } from "@azure/msal-browser";
+
+// MSAL may provide a new AccountInfo object for the same signed-in identity.
+// Effects that fetch account-scoped data should depend on this stable key.
+export function getAccountKey(account: AccountInfo | null): string | null {
+  if (!account) return null;
+  return `${account.homeAccountId}|${account.tenantId}|${account.localAccountId}`;
+}
 
 
 ============================================================

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
@@ -9,6 +10,7 @@ import AlbumsPage from "../../../frontend/src/pages/AlbumsPage";
 import FilesPage from "../../../frontend/src/pages/FilesPage";
 import AdminPage from "../../../frontend/src/pages/AdminPage";
 import AlbumDetailPage from "../../../frontend/src/pages/AlbumDetailPage";
+import Layout from "../../../frontend/src/components/Layout";
 import type { AlbumResponse } from "../../../frontend/src/types/album";
 import type { FileResponse, AdminFileResponse } from "../../../frontend/src/types/file";
 
@@ -26,6 +28,9 @@ const state = vi.hoisted(() => ({
   user: { userId: 7, name: "Maya Chen", email: "maya@example.test", role: "User", authenticationType: "Microsoft Entra ID" },
   account: { homeAccountId: "home-1" },
   instance: {},
+  previewLoading: false,
+  trackPreviewEffects: false,
+  previewEffectCalls: 0,
 }));
 
 vi.mock("@azure/msal-react", () => ({
@@ -36,7 +41,16 @@ vi.mock("../../../frontend/src/context/AuthContext", () => ({
 }));
 vi.mock("../../../frontend/src/api/apiClient", () => state.api);
 vi.mock("../../../frontend/src/hooks/useFilePreviews", () => ({
-  default: () => ({ previewUrls: {}, loading: false }),
+  default: (files: unknown[]) => {
+    const [, setRevision] = useState(0);
+    useEffect(() => {
+      if (state.trackPreviewEffects) {
+        state.previewEffectCalls += 1;
+        setRevision((revision) => revision + 1);
+      }
+    }, [files]);
+    return { previewUrls: {}, loading: state.previewLoading };
+  },
 }));
 vi.mock("../../../frontend/src/hooks/useAlbumCoverPreviews", () => ({ default: () => ({}) }));
 
@@ -91,6 +105,9 @@ function renderPage(ui: ReactNode, initialPath = "/") {
 
 describe("page workflows", () => {
   beforeEach(() => {
+    state.previewLoading = false;
+    state.trackPreviewEffects = false;
+    state.previewEffectCalls = 0;
     state.user = { userId: 7, name: "Maya Chen", email: "maya@example.test", role: "User", authenticationType: "Microsoft Entra ID" };
     state.account = account;
     for (const mock of Object.values(state.api)) mock.mockReset().mockResolvedValue([]);
@@ -140,6 +157,61 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
     expect(await screen.findByRole("heading", { name: "Favorites" })).toBeInTheDocument();
     expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account);
+  });
+
+  it("keeps the file page visible while previews are loading", async () => {
+    state.previewLoading = true;
+    state.api.getFiles.mockResolvedValue([file]);
+    renderPage(<FilesPage />);
+
+    expect(await screen.findByRole("heading", { name: "Files" })).toBeInTheDocument();
+    expect(screen.getByText("coast.pdf")).toBeInTheDocument();
+  });
+
+  it("does not restart preview work on unrelated Files page renders", async () => {
+    state.trackPreviewEffects = true;
+    state.api.getFiles.mockResolvedValue([file]);
+    renderPage(<FilesPage />);
+
+    expect(await screen.findByText("coast.pdf")).toBeInTheDocument();
+    await waitFor(() => expect(state.previewEffectCalls).toBe(2));
+  });
+
+  it("navigates from Files to Dashboard through the workspace navigation", async () => {
+    state.api.getFiles.mockResolvedValue([]);
+    state.api.getMyAlbums.mockResolvedValue([]);
+    render(
+      <MemoryRouter initialEntries={["/files"]}>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/files" element={<FilesPage />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Files" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Dashboard" }));
+    expect(await screen.findByText("Welcome back,")).toBeInTheDocument();
+  });
+
+  it("does not reload album data when MSAL refreshes the account object for the same identity", async () => {
+    state.api.getAlbum.mockResolvedValue(album);
+    state.api.getAlbumFiles.mockResolvedValue([]);
+    const rendered = renderPage(<AlbumDetailPage />, "/albums/7");
+
+    expect(await screen.findByRole("heading", { name: "Coastal trip" })).toBeInTheDocument();
+    expect(state.api.getAlbum).toHaveBeenCalledTimes(1);
+
+    state.account = { ...account };
+    rendered.rerender(
+      <MemoryRouter initialEntries={["/albums/7"]}>
+        <Routes><Route path="/albums/:albumId" element={<AlbumDetailPage />} /></Routes>
+      </MemoryRouter>,
+    );
+
+    expect(state.api.getAlbum).toHaveBeenCalledTimes(1);
   });
 
   it("keeps admin personal scope by default and loads broader data only after selection", async () => {

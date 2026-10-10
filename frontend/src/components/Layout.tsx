@@ -8,20 +8,10 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import {
-  brandMarkClass,
-  brandMarkLetterClass,
-  appShellClass,
-} from "./ui/uiClasses";
-
-const navLinkClass = (active: boolean) =>
-  `group relative flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-transparent px-3 text-[13px] font-medium text-[#57728a] transition-[color,background,border-color,transform,box-shadow] duration-[180ms] hover:border-[rgba(180,209,235,0.34)] hover:bg-[rgba(226,239,251,0.72)] hover:text-[#126dd7] active:translate-y-px ${active ? "is-active border-[rgba(179,213,241,0.55)] bg-[linear-gradient(135deg,rgba(225,240,255,0.96),rgba(210,232,252,0.76))] font-semibold text-[#0872e7] shadow-[0_8px_18px_rgba(41,113,181,0.07),inset_0_1px_rgba(255,255,255,0.68)] before:absolute before:top-[9px] before:bottom-[9px] before:left-[-1px] before:w-[3px] before:rounded-[99px] before:bg-[#1680ef] before:content-['']" : ""}`;
-
-const navIconClass =
-  "grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-[rgba(231,241,250,0.58)] text-current transition-[background,color] duration-[180ms] group-[.is-active]:bg-[rgba(255,255,255,0.62)] group-[.is-active]:text-[#0872e7]";
+import { appShellClass } from "./ui/uiClasses";
 
 const navigation = [
   {
@@ -41,14 +31,24 @@ const navigation = [
   },
 ];
 
+const navLinkClass = (active: boolean, mobile = false) =>
+  `group relative inline-flex min-h-[48px] ${
+    mobile ? "w-full justify-start" : "shrink-0 justify-center"
+  } items-center gap-2.5 rounded-xl border border-transparent px-4
+  text-[14px] font-semibold
+  transition-[color,background,border-color,box-shadow]
+  duration-200
+  focus-visible:outline-none focus-visible:ring-2
+  focus-visible:ring-[#79b7f4]
+  ${
+    active
+      ? "border-[rgba(179,213,241,0.65)] bg-[rgba(228,241,255,0.92)] text-[#0872e7] shadow-[0_4px_12px_rgba(41,113,181,0.07)] after:absolute after:bottom-[3px] after:left-4 after:right-4 after:h-[2px] after:rounded-full after:bg-[#1680ef] after:content-['']"
+      : "bg-transparent text-[#526f89] hover:border-[rgba(180,209,235,0.45)] hover:bg-[rgba(230,241,251,0.7)] hover:text-[#126dd7]"
+  }`;
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { pathname } = useLocation();
-  const pageTitle = pathname.startsWith("/albums/")
-    ? "Album details"
-    : navigation.find((item) => item.to === pathname)?.label ??
-      (pathname === "/admin" ? "Admin" : "Dashboard");
 
   const closeMobileNavigation = () => {
     setMobileOpen(false);
@@ -56,107 +56,71 @@ export default function Layout() {
 
   return (
     <div className={appShellClass}>
-      <aside
-        className={`fixed inset-y-0 left-0 z-[60] flex w-[252px] min-w-[252px] flex-col border-r border-[rgba(137,174,210,0.25)] bg-[linear-gradient(180deg,rgba(252,254,255,0.9),rgba(246,251,255,0.78))] px-[15px] pt-[22px] pb-4 shadow-[10px_0_35px_rgba(47,97,143,0.055),inset_-1px_0_rgba(255,255,255,0.52)] backdrop-blur-[28px] transition-[transform,box-shadow] duration-[240ms] max-[960px]:w-56 max-[960px]:min-w-56 max-[760px]:-translate-x-[105%] max-[760px]:shadow-[12px_0_38px_rgba(28,68,101,0.15)] ${mobileOpen ? "max-[760px]:translate-x-0" : ""}`}
-        aria-label="Primary navigation"
-      >
-        <div className="flex min-h-[46px] items-center justify-between px-[6px] pl-2">
-          <NavLink
-            to="/dashboard"
-            className="inline-flex min-w-0 items-center gap-[11px] rounded-[14px] transition-[transform,opacity] duration-[180ms] hover:-translate-y-px hover:opacity-[0.96]"
-            onClick={closeMobileNavigation}
-            aria-label="WinCapture dashboard"
-          >
-            <span className={brandMarkClass} aria-hidden="true">
-              <span className={brandMarkLetterClass}>W</span>
-            </span>
+      <div className="relative z-[1] flex min-h-screen w-full flex-col">
+        {/* Full-width top header */}
+        <header className="sticky top-0 z-40 w-full border-b border-[rgba(147,181,212,0.28)] bg-[rgba(250,253,255,0.88)] shadow-[0_5px_24px_rgba(49,105,154,0.035)] backdrop-blur-[24px]">
+          <div className="mx-auto flex min-h-[82px] w-full items-center gap-5 px-8 max-[1200px]:gap-3 max-[960px]:min-h-[72px] max-[760px]:gap-3 max-[760px]:px-4">
+            {/* Project logo only: no WinWire branding or WinCapture text */}
+            <NavLink
+              to="/dashboard"
+              aria-label="Go to dashboard"
+              className="flex h-[58px] w-[165px] flex-none items-center justify-start rounded-lg transition-opacity hover:opacity-85 max-[1200px]:w-[135px] max-[760px]:h-[48px] max-[760px]:w-[80px]"
+              onClick={closeMobileNavigation}
+            >
+              <img
+                src="/wincapture-logo.png"
+                alt="Project logo"
+                className="block max-h-[52px] max-w-full object-contain object-left max-[760px]:max-h-[44px]"
+              />
+            </NavLink>
 
-            <span className="grid min-w-0 gap-0.5">
-              <strong className="text-[15px] leading-[1.1] font-bold tracking-[-0.02em] text-[#102d4d]">WinCapture</strong>
-              <small className="text-[9px] leading-none font-medium text-[#7b94aa]">WinWire</small>
-            </span>
-          </NavLink>
+            {/* Desktop navigation */}
+            <nav
+              aria-label="Primary navigation"
+              className="flex min-w-0 flex-1 items-center justify-center gap-1 max-[1000px]:hidden"
+            >
+              {navigation.map((item) => {
+                const Icon = item.icon;
 
-          <button
-            type="button"
-            className="hidden h-[34px] w-[34px] cursor-pointer items-center justify-center rounded-[10px] border-0 bg-[rgba(231,241,250,0.65)] text-[#5d7890] transition-[color,background] duration-[180ms] hover:bg-[#e2effc] hover:text-[#166fd7] max-[760px]:inline-flex"
-            onClick={closeMobileNavigation}
-            aria-label="Close navigation"
-          >
-            <X aria-hidden="true" size={19} />
-          </button>
-        </div>
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      navLinkClass(isActive)
+                    }
+                  >
+                    <Icon
+                      aria-hidden="true"
+                      size={21}
+                      strokeWidth={1.8}
+                    />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
 
-        <nav className="mt-[30px] flex flex-col gap-[6px]">
-          <p className="mx-[10px] mt-0 mb-[5px] text-[9px] leading-[1.2] font-bold tracking-[0.12em] text-[#8aa1b4] uppercase">Workspace</p>
-
-          {navigation.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={closeMobileNavigation}
-                className={({ isActive }) => navLinkClass(isActive)}
-              >
-                <span className={navIconClass}>
-                  <Icon
-                    aria-hidden="true"
-                    size={18}
-                    strokeWidth={1.8}
-                  />
-                </span>
-
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
-
-          {user?.role === "Admin" && (
-            <>
-              <div className="mx-2 my-3 h-px bg-[rgba(204,222,237,0.72)]" />
-
-              <p className="mx-[10px] mt-0 mb-[5px] text-[9px] leading-[1.2] font-bold tracking-[0.12em] text-[#8aa1b4] uppercase">
-                Administration
-              </p>
-
-              <NavLink
-                to="/admin"
-                onClick={closeMobileNavigation}
-                className={({ isActive }) => navLinkClass(isActive)}
-              >
-                <span className={navIconClass}>
+              {user?.role === "Admin" && (
+                <NavLink
+                  to="/admin"
+                  className={({ isActive }) =>
+                    navLinkClass(isActive)
+                  }
+                >
                   <Shield
                     aria-hidden="true"
-                    size={18}
+                    size={21}
                     strokeWidth={1.8}
                   />
-                </span>
+                  <span>Admin</span>
+                </NavLink>
+              )}
+            </nav>
 
-                <span>Admin</span>
-              </NavLink>
-            </>
-          )}
-        </nav>
-
-      </aside>
-
-      {mobileOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-[50] block h-full w-full cursor-pointer border-0 bg-[rgba(15,39,59,0.2)] backdrop-blur-[2px]"
-          onClick={closeMobileNavigation}
-          aria-label="Close navigation"
-        />
-      )}
-
-      <div className="relative z-[1] ml-[252px] min-h-screen w-[calc(100%-252px)] max-[960px]:ml-56 max-[960px]:w-[calc(100%-224px)] max-[760px]:ml-0 max-[760px]:w-full">
-        <header className="sticky top-0 z-40 flex h-[76px] items-center justify-between border-b border-[rgba(147,181,212,0.22)] bg-[rgba(250,253,255,0.46)] px-[40px] pr-[38px] shadow-[0_8px_26px_rgba(49,105,154,0.025)] backdrop-blur-[22px] max-[1200px]:px-7 max-[760px]:h-[68px] max-[760px]:px-[17px]">
-          <div className="flex min-w-0 items-center gap-[15px] max-[760px]:gap-[9px]">
+            {/* Mobile navigation toggle */}
             <button
               type="button"
-              className="hidden h-9 w-9 flex-none cursor-pointer place-items-center rounded-[10px] border-0 bg-[rgba(236,245,251,0.68)] text-[#567186] max-[760px]:grid"
+              className="hidden h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-xl border border-[rgba(189,211,229,0.65)] bg-white/65 text-[#476780] transition-colors hover:bg-[#e8f3ff] hover:text-[#126dd7] max-[1000px]:inline-flex"
               onClick={() =>
                 setMobileOpen((current) => !current)
               }
@@ -166,46 +130,112 @@ export default function Layout() {
                   : "Open navigation"
               }
               aria-expanded={mobileOpen}
+              aria-controls="mobile-primary-navigation"
             >
-              <Menu
+              {mobileOpen ? (
+                <X aria-hidden="true" size={22} />
+              ) : (
+                <Menu aria-hidden="true" size={22} />
+              )}
+            </button>
+
+            {/* Account controls */}
+            <div className="ml-auto flex flex-none items-center gap-3 border-l border-[rgba(189,211,229,0.55)] pl-5 max-[1200px]:gap-2 max-[1200px]:pl-3 max-[760px]:border-l-0 max-[760px]:pl-0">
+              <span
+                className="grid h-10 w-10 flex-none place-items-center rounded-full bg-[linear-gradient(145deg,#74bdff,#2876dc)] text-[12px] font-bold text-white shadow-[0_3px_9px_rgba(48,119,207,0.18)]"
                 aria-hidden="true"
-                size={21}
-                strokeWidth={1.8}
-              />
-            </button>
+              >
+                {user?.name
+                  ?.split(/\s+/)
+                  .map((part) => part[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() ?? "U"}
+              </span>
 
-            <h1 className="m-0 truncate text-[16px] font-[650] tracking-[-0.02em] text-[#22425d] max-[760px]:text-[14px]">
-              {pageTitle}
-            </h1>
+              <div className="grid min-w-0 gap-1 max-[760px]:hidden">
+                <strong className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-semibold text-[#284763]">
+                  {user?.name ?? "WinCapture User"}
+                </strong>
 
+                <span className="text-[10px] font-medium text-[#8299ab]">
+                  {user?.role ?? "User"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="inline-flex h-10 flex-none cursor-pointer items-center justify-center gap-2 rounded-xl border border-[rgba(189,211,229,0.75)] bg-[rgba(255,255,255,0.58)] px-3 text-[12px] font-medium text-[#58738b] transition-[color,background,border-color] duration-200 hover:border-[rgba(221,150,150,0.55)] hover:bg-[rgba(255,245,245,0.8)] hover:text-[#b84d55] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79b7f4] max-[760px]:h-9 max-[760px]:px-2"
+                onClick={() => void logout()}
+              >
+                <LogOut
+                  aria-hidden="true"
+                  size={17}
+                  strokeWidth={1.8}
+                />
+                <span className="max-[600px]:sr-only">
+                  Sign out
+                </span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-[linear-gradient(145deg,#74bdff,#4687db)] text-[10px] font-bold text-white">
-              {user?.name?.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() ?? "U"}
-            </span>
-            <span className="grid min-w-0 gap-[2px] max-[520px]:hidden">
-              <strong className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-[#284763]">
-                {user?.name ?? "WinCapture User"}
-              </strong>
-              <small className="text-[9px] text-[#8299ab]">{user?.role ?? "User"}</small>
-            </span>
-            <button
-              type="button"
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[10px] border border-[rgba(189,211,229,0.68)] bg-[rgba(255,255,255,0.38)] px-[11px] text-[11px] font-medium text-[#6b8297] transition-[color,background,border-color] duration-[180ms] hover:border-[rgba(221,150,150,0.48)] hover:bg-[rgba(255,245,245,0.62)] hover:text-[#b84d55]"
-              onClick={() => void logout()}
+          {/* Collapsible mobile navigation */}
+          {mobileOpen && (
+            <nav
+              id="mobile-primary-navigation"
+              aria-label="Mobile navigation"
+              className="border-t border-[rgba(147,181,212,0.24)] bg-[rgba(250,253,255,0.97)] px-4 py-3 min-[1001px]:hidden"
             >
-              <LogOut aria-hidden="true" size={15} strokeWidth={1.8} />
-              <span>Sign out</span>
-            </button>
-          </div>
+              <div className="mx-auto flex w-full max-w-7xl flex-col gap-1">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={closeMobileNavigation}
+                      className={({ isActive }) =>
+                        navLinkClass(isActive, true)
+                      }
+                    >
+                      <Icon
+                        aria-hidden="true"
+                        size={20}
+                        strokeWidth={1.8}
+                      />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+
+                {user?.role === "Admin" && (
+                  <NavLink
+                    to="/admin"
+                    onClick={closeMobileNavigation}
+                    className={({ isActive }) =>
+                      navLinkClass(isActive, true)
+                    }
+                  >
+                    <Shield
+                      aria-hidden="true"
+                      size={20}
+                      strokeWidth={1.8}
+                    />
+                    <span>Admin</span>
+                  </NavLink>
+                )}
+              </div>
+            </nav>
+          )}
         </header>
 
-        <main className="app-main">
+        {/* Existing page content remains unchanged */}
+        <main className="app-main min-w-0 w-full flex-1">
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
-
