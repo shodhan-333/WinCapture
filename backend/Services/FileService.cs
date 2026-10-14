@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Files;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -99,6 +100,22 @@ public sealed class FileService(
             .ToList();
     }
 
+    public async Task<PagedResponse<FileResponse>> GetGalleryPageAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        var page = await files.GetPagedByUserIdAsync(userId, pagination);
+        var ids = page.Items.Select(file => file.Id).ToArray();
+        var favoriteIds = (await files.GetFavoriteFileIdsByUserIdAsync(userId, ids)).ToHashSet();
+
+        return new PagedResponse<FileResponse>(
+            page.Items.Select(file => ToResponse(file, favoriteIds.Contains(file.Id), true)).ToList(),
+            page.TotalItems,
+            page.Page,
+            page.PageSize,
+            page.PageCount);
+    }
+
     // Returns a file after checking access permissions and retrieving its favorite status.
     public async Task<FileResponse> GetAsync(
         long fileId,
@@ -175,6 +192,12 @@ public sealed class FileService(
             .ToList();
     }
 
+    public async Task<PagedResponse<AdminFileResponse>> GetAllPageAsync(PaginationQuery pagination)
+    {
+        var page = await files.GetPagedAllAsync(pagination);
+        return MapAdminPage(page);
+    }
+
     // Returns the files uploaded by the specified admin.
     public async Task<IReadOnlyList<AdminFileResponse>> GetAdminFilesByUploaderIdAsync(int userId)
     {
@@ -183,6 +206,14 @@ public sealed class FileService(
         return adminFiles
             .Select(ToAdminResponse)
             .ToList();
+    }
+
+    public async Task<PagedResponse<AdminFileResponse>> GetAdminFilesByUploaderIdPageAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        var page = await files.GetPagedAdminFilesByUploaderIdAsync(userId, pagination);
+        return MapAdminPage(page);
     }
 
     // Returns the user's favorite files that they are still allowed to view.
@@ -206,6 +237,37 @@ public sealed class FileService(
         }
 
         return result;
+    }
+
+    public async Task<PagedResponse<FileResponse>> GetFavoritesPageAsync(
+        int userId,
+        UserRole userRole,
+        PaginationQuery pagination)
+    {
+        var page = await files.GetPagedFavoriteFilesByUserIdAsync(userId, userRole, pagination);
+        var responses = page.Items.Select(file =>
+        {
+            var permissions = GetLoadedFavoritePermissions(file, userId, userRole);
+            return ToResponse(file, true, permissions.CanManage);
+        }).ToList();
+
+        return new PagedResponse<FileResponse>(
+            responses,
+            page.TotalItems,
+            page.Page,
+            page.PageSize,
+            page.PageCount);
+    }
+
+    private static PagedResponse<AdminFileResponse> MapAdminPage(
+        PagedResponse<FileMetadata> page)
+    {
+        return new PagedResponse<AdminFileResponse>(
+            page.Items.Select(ToAdminResponse).ToList(),
+            page.TotalItems,
+            page.Page,
+            page.PageSize,
+            page.PageCount);
     }
 
     // Uses the album and caller access row loaded with favorite files to avoid per-favorite queries.

@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -37,11 +36,10 @@ import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import ImagePreviewModal from "../components/files/ImagePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
-import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
 import { getAccountKey } from "../utils/accountKey";
-import { FILE_CATEGORY_FILTERS, type FileCategoryFilter, getFileCategory, SUPPORTED_FILE_ACCEPT, validateUploadFile } from "../constants/fileSupport";
+import { FILE_CATEGORY_FILTERS, type FileCategoryFilter, SUPPORTED_FILE_ACCEPT, validateUploadFile } from "../constants/fileSupport";
 
 const fileToolbarClass =
   "flex flex-wrap items-center justify-end gap-2 max-[960px]:w-full max-[960px]:justify-start max-[760px]:grid max-[760px]:grid-cols-1";
@@ -72,8 +70,9 @@ export default function FilesPage() {
   const replaceTargetIdRef =
     useRef<number | null>(null);
 
-  const [files, setFiles] =
-    useState<FileResponse[]>([]);
+  const [files, setFiles] = useState<FileResponse[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
   const [view, setView] =
     useState<FileView>("all");
   const [currentPage, setCurrentPage] =
@@ -117,35 +116,13 @@ export default function FilesPage() {
     [accountKey, instance],
   );
 
-  const normalizedQuery =
-    searchQuery.trim().toLocaleLowerCase();
-
-  const filteredFiles = useMemo(
-    () => files.filter((file) => {
-      const matchesCategory = categoryFilter === "All" || getFileCategory(file.originalFileName) === categoryFilter;
-      const matchesQuery = !normalizedQuery ||
-        file.originalFileName
-          .toLocaleLowerCase()
-          .includes(normalizedQuery) ||
-        file.contentType
-          .toLocaleLowerCase()
-          .includes(normalizedQuery) ||
-        String(file.id).includes(normalizedQuery);
-      return matchesCategory && matchesQuery;
-    }),
-    [categoryFilter, files, normalizedQuery],
-  );
-  const pagination = usePagination(
-    filteredFiles,
-    currentPage,
-    PAGE_SIZE,
-  );
   const {
     previewUrls,
-  } = useFilePreviews(pagination.items, loadPreview);
+  } = useFilePreviews(files, loadPreview);
 
   const loadFiles = async (
     nextView: FileView = view,
+    requestedPage: number = currentPage,
   ) => {
     if (!account) {
       return;
@@ -155,13 +132,21 @@ export default function FilesPage() {
       setLoading(true);
       setError(null);
 
-      const nextFiles =
+      const nextPage =
         nextView === "favorites"
-          ? await getFavorites(instance, account)
-          : await getFiles(instance, account);
+          ? await getFavorites(instance, account, requestedPage, PAGE_SIZE, searchQuery, categoryFilter)
+          : await getFiles(instance, account, requestedPage, PAGE_SIZE, searchQuery, categoryFilter);
 
-      setFiles(nextFiles);
+      setFiles(nextPage.items);
+      setTotalItems(nextPage.totalItems);
+      setPageCount(nextPage.pageCount);
+      setCurrentPage(nextPage.page);
     } catch (caughtError) {
+      // Do not leave results from the previous view visible when the new request
+      // fails (for example, All files appearing under the Favorites heading).
+      setFiles([]);
+      setTotalItems(0);
+      setPageCount(1);
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -173,8 +158,8 @@ export default function FilesPage() {
   };
 
   useEffect(() => {
-    void loadFiles(view);
-  }, [accountKey, instance, view]);
+    void loadFiles(view, currentPage);
+  }, [accountKey, instance, view, currentPage, searchQuery, categoryFilter]);
 
   const handleUpload = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -206,7 +191,7 @@ export default function FilesPage() {
         setView("all");
         setCurrentPage(1);
       } else {
-        await loadFiles("all");
+        await loadFiles("all", currentPage);
       }
     } catch (caughtError) {
       setError(
@@ -322,8 +307,11 @@ export default function FilesPage() {
             : item,
         );
       });
+      if (view === "favorites" && !nextFavorite) {
+        void loadFiles(view, currentPage);
+      }
     },
-    [view],
+    [view, currentPage],
   );
 
   const handleFavoriteError = useCallback(
@@ -559,7 +547,7 @@ export default function FilesPage() {
           view === "favorites" ? "Favorite files" : "Files"
         }
       >
-        {filteredFiles.length === 0 ? (
+        {files.length === 0 ? (
           <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
             <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] bg-[#e7f3ff] text-[#2a7dd7] shadow-[inset_0_1px_rgba(255,255,255,0.72),0_7px_18px_rgba(45,111,176,0.06)]">
               {view === "favorites" ? (
@@ -588,9 +576,9 @@ export default function FilesPage() {
                 ? searchQuery
                   ? "No favorite files found"
                   : "No favorite files yet"
-                  : files.length === 0
+                  : totalItems === 0 && !searchQuery.trim() && categoryFilter === "All"
                   ? "No files uploaded yet"
-                  : categoryFilter !== "All" && normalizedQuery
+                  : categoryFilter !== "All" && searchQuery.trim()
                     ? "No files match these filters"
                     : categoryFilter !== "All"
                       ? `No ${categoryFilter.toLocaleLowerCase()} found`
@@ -602,7 +590,7 @@ export default function FilesPage() {
                 ? searchQuery
                   ? "Try a different filename, type, or ID."
                   : "Favorite a file to keep it close at hand."
-                  : files.length === 0
+                  : totalItems === 0 && !searchQuery.trim() && categoryFilter === "All"
                   ? "Upload a supported image, document, video, audio file, or ZIP archive to start building your library."
                   : "Try changing your search terms."}
             </p>
@@ -625,8 +613,9 @@ export default function FilesPage() {
               </button>
             )}
 
-            {files.length === 0 &&
-              !searchQuery &&
+            {totalItems === 0 &&
+              !searchQuery.trim() &&
+              categoryFilter === "All" &&
               view === "all" && (
                 <button
                   type="button"
@@ -646,7 +635,7 @@ export default function FilesPage() {
           </section>
         ) : (
           <FileCardGrid
-            files={pagination.items}
+            files={files}
             previewUrls={previewUrls}
             favoritePendingIds={favoritePendingIds}
             canManage={(file) => file.canManage}
@@ -664,10 +653,10 @@ export default function FilesPage() {
             }
           />
         )}
-        {filteredFiles.length > 0 && (
+        {totalItems > 0 && (
           <Pagination
-            currentPage={pagination.currentPage}
-            pageCount={pagination.pageCount}
+            currentPage={currentPage}
+            pageCount={pageCount}
             onPageChange={setCurrentPage}
           />
         )}

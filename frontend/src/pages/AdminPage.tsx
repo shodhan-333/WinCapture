@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   FileText,
@@ -23,7 +23,6 @@ import {
 import ErrorBanner from "../components/ui/ErrorBanner";
 import Pagination from "../components/ui/Pagination";
 import { useAuth } from "../context/AuthContext";
-import usePagination from "../hooks/usePagination";
 import type { AlbumResponse } from "../types/album";
 import type { AdminFileResponse } from "../types/file";
 import { getAccountKey } from "../utils/accountKey";
@@ -48,6 +47,10 @@ export default function AdminPage() {
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [files, setFiles] = useState<AdminFileResponse[]>([]);
+  const [totalAlbums, setTotalAlbums] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [albumsPageCount, setAlbumsPageCount] = useState(1);
+  const [filesPageCount, setFilesPageCount] = useState(1);
   const [scope, setScope] = useState<ContentScope>("mine");
   const [contentType, setContentType] = useState<ContentType>("albums");
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,17 +73,23 @@ export default function AdminPage() {
 
         const [albumResult, fileResult] = scope === "mine"
           ? await Promise.all([
-              getMyAdminAlbums(instance, account),
-              getMyAdminFiles(instance, account),
+              getMyAdminAlbums(instance, account, albumsPage, PAGE_SIZE, searchQuery),
+              getMyAdminFiles(instance, account, filesPage, PAGE_SIZE, searchQuery),
             ])
           : await Promise.all([
-              getAdminAlbums(instance, account),
-              getAdminFiles(instance, account),
+              getAdminAlbums(instance, account, albumsPage, PAGE_SIZE, searchQuery),
+              getAdminFiles(instance, account, filesPage, PAGE_SIZE, searchQuery),
             ]);
 
         if (!active) return;
-        setAlbums(albumResult);
-        setFiles(fileResult);
+        setAlbums(albumResult.items);
+        setFiles(fileResult.items);
+        setTotalAlbums(albumResult.totalItems);
+        setTotalFiles(fileResult.totalItems);
+        setAlbumsPage(albumResult.page);
+        setFilesPage(fileResult.page);
+        setAlbumsPageCount(albumResult.pageCount);
+        setFilesPageCount(fileResult.pageCount);
       } catch (caughtError) {
         if (!active) return;
         setError(
@@ -98,28 +107,7 @@ export default function AdminPage() {
     return () => {
       active = false;
     };
-  }, [accountKey, instance, scope]);
-
-  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-  const filteredAlbums = useMemo(
-    () => albums.filter((album) =>
-      `${album.id} ${album.albumName} ${album.ownerId} ${album.ownerName} ${album.createdAt} ${album.updatedAt ?? ""}`
-        .toLocaleLowerCase()
-        .includes(normalizedQuery),
-    ),
-    [albums, normalizedQuery],
-  );
-  const filteredFiles = useMemo(
-    () => files.filter((file) =>
-      `${file.id} ${file.originalFileName} ${file.contentType} ${file.uploadedBy} ${file.uploaderName} ${file.albumId ?? ""} ${file.albumName ?? ""}`
-        .toLocaleLowerCase()
-        .includes(normalizedQuery),
-    ),
-    [files, normalizedQuery],
-  );
-
-  const albumPagination = usePagination(filteredAlbums, albumsPage, PAGE_SIZE);
-  const filePagination = usePagination(filteredFiles, filesPage, PAGE_SIZE);
+  }, [accountKey, instance, scope, albumsPage, filesPage, searchQuery]);
 
   const changeScope = (nextScope: ContentScope) => {
     setScope(nextScope);
@@ -255,12 +243,12 @@ export default function AdminPage() {
             </h2>
           </div>
           <span className="inline-flex h-[27px] min-w-7 items-center justify-center rounded-full border border-[#dfeaf2] bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#688096]">
-            {contentType === "albums" ? filteredAlbums.length : filteredFiles.length}
+            {contentType === "albums" ? totalAlbums : totalFiles}
           </span>
         </header>
 
         {contentType === "albums" ? (
-          filteredAlbums.length === 0 ? (
+          totalAlbums === 0 ? (
             <div className="flex min-h-[220px] items-center justify-center gap-[11px] p-[22px]">
               <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[12px] bg-[#e9f3ff] text-[#2a7bd4]">
                 <Images aria-hidden="true" size={23} strokeWidth={1.5} />
@@ -276,7 +264,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="flex flex-col">
-              {albumPagination.items.map((album) => (
+              {albums.map((album) => (
                 <div key={album.id} className="flex min-h-[72px] items-center gap-[10px] border-b border-[#e6eef4] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(231,242,252,0.58)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]">
                   <span className="grid h-[37px] w-[37px] flex-none place-items-center rounded-[11px] bg-[#eaf3ff] text-[#2b7ed8]">
                     <Images aria-hidden="true" size={17} strokeWidth={1.7} />
@@ -306,7 +294,7 @@ export default function AdminPage() {
               ))}
             </div>
           )
-        ) : filteredFiles.length === 0 ? (
+        ) : totalFiles === 0 ? (
           <div className="flex min-h-[220px] items-center justify-center gap-[11px] p-[22px]">
             <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[12px] bg-[#efedff] text-[#6e65ce]">
               <FileText aria-hidden="true" size={23} strokeWidth={1.5} />
@@ -322,7 +310,7 @@ export default function AdminPage() {
           </div>
         ) : (
           <div className="flex flex-col">
-            {filePagination.items.map((file) => (
+            {files.map((file) => (
               <div key={file.id} className="flex min-h-[72px] items-center gap-[10px] border-b border-[#e6eef4] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(231,242,252,0.58)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]">
                 <span className="grid h-[37px] w-[37px] flex-none place-items-center rounded-[11px] bg-[#efedff] text-[#6c68d2]">
                   <FolderOpen aria-hidden="true" size={17} strokeWidth={1.7} />
@@ -351,11 +339,11 @@ export default function AdminPage() {
           </div>
         )}
 
-        {((contentType === "albums" && filteredAlbums.length > 0) ||
-          (contentType === "files" && filteredFiles.length > 0)) && (
+        {((contentType === "albums" && totalAlbums > 0) ||
+          (contentType === "files" && totalFiles > 0)) && (
           <Pagination
-            currentPage={contentType === "albums" ? albumPagination.currentPage : filePagination.currentPage}
-            pageCount={contentType === "albums" ? albumPagination.pageCount : filePagination.pageCount}
+            currentPage={contentType === "albums" ? albumsPage : filesPage}
+            pageCount={contentType === "albums" ? albumsPageCount : filesPageCount}
             onPageChange={contentType === "albums" ? setAlbumsPage : setFilesPage}
           />
         )}

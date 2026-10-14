@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, FolderOpen, Images } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
@@ -47,11 +47,13 @@ export default function Dashboard() {
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [files, setFiles] = useState<FileResponse[]>([]);
+  const [albumCount, setAlbumCount] = useState(0);
+  const [fileCount, setFileCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const recentAlbums = useMemo(() => albums.slice(0, 4), [albums]);
-  const recentFiles = useMemo(() => files.slice(0, 4), [files]);
+  const recentAlbums = albums;
+  const recentFiles = files;
 
   const albumCoverUrls = useAlbumCoverPreviews(
     recentAlbums,
@@ -90,14 +92,16 @@ export default function Dashboard() {
         setError(null);
 
         const [albumResult, fileResult] = await Promise.all([
-          getMyAlbums(instance, account),
-          getFiles(instance, account),
+          getMyAlbums(instance, account, 1, 4),
+          getFiles(instance, account, 1, 4),
         ]);
 
         if (!active) return;
 
-        setAlbums(albumResult);
-        setFiles(fileResult);
+        setAlbums(albumResult.items);
+        setFiles(fileResult.items);
+        setAlbumCount(albumResult.totalItems);
+        setFileCount(fileResult.totalItems);
       } catch (caughtError) {
         if (active) {
           setError(
@@ -223,7 +227,7 @@ export default function Dashboard() {
               Albums
             </small>
             <strong className="text-[29px] font-bold leading-[1.08] tracking-[-0.045em] text-[#143653] max-[760px]:text-[23px]">
-              {albums.length}
+              {albumCount}
             </strong>
           </span>
 
@@ -249,7 +253,7 @@ export default function Dashboard() {
               Files
             </small>
             <strong className="text-[29px] font-bold leading-[1.08] tracking-[-0.045em] text-[#143653] max-[760px]:text-[23px]">
-              {files.length}
+              {fileCount}
             </strong>
           </span>
 

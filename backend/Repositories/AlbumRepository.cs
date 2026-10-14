@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WinCapture.Data;
+using WinCapture.DTOs.Common;
 using WinCapture.Models;
 
 namespace WinCapture.Repositories;
@@ -36,6 +37,35 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
             .ToListAsync();
     }
 
+    public async Task<PagedResponse<Album>> GetPagedAccessibleByUserIdAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        IQueryable<Album> query = db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner)
+            .Where(album =>
+                album.CreatedBy == userId ||
+                album.Access.Any(access =>
+                    access.UserId == userId &&
+                    access.CanView));
+
+        var search = pagination.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(album =>
+                album.AlbumName.Contains(search) ||
+                album.Id.ToString().Contains(search) ||
+                album.CreatedBy.ToString().Contains(search) ||
+                album.Owner.Name.Contains(search));
+        }
+
+        return await query
+            .OrderByDescending(album => album.CreatedAt)
+            .ThenByDescending(album => album.Id)
+            .ToPagedResponseAsync(pagination);
+    }
+
     // Returns only the albums owned by the specified user, newest first.
     public async Task<IReadOnlyList<Album>> GetOwnedByUserIdAsync(int userId)
     {
@@ -47,6 +77,31 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
             .ToListAsync();
     }
 
+    public async Task<PagedResponse<Album>> GetPagedOwnedByUserIdAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        IQueryable<Album> query = db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner)
+            .Where(album => album.CreatedBy == userId);
+
+        var search = pagination.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(album =>
+                album.AlbumName.Contains(search) ||
+                album.Id.ToString().Contains(search) ||
+                album.CreatedBy.ToString().Contains(search) ||
+                album.Owner.Name.Contains(search));
+        }
+
+        return await query
+            .OrderByDescending(album => album.CreatedAt)
+            .ThenByDescending(album => album.Id)
+            .ToPagedResponseAsync(pagination);
+    }
+
     // Returns all albums with their owner details, newest first.
     public async Task<IReadOnlyList<Album>> GetAllAsync()
     {
@@ -55,6 +110,28 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
             .Include(album => album.Owner)
             .OrderByDescending(album => album.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<PagedResponse<Album>> GetPagedAllAsync(PaginationQuery pagination)
+    {
+        IQueryable<Album> query = db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner);
+
+        var search = pagination.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(album =>
+                album.AlbumName.Contains(search) ||
+                album.Id.ToString().Contains(search) ||
+                album.CreatedBy.ToString().Contains(search) ||
+                album.Owner.Name.Contains(search));
+        }
+
+        return await query
+            .OrderByDescending(album => album.CreatedAt)
+            .ThenByDescending(album => album.Id)
+            .ToPagedResponseAsync(pagination);
     }
 
     // Updates the album in the database and saves the changes.

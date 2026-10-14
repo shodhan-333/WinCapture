@@ -16,7 +16,6 @@ import {
   pageHeaderSkeletonClass,
 } from "../components/ui/uiClasses";
 import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
-import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import { formatDate } from "../utils/formatters";
@@ -32,22 +31,23 @@ export default function AlbumsPage() {
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(
     null,
   );
   const [creating, setCreating] = useState(false);
   const [albumName, setAlbumName] = useState("");
-  const pagination = usePagination(albums, currentPage, PAGE_SIZE);
   const coverUrls = useAlbumCoverPreviews(
-    pagination.items,
+    albums,
     instance,
     account,
     user?.userId,
     user?.role === "Admin",
   );
 
-  const loadAlbums = async () => {
+  const loadAlbums = async (requestedPage: number = currentPage) => {
     if (!account) {
       return;
     }
@@ -56,12 +56,16 @@ export default function AlbumsPage() {
       setLoading(true);
       setError(null);
 
-      setAlbums(
-        await getAlbums(
+      const page = await getAlbums(
           instance,
           account,
-        ),
-      );
+          requestedPage,
+          PAGE_SIZE,
+        );
+      setAlbums(page.items);
+      setCurrentPage(page.page);
+      setPageCount(page.pageCount);
+      setTotalItems(page.totalItems);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -74,8 +78,8 @@ export default function AlbumsPage() {
   };
 
   useEffect(() => {
-    void loadAlbums();
-  }, [accountKey, instance]);
+    void loadAlbums(currentPage);
+  }, [accountKey, instance, currentPage]);
 
   const handleCreateAlbum = async () => {
     if (!account || !albumName.trim()) {
@@ -264,7 +268,7 @@ export default function AlbumsPage() {
           </section>
         ) : (
           <div className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
-            {pagination.items.map((album) => (
+            {albums.map((album) => (
                 <button
                   key={album.id}
                   type="button"
@@ -383,10 +387,10 @@ export default function AlbumsPage() {
             ))}
           </div>
         )}
-        {albums.length > 0 && (
+        {totalItems > 0 && (
           <Pagination
-            currentPage={pagination.currentPage}
-            pageCount={pagination.pageCount}
+            currentPage={currentPage}
+            pageCount={pageCount}
             onPageChange={setCurrentPage}
           />
         )}
@@ -394,4 +398,3 @@ export default function AlbumsPage() {
     </div>
   );
 }
-

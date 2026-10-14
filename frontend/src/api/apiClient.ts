@@ -6,6 +6,7 @@ import {
 
 import { apiBaseUrl, apiScope } from "../authConfig";
 import { ApiError } from "../types/api";
+import type { PagedResponse } from "../types/api";
 import type { CurrentUser } from "../types/auth";
 import type {
   AlbumResponse,
@@ -184,6 +185,27 @@ export async function callApi(
   return response;
 }
 
+function buildPagePath(
+  path: string,
+  page: number,
+  pageSize: number,
+  search?: string,
+  category?: string,
+): string {
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const normalizedSearch = search?.trim();
+  if (normalizedSearch) {
+    query.set("search", normalizedSearch);
+  }
+  if (category && category !== "All") {
+    query.set("category", category);
+  }
+  return `${path}?${query.toString()}`;
+}
+
 // ==========================================
 // Authentication API
 // ==========================================
@@ -211,30 +233,34 @@ export async function getCurrentUser(
 export async function getAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<AlbumResponse[]> {
+  page: number,
+  pageSize: number,
+  search?: string,
+): Promise<PagedResponse<AlbumResponse>> {
   const response =
     await callApi(
       instance,
       account,
-      "/api/albums",
+      buildPagePath("/api/albums", page, pageSize, search),
     );
 
-  return (
-    await response.json()
-  ) as AlbumResponse[];
+  return (await response.json()) as PagedResponse<AlbumResponse>;
 }
 
 export async function getMyAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<AlbumResponse[]> {
+  page = 1,
+  pageSize = 10,
+  search?: string,
+): Promise<PagedResponse<AlbumResponse>> {
   const response = await callApi(
     instance,
     account,
-    "/api/albums/mine",
+    buildPagePath("/api/albums/mine", page, pageSize, search),
   );
 
-  return (await response.json()) as AlbumResponse[];
+  return (await response.json()) as PagedResponse<AlbumResponse>;
 }
 
 export async function getAlbum(
@@ -396,17 +422,18 @@ export async function getAlbumFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
   albumId: number,
-): Promise<FileResponse[]> {
+  page: number,
+  pageSize: number,
+  category?: string,
+): Promise<PagedResponse<FileResponse>> {
   const response =
     await callApi(
       instance,
       account,
-      `/api/albums/${albumId}/files`,
+      buildPagePath(`/api/albums/${albumId}/files`, page, pageSize, undefined, category),
     );
 
-  return (
-    await response.json()
-  ) as FileResponse[];
+  return (await response.json()) as PagedResponse<FileResponse>;
 }
 
 export async function getAlbumFile(
@@ -545,17 +572,19 @@ export async function deleteAlbumFile(
 export async function getFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<FileResponse[]> {
+  page: number,
+  pageSize: number,
+  search?: string,
+  category?: string,
+): Promise<PagedResponse<FileResponse>> {
   const response =
     await callApi(
       instance,
       account,
-      "/api/files",
+      buildPagePath("/api/files", page, pageSize, search, category),
     );
 
-  return (
-    await response.json()
-  ) as FileResponse[];
+  return (await response.json()) as PagedResponse<FileResponse>;
 }
 
 export async function getFile(
@@ -575,17 +604,19 @@ export async function getFile(
 export async function getFavorites(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<FileResponse[]> {
+  page: number,
+  pageSize: number,
+  search?: string,
+  category?: string,
+): Promise<PagedResponse<FileResponse>> {
   const response =
     await callApi(
       instance,
       account,
-      "/api/files/favorites",
+      buildPagePath("/api/files/favorites", page, pageSize, search, category),
     );
 
-  return (
-    await response.json()
-  ) as FileResponse[];
+  return (await response.json()) as PagedResponse<FileResponse>;
 }
 
 export async function addFavorite(
@@ -683,59 +714,67 @@ export async function deleteFile(
 export async function getAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<AdminFileResponse[]> {
+  page: number,
+  pageSize: number,
+  search?: string,
+): Promise<PagedResponse<AdminFileResponse>> {
   const response =
     await callApi(
       instance,
       account,
-      "/api/admin/files",
+      buildPagePath("/api/admin/files", page, pageSize, search),
     );
 
-  return (
-    await response.json()
-  ) as AdminFileResponse[];
+  return (await response.json()) as PagedResponse<AdminFileResponse>;
 }
 
 export async function getMyAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<AdminFileResponse[]> {
+  page = 1,
+  pageSize = 10,
+  search?: string,
+): Promise<PagedResponse<AdminFileResponse>> {
   const response = await callApi(
     instance,
     account,
-    "/api/admin/files/mine",
+    buildPagePath("/api/admin/files/mine", page, pageSize, search),
   );
 
-  return (await response.json()) as AdminFileResponse[];
+  return (await response.json()) as PagedResponse<AdminFileResponse>;
 }
 
 export async function getAdminAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<AlbumResponse[]> {
+  page: number,
+  pageSize: number,
+  search?: string,
+): Promise<PagedResponse<AlbumResponse>> {
   const response =
     await callApi(
       instance,
       account,
-      "/api/admin/albums",
+      buildPagePath("/api/admin/albums", page, pageSize, search),
     );
 
-  return (
-    await response.json()
-  ) as AlbumResponse[];
+  return (await response.json()) as PagedResponse<AlbumResponse>;
 }
 
 export async function getMyAdminAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
-): Promise<AlbumResponse[]> {
+  page = 1,
+  pageSize = 10,
+  search?: string,
+): Promise<PagedResponse<AlbumResponse>> {
   const response = await callApi(
     instance,
     account,
-    "/api/admin/albums/mine",
+    buildPagePath("/api/admin/albums/mine", page, pageSize, search),
   );
 
-  return (await response.json()) as AlbumResponse[];
+  return (await response.json()) as PagedResponse<AlbumResponse>;
 }
 
 async function uploadMultipartFile<T>(

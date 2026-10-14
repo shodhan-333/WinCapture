@@ -1,4 +1,5 @@
 using WinCapture.DTOs.Albums;
+using WinCapture.DTOs.Common;
 using WinCapture.Exceptions;
 using WinCapture.Models;
 using WinCapture.Repositories;
@@ -44,6 +45,14 @@ public sealed class AlbumService(
             .ToList();
     }
 
+    public async Task<PagedResponse<AlbumResponse>> GetAccessiblePageAsync(
+        User currentUser,
+        PaginationQuery pagination)
+    {
+        var page = await albums.GetPagedAccessibleByUserIdAsync(currentUser.Id, pagination);
+        return MapPage(page);
+    }
+
     // Returns only the albums owned by the specified user.
     public async Task<IReadOnlyList<AlbumResponse>> GetOwnedByUserAsync(int userId)
     {
@@ -54,6 +63,14 @@ public sealed class AlbumService(
             .ToList();
     }
 
+    public async Task<PagedResponse<AlbumResponse>> GetOwnedByUserPageAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        var page = await albums.GetPagedOwnedByUserIdAsync(userId, pagination);
+        return MapPage(page);
+    }
+
     // Returns all albums for admin management.
     public async Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync()
     {
@@ -62,6 +79,24 @@ public sealed class AlbumService(
         return result
             .Select(ToResponse)
             .ToList();
+    }
+
+    public async Task<PagedResponse<AlbumResponse>> GetAllForAdminPageAsync(
+        PaginationQuery pagination)
+    {
+        var page = await albums.GetPagedAllAsync(pagination);
+        return MapPage(page);
+    }
+
+    private static PagedResponse<AlbumResponse> MapPage(
+        PagedResponse<Album> page)
+    {
+        return new PagedResponse<AlbumResponse>(
+            page.Items.Select(ToResponse).ToList(),
+            page.TotalItems,
+            page.Page,
+            page.PageSize,
+            page.PageCount);
     }
 
     // Retrieves an album after checking whether the user can view it.

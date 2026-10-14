@@ -52,7 +52,6 @@ import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import ImagePreviewModal from "../components/files/ImagePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
-import usePagination from "../hooks/usePagination";
 import { useAuth } from "../context/AuthContext";
 
 import type {
@@ -62,7 +61,6 @@ import type {
 import type { FileResponse } from "../types/file";
 import {
   FILE_CATEGORY_FILTERS,
-  getFileCategory,
   SUPPORTED_FILE_ACCEPT,
   validateUploadFile,
   type FileCategoryFilter,
@@ -95,6 +93,8 @@ export default function AlbumDetailPage() {
 
   const [album, setAlbum] = useState<AlbumResponse | null>(null);
   const [files, setFiles] = useState<FileResponse[]>([]);
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
   const [categoryFilter, setCategoryFilter] =
     useState<FileCategoryFilter>("All");
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,23 +145,6 @@ export default function AlbumDetailPage() {
     [accountKey, canManageAlbum, instance, numericAlbumId],
   );
 
-  // Filter the files before applying pagination.
-  const filteredFiles = useMemo(
-    () =>
-      files.filter(
-        (file) =>
-          categoryFilter === "All" ||
-          getFileCategory(file.originalFileName) === categoryFilter,
-      ),
-    [files, categoryFilter],
-  );
-
-  const pagination = usePagination(
-    filteredFiles,
-    currentPage,
-    PAGE_SIZE,
-  );
-
   // Keep the album cover available regardless of the selected filter.
   const albumCoverFile = files.find((file) =>
     file.contentType.startsWith("image/"),
@@ -169,15 +152,15 @@ export default function AlbumDetailPage() {
 
   const previewFiles = useMemo(
     () => [
-      ...pagination.items,
+      ...files,
       ...(albumCoverFile &&
-      !pagination.items.some(
+      !files.some(
         (file) => file.id === albumCoverFile.id,
       )
         ? [albumCoverFile]
         : []),
     ],
-    [pagination.items, albumCoverFile],
+    [files, albumCoverFile],
   );
 
   const { previewUrls } = useFilePreviews(
@@ -216,10 +199,15 @@ export default function AlbumDetailPage() {
         instance,
         account,
         numericAlbumId,
+        currentPage,
+        PAGE_SIZE,
+        categoryFilter,
       );
 
-      setFiles(fileResult);
-      setCurrentPage(1);
+      setFiles(fileResult.items);
+      setTotalFiles(fileResult.totalItems);
+      setPageCount(fileResult.pageCount);
+      setCurrentPage(fileResult.page);
 
       if (nextCanManageAlbum) {
         try {
@@ -257,6 +245,7 @@ export default function AlbumDetailPage() {
     ) {
       setAlbum(null);
       setFiles([]);
+      setTotalFiles(0);
       setMembers([]);
       setError("The album ID is invalid.");
       setLoading(false);
@@ -268,6 +257,8 @@ export default function AlbumDetailPage() {
     accountKey,
     instance,
     numericAlbumId,
+    currentPage,
+    categoryFilter,
     user?.role,
     user?.userId,
   ]);
@@ -821,8 +812,8 @@ export default function AlbumDetailPage() {
           )}
 
           <p className="mt-[7px] mb-0 text-[11px] text-[#71889c]">
-            {files.length}{" "}
-            {files.length === 1 ? "file" : "files"}
+            {totalFiles}{" "}
+            {totalFiles === 1 ? "file" : "files"}
           </p>
 
           <div className="mt-[13px] flex flex-wrap gap-2">
@@ -956,7 +947,7 @@ export default function AlbumDetailPage() {
         </div>
 
         <FileCardGrid
-          files={pagination.items}
+          files={files}
           previewUrls={previewUrls}
           favoritePendingIds={favoritePendingIds}
           canManage={canManageAlbum}
@@ -984,18 +975,18 @@ export default function AlbumDetailPage() {
               </span>
 
               <h3 className="mt-4 mb-0 text-[15px] font-[650] text-[#29445d]">
-                {files.length === 0
+                {totalFiles === 0
                   ? "No files in this album"
                   : `No ${categoryFilter.toLocaleLowerCase()} found`}
               </h3>
 
               <p className="mt-[7px] mb-[18px] max-w-[390px] text-[10px] leading-[1.6] text-[#8497a7]">
-                {files.length === 0
+                {totalFiles === 0
                   ? "Add images, documents, videos, audio files, or ZIP archives to start building this collection."
                   : `There are no ${categoryFilter.toLocaleLowerCase()} in this album. Try another category or select All.`}
               </p>
 
-              {canManageAlbum && files.length === 0 && (
+              {canManageAlbum && totalFiles === 0 && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -1013,10 +1004,10 @@ export default function AlbumDetailPage() {
           }
         />
 
-        {filteredFiles.length > 0 && (
+        {totalFiles > 0 && (
           <Pagination
-            currentPage={pagination.currentPage}
-            pageCount={pagination.pageCount}
+            currentPage={currentPage}
+            pageCount={pageCount}
             onPageChange={setCurrentPage}
           />
         )}

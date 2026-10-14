@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Files;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -71,18 +72,20 @@ public sealed class FilesController(IFileService fileService) : ControllerBase
 
     // Returns the files available in the current user's gallery.
     [HttpGet]
-    [ProducesResponseType<IReadOnlyList<FileResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<FileResponse>>> GetGallery()
+    [ProducesResponseType<PagedResponse<FileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<FileResponse>>> GetGallery(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await fileService.GetGalleryAsync(UserId));
+        return Ok(await fileService.GetGalleryPageAsync(UserId, pagination));
     }
 
     // Returns the current user's favorite files according to their WinCapture role.
     [HttpGet("favorites")]
-    [ProducesResponseType<IReadOnlyList<FileResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<FileResponse>>> GetFavorites()
+    [ProducesResponseType<PagedResponse<FileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<FileResponse>>> GetFavorites(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await fileService.GetFavoritesAsync(UserId, CurrentUserRole));
+        return Ok(await fileService.GetFavoritesPageAsync(UserId, CurrentUserRole, pagination));
     }
 
     // Adds the specified file to the current user's favorites.

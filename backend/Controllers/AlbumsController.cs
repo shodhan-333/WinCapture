@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WinCapture.DTOs.Albums;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Files;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -80,19 +81,23 @@ public sealed class AlbumsController(IAlbumService albumService, IAlbumFileServi
     // Returns the albums the current user is allowed to access, including shared albums.
     [HttpGet]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetAll()
+    [ProducesResponseType<PagedResponse<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AlbumResponse>>> GetAll(
+        [FromQuery] PaginationQuery pagination)
     {
         var user = CurrentUser;
 
-        return Ok(await albumService.GetAccessibleAsync(user));
+        return Ok(await albumService.GetAccessiblePageAsync(user, pagination));
     }
 
     // Returns only the albums owned by the current user.
     [HttpGet("mine")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetOwnedByCurrentUser()
+    [ProducesResponseType<PagedResponse<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AlbumResponse>>> GetOwnedByCurrentUser(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await albumService.GetOwnedByUserAsync(UserId));
+        return Ok(await albumService.GetOwnedByUserPageAsync(UserId, pagination));
     }
 
     // Retrieves an album using the current user's identity and role for access checks.
@@ -157,11 +162,14 @@ public sealed class AlbumsController(IAlbumService albumService, IAlbumFileServi
     // Returns the files in an album after applying the current user's access rules.
     [HttpGet("{id:long}/files")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
-    public async Task<ActionResult<IReadOnlyList<FileResponse>>> GetFiles(long id)
+    [ProducesResponseType<PagedResponse<FileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<FileResponse>>> GetFiles(
+        long id,
+        [FromQuery] PaginationQuery pagination)
     {
         var user = CurrentUser;
 
-        return Ok(await albumFileService.GetAsync(id, user, CurrentUserRole));
+        return Ok(await albumFileService.GetPageAsync(id, user, CurrentUserRole, pagination));
     }
 
     // Retrieves a specific file using the current user's access context.

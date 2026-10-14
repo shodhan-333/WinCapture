@@ -1,4 +1,5 @@
 using WinCapture.DTOs.Albums;
+using WinCapture.DTOs.Common;
 using WinCapture.Models;
 
 namespace WinCapture.Services;
@@ -14,11 +15,19 @@ public interface IAlbumService
     Task<IReadOnlyList<AlbumResponse>> GetAccessibleAsync(
         User currentUser);
 
+    Task<PagedResponse<AlbumResponse>> GetAccessiblePageAsync(
+        User currentUser,
+        PaginationQuery pagination);
+
     // Returns only the albums owned by the specified user.
     Task<IReadOnlyList<AlbumResponse>> GetOwnedByUserAsync(int userId);
 
+    Task<PagedResponse<AlbumResponse>> GetOwnedByUserPageAsync(int userId, PaginationQuery pagination);
+
     // Returns all albums for admin management.
     Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync();
+
+    Task<PagedResponse<AlbumResponse>> GetAllForAdminPageAsync(PaginationQuery pagination);
 
     // Retrieves an album after checking the user's access permissions.
     Task<AlbumResponse> GetAsync(

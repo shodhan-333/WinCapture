@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Files;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -120,6 +121,29 @@ public sealed class AlbumFileService(
                 favoriteIdSet.Contains(file.Id),
                 canManage))
             .ToList();
+    }
+
+    public async Task<PagedResponse<FileResponse>> GetPageAsync(
+        long albumId,
+        User currentUser,
+        UserRole role,
+        PaginationQuery pagination)
+    {
+        var album = await albumService.GetAsync(albumId, currentUser, role);
+        var page = await files.GetPagedByAlbumIdAsync(albumId, pagination);
+        var ids = page.Items.Select(file => file.Id).ToArray();
+        var favoriteIds = (await files.GetFavoriteFileIdsByUserIdAsync(currentUser.Id, ids)).ToHashSet();
+        var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
+        var responses = page.Items
+            .Select(file => ToResponse(file, albumId, favoriteIds.Contains(file.Id), canManage))
+            .ToList();
+
+        return new PagedResponse<FileResponse>(
+            responses,
+            page.TotalItems,
+            page.Page,
+            page.PageSize,
+            page.PageCount);
     }
 
     // Checks album access and verifies that the file belongs to the album before returning its details.

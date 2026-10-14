@@ -86,6 +86,13 @@ const adminFile: AdminFileResponse = {
 };
 const instance = {} as IPublicClientApplication;
 const account = state.account as AccountInfo;
+const paged = <T,>(items: T[] = []) => ({
+  items,
+  totalItems: items.length,
+  page: 1,
+  pageSize: 10,
+  pageCount: 1,
+});
 
 function renderPage(ui: ReactNode, initialPath = "/") {
   function CurrentPath() {
@@ -113,10 +120,10 @@ describe("page workflows", () => {
     for (const mock of Object.values(state.api)) mock.mockReset().mockResolvedValue([]);
     state.api.getAlbum.mockResolvedValue(album);
     state.api.createAlbum.mockResolvedValue(album);
-    state.api.getMyAlbums.mockResolvedValue([]);
-    state.api.getFiles.mockResolvedValue([]);
-    state.api.getAlbums.mockResolvedValue([]);
-    state.api.getAlbumFiles.mockResolvedValue([]);
+    state.api.getMyAlbums.mockResolvedValue(paged());
+    state.api.getFiles.mockResolvedValue(paged());
+    state.api.getAlbums.mockResolvedValue(paged());
+    state.api.getAlbumFiles.mockResolvedValue(paged());
     state.api.getAlbumMembers.mockResolvedValue([]);
   });
 
@@ -124,8 +131,8 @@ describe("page workflows", () => {
     renderPage(<Dashboard />);
 
     expect(await screen.findByText("Welcome back,")).toBeInTheDocument();
-    expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account);
-    expect(state.api.getFiles).toHaveBeenCalledWith(expect.anything(), account);
+    expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 4);
+    expect(state.api.getFiles).toHaveBeenCalledWith(expect.anything(), account, 1, 4);
     fireEvent.click(screen.getByRole("button", { name: /Browse albums/ }));
     expect(screen.getByTestId("current-path")).toHaveTextContent("/albums");
   });
@@ -144,8 +151,10 @@ describe("page workflows", () => {
   });
 
   it("loads files, searches the current list, and requests favorites on view change", async () => {
-    state.api.getFiles.mockResolvedValue([file]);
-    state.api.getFavorites.mockResolvedValue([{ ...file, isFavorite: true }]);
+    state.api.getFiles.mockImplementation((_instance, _account, _page, _size, search) =>
+      Promise.resolve(search === "missing" ? paged() : paged([file])));
+    state.api.getFavorites.mockImplementation((_instance, _account, _page, _size, search) =>
+      Promise.resolve(search === "missing" ? paged() : paged([{ ...file, isFavorite: true }])));
     renderPage(<FilesPage />);
 
     expect(await screen.findByRole("heading", { name: "Files" })).toBeInTheDocument();
@@ -153,15 +162,15 @@ describe("page workflows", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Search files by name, type, or ID" }), {
       target: { value: "missing" },
     });
-    expect(screen.getByText("No files match your search")).toBeInTheDocument();
+    expect(await screen.findByText("No files match your search")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
     expect(await screen.findByRole("heading", { name: "Favorites" })).toBeInTheDocument();
-    expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account);
+    expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "All");
   });
 
   it("keeps the file page visible while previews are loading", async () => {
     state.previewLoading = true;
-    state.api.getFiles.mockResolvedValue([file]);
+    state.api.getFiles.mockResolvedValue(paged([file]));
     renderPage(<FilesPage />);
 
     expect(await screen.findByRole("heading", { name: "Files" })).toBeInTheDocument();
@@ -170,7 +179,7 @@ describe("page workflows", () => {
 
   it("does not restart preview work on unrelated Files page renders", async () => {
     state.trackPreviewEffects = true;
-    state.api.getFiles.mockResolvedValue([file]);
+    state.api.getFiles.mockResolvedValue(paged([file]));
     renderPage(<FilesPage />);
 
     expect(await screen.findByText("coast.pdf")).toBeInTheDocument();
@@ -178,8 +187,8 @@ describe("page workflows", () => {
   });
 
   it("navigates from Files to Dashboard through the workspace navigation", async () => {
-    state.api.getFiles.mockResolvedValue([]);
-    state.api.getMyAlbums.mockResolvedValue([]);
+    state.api.getFiles.mockResolvedValue(paged());
+    state.api.getMyAlbums.mockResolvedValue(paged());
     render(
       <MemoryRouter initialEntries={["/files"]}>
         <Routes>
@@ -198,7 +207,7 @@ describe("page workflows", () => {
 
   it("does not reload album data when MSAL refreshes the account object for the same identity", async () => {
     state.api.getAlbum.mockResolvedValue(album);
-    state.api.getAlbumFiles.mockResolvedValue([]);
+    state.api.getAlbumFiles.mockResolvedValue(paged());
     const rendered = renderPage(<AlbumDetailPage />, "/albums/7");
 
     expect(await screen.findByRole("heading", { name: "Coastal trip" })).toBeInTheDocument();
@@ -216,7 +225,7 @@ describe("page workflows", () => {
 
   it("keeps admin personal scope by default and loads broader data only after selection", async () => {
     state.user = { ...state.user, role: "Admin" };
-    state.api.getMyAdminFiles.mockResolvedValue([adminFile]);
+    state.api.getMyAdminFiles.mockResolvedValue(paged([adminFile]));
     renderPage(<AdminPage />);
 
     expect(await screen.findByText("System overview")).toBeInTheDocument();
@@ -231,12 +240,12 @@ describe("page workflows", () => {
   });
 
   it("loads owner album files and member settings", async () => {
-    state.api.getAlbumFiles.mockResolvedValue([file]);
+    state.api.getAlbumFiles.mockResolvedValue(paged([file]));
     renderPage(<AlbumDetailPage />, "/albums/7");
 
     expect(await screen.findByRole("heading", { name: "Coastal trip" })).toBeInTheDocument();
     expect(state.api.getAlbum).toHaveBeenCalledWith(expect.anything(), account, 7);
-    expect(state.api.getAlbumFiles).toHaveBeenCalledWith(expect.anything(), account, 7);
+    expect(state.api.getAlbumFiles).toHaveBeenCalledWith(expect.anything(), account, 7, 1, 12, "All");
     expect(state.api.getAlbumMembers).toHaveBeenCalledWith(expect.anything(), account, 7);
   });
 

@@ -37,19 +37,29 @@ const image: FileResponse = {
 
 describe("useAlbumCoverPreviews", () => {
   it("loads the first image and uses the album owner's management permission", async () => {
-    vi.mocked(getAlbumFiles).mockResolvedValueOnce([
-      { ...image, id: 39, contentType: "application/pdf" }, image,
-    ]);
+    vi.mocked(getAlbumFiles).mockResolvedValueOnce({
+      items: [image],
+      totalItems: 1,
+      page: 1,
+      pageSize: 100,
+      pageCount: 1,
+    });
     vi.mocked(getFilePreviewUrl).mockResolvedValueOnce("blob:cover");
     const { result } = renderHook(() => useAlbumCoverPreviews(albums, instance, account, 99));
 
     await waitFor(() => expect(result.current[album.id]).toBe("blob:cover"));
-    expect(getAlbumFiles).toHaveBeenCalledWith(instance, account, album.id);
+    expect(getAlbumFiles).toHaveBeenCalledWith(instance, account, album.id, 1, 100, "Images");
     expect(getFilePreviewUrl).toHaveBeenCalledWith(instance, account, image.id, album.id, false);
   });
 
   it("uses administrative management rights and skips loading without an account", async () => {
-    vi.mocked(getAlbumFiles).mockResolvedValueOnce([image]);
+    vi.mocked(getAlbumFiles).mockResolvedValueOnce({
+      items: [image],
+      totalItems: 1,
+      page: 1,
+      pageSize: 100,
+      pageCount: 1,
+    });
     vi.mocked(getFilePreviewUrl).mockResolvedValueOnce("blob:admin-cover");
     const { result, rerender } = renderHook(
       ({ currentAccount, isAdmin }) => useAlbumCoverPreviews(albums, instance, currentAccount, 99, isAdmin),
@@ -64,7 +74,13 @@ describe("useAlbumCoverPreviews", () => {
   });
 
   it("does not reload album files when the account object changes but its identity does not", async () => {
-    vi.mocked(getAlbumFiles).mockResolvedValueOnce([]);
+    vi.mocked(getAlbumFiles).mockResolvedValueOnce({
+      items: [],
+      totalItems: 0,
+      page: 1,
+      pageSize: 100,
+      pageCount: 1,
+    });
     const { rerender } = renderHook(
       ({ currentAccount }) => useAlbumCoverPreviews(albums, instance, currentAccount),
       { initialProps: { currentAccount: account } },
@@ -77,7 +93,13 @@ describe("useAlbumCoverPreviews", () => {
 
   it("releases URLs created for a hook that unmounts before its request finishes", async () => {
     let resolveUrl!: (url: string) => void;
-    vi.mocked(getAlbumFiles).mockResolvedValueOnce([image]);
+    vi.mocked(getAlbumFiles).mockResolvedValueOnce({
+      items: [image],
+      totalItems: 1,
+      page: 1,
+      pageSize: 100,
+      pageCount: 1,
+    });
     vi.mocked(getFilePreviewUrl).mockReturnValueOnce(new Promise((resolve) => { resolveUrl = resolve; }));
     const revoke = vi.spyOn(URL, "revokeObjectURL");
     const { unmount } = renderHook(() => useAlbumCoverPreviews(albums, instance, account));

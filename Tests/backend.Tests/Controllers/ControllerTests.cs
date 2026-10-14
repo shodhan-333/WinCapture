@@ -5,6 +5,7 @@ using Moq;
 using WinCapture.Controllers;
 using WinCapture.DTOs.Albums;
 using WinCapture.DTOs.Auth;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Files;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -24,8 +25,10 @@ public sealed class ControllerTests
     {
         var service = new Mock<IFileService>();
         service.Setup(x => x.UploadAsync(It.IsAny<IFormFile>(), 3)).ReturnsAsync(FileResponse);
-        service.Setup(x => x.GetGalleryAsync(3)).ReturnsAsync(new[] { FileResponse });
-        service.Setup(x => x.GetFavoritesAsync(3, UserRole.User)).ReturnsAsync(new[] { FileResponse });
+        service.Setup(x => x.GetGalleryPageAsync(3, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(new[] { FileResponse }));
+        service.Setup(x => x.GetFavoritesPageAsync(3, UserRole.User, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(new[] { FileResponse }));
         service.Setup(x => x.GetAsync(5, 3, UserRole.User)).ReturnsAsync(FileResponse);
         service.Setup(x => x.DownloadAsync(5, 3, UserRole.User))
             .ReturnsAsync(new FileDownloadResult(new MemoryStream([1]), "image/png", "photo.png"));
@@ -33,8 +36,8 @@ public sealed class ControllerTests
 
         var controller = WithUser(new FilesController(service.Object), 3, "WinCapture.User");
         var upload = await controller.Upload(Mock.Of<IFormFile>());
-        var gallery = await controller.GetGallery();
-        var favorites = await controller.GetFavorites();
+        var gallery = await controller.GetGallery(new PaginationQuery());
+        var favorites = await controller.GetFavorites(new PaginationQuery());
         var get = await controller.Get(5);
         var download = await controller.Download(5);
         var replace = await controller.Replace(5, Mock.Of<IFormFile>());
@@ -61,12 +64,12 @@ public sealed class ControllerTests
     {
         var service = new Mock<IFileService>();
         var missingId = WithUser(new FilesController(service.Object), null, "WinCapture.User");
-        await Assert.ThrowsAsync<UnauthorizedException>(() => missingId.GetGallery());
+        await Assert.ThrowsAsync<UnauthorizedException>(() => missingId.GetGallery(new PaginationQuery()));
         var invalidId = WithUser(new FilesController(service.Object), 0, "WinCapture.User");
-        await Assert.ThrowsAsync<UnauthorizedException>(() => invalidId.GetGallery());
+        await Assert.ThrowsAsync<UnauthorizedException>(() => invalidId.GetGallery(new PaginationQuery()));
 
         var missingRole = WithUser(new FilesController(service.Object), 3, null);
-        await Assert.ThrowsAsync<ForbiddenException>(() => missingRole.GetFavorites());
+        await Assert.ThrowsAsync<ForbiddenException>(() => missingRole.GetFavorites(new PaginationQuery()));
         service.VerifyNoOtherCalls();
     }
 
@@ -101,21 +104,25 @@ public sealed class ControllerTests
     {
         var files = new Mock<IFileService>();
         var albums = new Mock<IAlbumService>();
-        files.Setup(x => x.GetAllAsync()).ReturnsAsync(Array.Empty<AdminFileResponse>());
-        files.Setup(x => x.GetAdminFilesByUploaderIdAsync(3)).ReturnsAsync(Array.Empty<AdminFileResponse>());
-        albums.Setup(x => x.GetAllForAdminAsync()).ReturnsAsync(Array.Empty<AlbumResponse>());
-        albums.Setup(x => x.GetOwnedByUserAsync(3)).ReturnsAsync(Array.Empty<AlbumResponse>());
+        files.Setup(x => x.GetAllPageAsync(It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<AdminFileResponse>()));
+        files.Setup(x => x.GetAdminFilesByUploaderIdPageAsync(3, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<AdminFileResponse>()));
+        albums.Setup(x => x.GetAllForAdminPageAsync(It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<AlbumResponse>()));
+        albums.Setup(x => x.GetOwnedByUserPageAsync(3, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<AlbumResponse>()));
         var controller = WithUser(new AdminController(files.Object, albums.Object), 3, "WinCapture.Admin");
 
-        Assert.IsType<OkObjectResult>((await controller.GetFiles()).Result);
-        Assert.IsType<OkObjectResult>((await controller.GetAlbums()).Result);
-        Assert.IsType<OkObjectResult>((await controller.GetMyFiles()).Result);
-        Assert.IsType<OkObjectResult>((await controller.GetMyAlbums()).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetFiles(new PaginationQuery())).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetAlbums(new PaginationQuery())).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetMyFiles(new PaginationQuery())).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetMyAlbums(new PaginationQuery())).Result);
 
-        files.Verify(x => x.GetAllAsync(), Times.Once);
-        albums.Verify(x => x.GetAllForAdminAsync(), Times.Once);
-        files.Verify(x => x.GetAdminFilesByUploaderIdAsync(3), Times.Once);
-        albums.Verify(x => x.GetOwnedByUserAsync(3), Times.Once);
+        files.Verify(x => x.GetAllPageAsync(It.IsAny<PaginationQuery>()), Times.Once);
+        albums.Verify(x => x.GetAllForAdminPageAsync(It.IsAny<PaginationQuery>()), Times.Once);
+        files.Verify(x => x.GetAdminFilesByUploaderIdPageAsync(3, It.IsAny<PaginationQuery>()), Times.Once);
+        albums.Verify(x => x.GetOwnedByUserPageAsync(3, It.IsAny<PaginationQuery>()), Times.Once);
     }
 
     [Fact]
@@ -125,8 +132,8 @@ public sealed class ControllerTests
         var albums = new Mock<IAlbumService>();
         var controller = WithUser(new AdminController(files.Object, albums.Object), 0, "WinCapture.Admin");
 
-        await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyFiles());
-        await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyAlbums());
+        await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyFiles(new PaginationQuery()));
+        await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyAlbums(new PaginationQuery()));
 
         files.VerifyNoOtherCalls();
         albums.VerifyNoOtherCalls();
@@ -136,14 +143,14 @@ public sealed class ControllerTests
     public async Task File_favorites_forward_admin_role()
     {
         var files = new Mock<IFileService>();
-        files.Setup(service => service.GetFavoritesAsync(3, UserRole.Admin))
-            .ReturnsAsync(Array.Empty<FileResponse>());
+        files.Setup(service => service.GetFavoritesPageAsync(3, UserRole.Admin, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<FileResponse>()));
         var controller = WithUser(new FilesController(files.Object), 3, "WinCapture.Admin");
 
-        var result = await controller.GetFavorites();
+        var result = await controller.GetFavorites(new PaginationQuery());
 
         Assert.IsType<OkObjectResult>(result.Result);
-        files.Verify(service => service.GetFavoritesAsync(3, UserRole.Admin), Times.Once);
+        files.Verify(service => service.GetFavoritesPageAsync(3, UserRole.Admin, It.IsAny<PaginationQuery>()), Times.Once);
     }
 
     [Fact]
@@ -154,8 +161,10 @@ public sealed class ControllerTests
         albums.Setup(x => x.CreateAsync(It.IsAny<CreateAlbumRequest>(), It.Is<User>(u =>
             u.Id == 3 && u.Name == "Ari" && u.Email == "ari@example.test" && u.Role == UserRole.User)))
             .ReturnsAsync(AlbumResponse);
-        albums.Setup(x => x.GetAccessibleAsync(It.IsAny<User>())).ReturnsAsync(new[] { AlbumResponse });
-        albums.Setup(x => x.GetOwnedByUserAsync(3)).ReturnsAsync(new[] { AlbumResponse });
+        albums.Setup(x => x.GetAccessiblePageAsync(It.IsAny<User>(), It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(new[] { AlbumResponse }));
+        albums.Setup(x => x.GetOwnedByUserPageAsync(3, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(new[] { AlbumResponse }));
         albums.Setup(x => x.GetAsync(8, It.IsAny<User>(), UserRole.User)).ReturnsAsync(AlbumResponse);
         albums.Setup(x => x.UpdateAsync(8, It.IsAny<UpdateAlbumRequest>(), It.IsAny<User>(), UserRole.User))
             .ReturnsAsync(AlbumResponse);
@@ -166,7 +175,8 @@ public sealed class ControllerTests
         albums.Setup(x => x.RemoveMemberAsync(8, 4, It.IsAny<User>(), UserRole.User)).Returns(Task.CompletedTask);
         albumFiles.Setup(x => x.UploadAsync(8, It.IsAny<IFormFile>(), It.IsAny<User>(), UserRole.User)).ReturnsAsync(FileResponse);
         albumFiles.Setup(x => x.ReplaceAsync(8, 5, It.IsAny<IFormFile>(), It.IsAny<User>(), UserRole.User)).ReturnsAsync(FileResponse);
-        albumFiles.Setup(x => x.GetAsync(8, It.IsAny<User>(), UserRole.User)).ReturnsAsync(new[] { FileResponse });
+        albumFiles.Setup(x => x.GetPageAsync(8, It.IsAny<User>(), UserRole.User, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(new[] { FileResponse }));
         albumFiles.Setup(x => x.GetOneAsync(8, 5, It.IsAny<User>(), UserRole.User)).ReturnsAsync(FileResponse);
         albumFiles.Setup(x => x.PreviewAsync(8, 5, It.IsAny<User>(), UserRole.User))
             .ReturnsAsync(new FileDownloadResult(new MemoryStream([1]), "image/png", "photo.png"));
@@ -177,14 +187,14 @@ public sealed class ControllerTests
         var controller = WithUser(new AlbumsController(albums.Object, albumFiles.Object), 3, "WinCapture.User", "Ari", "ari@example.test");
 
         Assert.IsType<CreatedResult>((await controller.Create(new CreateAlbumRequest("Trip"))).Result);
-        Assert.IsType<OkObjectResult>((await controller.GetAll()).Result);
-        Assert.IsType<OkObjectResult>((await controller.GetOwnedByCurrentUser()).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetAll(new PaginationQuery())).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetOwnedByCurrentUser(new PaginationQuery())).Result);
         Assert.IsType<OkObjectResult>((await controller.Get(8)).Result);
         Assert.IsType<OkObjectResult>((await controller.Update(8, new UpdateAlbumRequest("New"))).Result);
         Assert.IsType<NoContentResult>(await controller.Delete(8));
         Assert.IsType<CreatedResult>((await controller.UploadFile(8, Mock.Of<IFormFile>())).Result);
         Assert.IsType<OkObjectResult>((await controller.ReplaceFile(8, 5, Mock.Of<IFormFile>())).Result);
-        Assert.IsType<OkObjectResult>((await controller.GetFiles(8)).Result);
+        Assert.IsType<OkObjectResult>((await controller.GetFiles(8, new PaginationQuery())).Result);
         Assert.IsType<OkObjectResult>((await controller.GetFile(8, 5)).Result);
         Assert.IsAssignableFrom<FileStreamResult>(await controller.PreviewFile(8, 5));
         Assert.IsAssignableFrom<FileStreamResult>(await controller.DownloadFile(8, 5));
@@ -205,10 +215,10 @@ public sealed class ControllerTests
         var albums = new Mock<IAlbumService>();
         var files = new Mock<IAlbumFileService>();
         var missingId = WithUser(new AlbumsController(albums.Object, files.Object), null, "WinCapture.User");
-        await Assert.ThrowsAsync<UnauthorizedException>(() => missingId.GetOwnedByCurrentUser());
+        await Assert.ThrowsAsync<UnauthorizedException>(() => missingId.GetOwnedByCurrentUser(new PaginationQuery()));
 
         var missingRole = WithUser(new AlbumsController(albums.Object, files.Object), 3, null);
-        await Assert.ThrowsAsync<ForbiddenException>(() => missingRole.GetAll());
+        await Assert.ThrowsAsync<ForbiddenException>(() => missingRole.GetAll(new PaginationQuery()));
 
         albums.VerifyNoOtherCalls();
         files.VerifyNoOtherCalls();
@@ -218,19 +228,24 @@ public sealed class ControllerTests
     public async Task Album_controller_defaults_optional_identity_claims_and_forwards_admin_role()
     {
         var albums = new Mock<IAlbumService>();
-        albums.Setup(service => service.GetAccessibleAsync(It.Is<User>(user =>
+        albums.Setup(service => service.GetAccessiblePageAsync(It.Is<User>(user =>
                 user.Id == 3 &&
                 user.Name == string.Empty &&
                 user.Email == string.Empty &&
-                user.Role == UserRole.Admin)))
-            .ReturnsAsync(Array.Empty<AlbumResponse>());
+                user.Role == UserRole.Admin), It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<AlbumResponse>()));
         var controller = WithUser(new AlbumsController(albums.Object, Mock.Of<IAlbumFileService>()), 3, "WinCapture.Admin");
 
-        var result = await controller.GetAll();
+        var result = await controller.GetAll(new PaginationQuery());
 
         Assert.IsType<OkObjectResult>(result.Result);
-        albums.Verify(service => service.GetAccessibleAsync(It.Is<User>(user =>
-            user.Id == 3 && user.Role == UserRole.Admin)), Times.Once);
+        albums.Verify(service => service.GetAccessiblePageAsync(It.Is<User>(user =>
+            user.Id == 3 && user.Role == UserRole.Admin), It.IsAny<PaginationQuery>()), Times.Once);
+    }
+
+    private static PagedResponse<T> Page<T>(IReadOnlyList<T> items)
+    {
+        return new PagedResponse<T>(items, items.Count, 1, 10, Math.Max(1, items.Count));
     }
 
     private static T WithUser<T>(T controller, int? userId, string? role, string? name = null, string? email = null)

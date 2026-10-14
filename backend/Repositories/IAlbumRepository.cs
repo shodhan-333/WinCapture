@@ -1,4 +1,5 @@
 using WinCapture.Models;
+using WinCapture.DTOs.Common;
 
 namespace WinCapture.Repositories;
 
@@ -13,11 +14,17 @@ public interface IAlbumRepository
     // Returns albums owned by the user or shared with them with view permission.
     Task<IReadOnlyList<Album>> GetAccessibleByUserIdAsync(int userId);
 
+    Task<PagedResponse<Album>> GetPagedAccessibleByUserIdAsync(int userId, PaginationQuery pagination);
+
     // Returns only the albums owned by the specified user.
     Task<IReadOnlyList<Album>> GetOwnedByUserIdAsync(int userId);
 
+    Task<PagedResponse<Album>> GetPagedOwnedByUserIdAsync(int userId, PaginationQuery pagination);
+
     // Returns all albums in the database.
     Task<IReadOnlyList<Album>> GetAllAsync();
+
+    Task<PagedResponse<Album>> GetPagedAllAsync(PaginationQuery pagination);
 
     // Updates an existing album in the database.
     Task UpdateAsync(Album album);

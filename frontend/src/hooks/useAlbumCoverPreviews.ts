@@ -40,8 +40,8 @@ export default function useAlbumCoverPreviews(
       const entries = await Promise.all(
         albums.map(async (album) => {
           try {
-            const files = await getAlbumFiles(instance, account, album.id);
-            const image = files.find((file) => file.contentType.startsWith("image/"));
+            const page = await getAlbumFiles(instance, account, album.id, 1, 1, "Images");
+            const image = page.items[0];
             if (!image) return null;
 
             const canManage = isAdmin || album.ownerId === userId;

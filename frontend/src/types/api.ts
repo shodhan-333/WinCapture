@@ -1,3 +1,11 @@
+export interface PagedResponse<T> {
+  items: T[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -8,5 +16,4 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
-
 

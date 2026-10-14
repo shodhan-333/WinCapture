@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Albums;
 using WinCapture.DTOs.Files;
 using WinCapture.Exceptions;
@@ -30,33 +31,37 @@ public sealed class AdminController(IFileService fileService, IAlbumService albu
 
     // Returns files uploaded by all users for admin management.
     [HttpGet("files")]
-    [ProducesResponseType<IReadOnlyList<AdminFileResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AdminFileResponse>>> GetFiles()
+    [ProducesResponseType<PagedResponse<AdminFileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AdminFileResponse>>> GetFiles(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await fileService.GetAllAsync());
+        return Ok(await fileService.GetAllPageAsync(pagination));
     }
 
     // Returns albums across all users for admin management.
     [HttpGet("albums")]
-    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetAlbums()
+    [ProducesResponseType<PagedResponse<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AlbumResponse>>> GetAlbums(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await albumService.GetAllForAdminAsync());
+        return Ok(await albumService.GetAllForAdminPageAsync(pagination));
     }
 
     // Returns only the albums owned by the current admin.
     [HttpGet("albums/mine")]
-    [ProducesResponseType<IReadOnlyList<AlbumResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AlbumResponse>>> GetMyAlbums()
+    [ProducesResponseType<PagedResponse<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AlbumResponse>>> GetMyAlbums(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await albumService.GetOwnedByUserAsync(UserId));
+        return Ok(await albumService.GetOwnedByUserPageAsync(UserId, pagination));
     }
 
     // Returns only the files uploaded by the current admin.
     [HttpGet("files/mine")]
-    [ProducesResponseType<IReadOnlyList<AdminFileResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<AdminFileResponse>>> GetMyFiles()
+    [ProducesResponseType<PagedResponse<AdminFileResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AdminFileResponse>>> GetMyFiles(
+        [FromQuery] PaginationQuery pagination)
     {
-        return Ok(await fileService.GetAdminFilesByUploaderIdAsync(UserId));
+        return Ok(await fileService.GetAdminFilesByUploaderIdPageAsync(UserId, pagination));
     }
 }
