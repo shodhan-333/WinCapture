@@ -33,7 +33,7 @@ import {
 } from "../components/ui/uiClasses";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
-import ImagePreviewModal from "../components/files/ImagePreviewModal";
+import FilePreviewModal from "../components/files/FilePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
@@ -90,6 +90,7 @@ export default function FilesPage() {
   const [fileDetails, setFileDetails] =
     useState<FileResponse | null>(null);
   const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
+  const [previewSource, setPreviewSource] = useState<string | undefined>();
 
   const loadPreview = useCallback(
     async (file: FileResponse) => {
@@ -638,13 +639,14 @@ export default function FilesPage() {
             files={files}
             previewUrls={previewUrls}
             favoritePendingIds={favoritePendingIds}
+            loadPreview={loadPreview}
             canManage={(file) => file.canManage}
             onFavoriteToggle={(file) =>
               void toggleFavorite(file)
             }
             onReplace={openReplace}
             onDetails={(file) => void handleShowFileDetails(file)}
-            onPreview={setPreviewFile}
+            onPreview={(file, source) => { setPreviewFile(file); setPreviewSource(source); }}
             onDownload={(file) =>
               void handleDownload(file)
             }
@@ -667,7 +669,7 @@ export default function FilesPage() {
           onClose={() => setFileDetails(null)}
         />
       )}
-      {previewFile && <ImagePreviewModal file={previewFile} src={previewUrls[previewFile.id]} onClose={() => setPreviewFile(null)} />}
+      {previewFile && <FilePreviewModal file={previewFile} src={previewSource ?? previewUrls[previewFile.id]} onClose={() => { setPreviewFile(null); setPreviewSource(undefined); }} />}
     </div>
   );
 }

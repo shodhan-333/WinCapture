@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import FileCard from "../../../frontend/src/components/FileCard";
@@ -59,5 +59,45 @@ describe("FileCard", () => {
     expect(image).toHaveAttribute("loading", "lazy");
     fireEvent.keyDown(image, { key: "Enter" });
     expect(onPreview).toHaveBeenCalledOnce();
+  });
+
+  it("does not overlay a blank circle on non-image previews and keeps them clickable", async () => {
+    const onPreview = vi.fn();
+    const previewFiles = [
+      { originalFileName: "report.pdf", contentType: "application/pdf" },
+      { originalFileName: "invoice.PDF", contentType: "application/pdf" },
+      { originalFileName: "meeting.mp4", contentType: "video/mp4" },
+      { originalFileName: "song.mp3", contentType: "audio/mpeg" },
+      { originalFileName: "backup.zip", contentType: "application/zip" },
+    ];
+    const { container } = render(
+      <>
+        {previewFiles.map(({ originalFileName, contentType }, index) => (
+          <FileCard
+            key={originalFileName}
+            file={{
+              ...file,
+              id: index + 10,
+              originalFileName,
+              contentType,
+            }}
+            onFavoriteToggle={vi.fn()}
+            onReplace={vi.fn()}
+            onDetails={vi.fn()}
+            onPreview={onPreview}
+            onDownload={vi.fn()}
+            onDelete={vi.fn()}
+          />
+        ))}
+      </>,
+    );
+
+    const previewButtons = screen.getAllByRole("button", { name: /^Open preview of / });
+    expect(previewButtons).toHaveLength(previewFiles.length);
+    previewButtons.forEach((button) => expect(button).toBeEmptyDOMElement());
+
+    previewButtons.forEach((button) => fireEvent.click(button));
+    await waitFor(() => expect(onPreview).toHaveBeenCalledTimes(previewFiles.length));
+    expect(container.querySelectorAll('[aria-label="Loading preview"]')).toHaveLength(0);
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { FileResponse } from "../types/file";
-import { isPreviewableFile } from "../constants/fileSupport";
+import { isImagePreviewableFile } from "../constants/fileSupport";
 
 export type FilePreviewLoader = (
   file: FileResponse,
@@ -26,7 +26,7 @@ export default function useFilePreviews(
   useEffect(() => {
     let active = true;
 
-    const imageFiles = files.filter((file) => isPreviewableFile(file.originalFileName));
+    const imageFiles = files.filter((file) => isImagePreviewableFile(file.originalFileName));
 
     const signatureFor = (file: FileResponse) =>
       `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;

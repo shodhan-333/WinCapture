@@ -49,7 +49,7 @@ import ErrorBanner from "../components/ui/ErrorBanner";
 import Pagination from "../components/ui/Pagination";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
-import ImagePreviewModal from "../components/files/ImagePreviewModal";
+import FilePreviewModal from "../components/files/FilePreviewModal";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
@@ -103,6 +103,7 @@ export default function AlbumDetailPage() {
     useState<FileResponse | null>(null);
   const [previewFile, setPreviewFile] =
     useState<FileResponse | null>(null);
+  const [previewSource, setPreviewSource] = useState<string | undefined>();
 
   const [members, setMembers] = useState<AlbumMemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -964,6 +965,7 @@ export default function AlbumDetailPage() {
           files={files}
           previewUrls={previewUrls}
           favoritePendingIds={favoritePendingIds}
+          loadPreview={loadPreview}
           canManage={canManageAlbum}
           onFavoriteToggle={(file) => void toggleFavorite(file)}
           onReplace={(file) => {
@@ -975,7 +977,7 @@ export default function AlbumDetailPage() {
             }
           }}
           onDetails={(file) => void handleShowFileDetails(file)}
-          onPreview={setPreviewFile}
+          onPreview={(file, source) => { setPreviewFile(file); setPreviewSource(source); }}
           onDownload={(file) => void handleDownload(file)}
           onDelete={(file) => void handleDelete(file.id)}
           empty={
@@ -1382,10 +1384,10 @@ export default function AlbumDetailPage() {
       )}
 
       {previewFile && (
-        <ImagePreviewModal
+        <FilePreviewModal
           file={previewFile}
-          src={previewUrls[previewFile.id]}
-          onClose={() => setPreviewFile(null)}
+          src={previewSource ?? previewUrls[previewFile.id]}
+          onClose={() => { setPreviewFile(null); setPreviewSource(undefined); }}
         />
       )}
     </div>

@@ -17,14 +17,14 @@ const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
 });
 
 describe("useFilePreviews", () => {
-  it("requests previews only for supplied visible previewable files", async () => {
+  it("keeps image URL loading in the shared cache while other formats load on demand", async () => {
     const loadPreview = vi.fn(async (file: FileResponse) => `blob:${file.id}`);
     const files = [makeFile(1), makeFile(2), makeFile(3, "application/pdf")];
     const { result } = renderHook(() => useFilePreviews(files, loadPreview));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(loadPreview.mock.calls.map(([file]) => file.id)).toEqual([1, 2, 3]);
-    expect(result.current.previewUrls).toEqual({ 1: "blob:1", 2: "blob:2", 3: "blob:3" });
+    expect(loadPreview.mock.calls.map(([file]) => file.id)).toEqual([1, 2]);
+    expect(result.current.previewUrls).toEqual({ 1: "blob:1", 2: "blob:2" });
   });
 
   it("shares in-flight requests for repeated file ids", async () => {

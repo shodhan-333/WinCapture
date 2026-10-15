@@ -57,21 +57,9 @@ export function validateUploadFile(file: File): string | undefined {
 }
 
 export function isPreviewableFile(fileName: string): boolean {
-  const extension = getFileExtension(fileName);
+  return getFileCategory(fileName) !== undefined;
+}
 
-  return [
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".webp",
-    ".pdf",
-    ".txt",
-    ".csv",
-    ".mp4",
-    ".mov",
-    ".webm",
-    ".mp3",
-    ".wav",
-    ".m4a",
-  ].includes(extension);
+export function isImagePreviewableFile(fileName: string): boolean {
+  return FILE_EXTENSIONS.Images.includes(getFileExtension(fileName) as (typeof FILE_EXTENSIONS.Images)[number]);
 }
