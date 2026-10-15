@@ -399,7 +399,8 @@ export default function FilesPage() {
     <div className="app-page">
       <section className={pageHeaderClass}>
         <div className="min-w-0">
-          <h1 className="page-heading">
+          <h1 className="page-heading flex items-center gap-3">
+            <span className="page-kicker-dot" aria-hidden="true" />
             {view === "favorites" ? "Favorites" : "Files"}
           </h1>
 

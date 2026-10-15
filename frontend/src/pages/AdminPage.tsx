@@ -178,7 +178,7 @@ export default function AdminPage() {
 
   return (
     <div className="app-page admin-page">
-      <section className="surface relative flex min-h-[174px] items-center justify-between overflow-hidden rounded-[20px] px-[30px] py-[28px] after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] max-[760px]:[min-height:auto] max-[760px]:px-5 max-[760px]:py-[22px]">
+      <section className="surface relative flex min-h-[132px] items-center justify-between overflow-hidden rounded-[16px] px-6 py-4 after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] max-[760px]:[min-height:auto] max-[760px]:px-4 max-[760px]:py-4">
         <div className="pointer-events-none absolute right-[-70px] top-[-130px] h-[230px] w-[230px] rounded-full bg-[rgba(119,177,246,0.15)] blur-[2px]" />
         <div className="pointer-events-none absolute bottom-[-155px] right-[26%] h-[190px] w-[190px] rounded-full bg-[rgba(213,230,249,0.35)] blur-[2px]" />
 

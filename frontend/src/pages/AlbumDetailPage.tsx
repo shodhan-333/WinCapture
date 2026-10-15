@@ -666,11 +666,11 @@ export default function AlbumDetailPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
-          {[1, 2, 3, 4].map((item) => (
+        <section className="grid grid-cols-3 gap-[17px]">
+          {[1, 2, 3].map((item) => (
             <div
               key={item}
-              className="surface h-[230px] rounded-[16px]"
+              className="surface h-[315px] rounded-[17px]"
             />
           ))}
         </section>
@@ -729,8 +729,8 @@ export default function AlbumDetailPage() {
         </Link>
       </div>
 
-      <section className="surface relative flex items-center gap-[17px] overflow-hidden rounded-[20px] p-[22px] max-[760px]:flex-wrap max-[760px]:p-[18px]">
-        <div className="relative grid h-[78px] w-[95px] flex-none place-items-center overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.66),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b7daf6_49%,#dceefa_100%)] max-[520px]:h-[65px] max-[520px]:w-[75px]">
+      <section className="surface relative flex items-center gap-3 overflow-hidden rounded-[16px] p-4 max-[760px]:flex-wrap max-[760px]:p-3">
+        <div className="relative grid h-[64px] w-[78px] flex-none place-items-center overflow-hidden rounded-xl bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.66),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b7daf6_49%,#dceefa_100%)] max-[520px]:h-[54px] max-[520px]:w-[66px]">
           {albumCoverPreview ? (
             <img
               src={previewUrls[albumCoverPreview.id]}
