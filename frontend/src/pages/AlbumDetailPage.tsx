@@ -568,7 +568,9 @@ export default function AlbumDetailPage() {
       setCanView(true);
       setCanDownload(true);
 
-      await loadAlbumData();
+      setMembers(
+        await getAlbumMembers(instance, account, numericAlbumId),
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -601,7 +603,17 @@ export default function AlbumDetailPage() {
         },
       );
 
-      await loadAlbumData();
+      setMembers((currentMembers) =>
+        currentMembers.map((member) =>
+          member.userId === userId
+            ? {
+                ...member,
+                canView: nextView || nextDownload,
+                canDownload: nextDownload,
+              }
+            : member,
+        ),
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -626,7 +638,9 @@ export default function AlbumDetailPage() {
         userId,
       );
 
-      await loadAlbumData();
+      setMembers((currentMembers) =>
+        currentMembers.filter((member) => member.userId !== userId),
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -1025,11 +1039,11 @@ export default function AlbumDetailPage() {
             </span>
 
             <span className="grid min-w-0 flex-1 gap-[3px]">
-              <strong className="text-[11px] font-[650] text-[#35526a]">
+              <strong className="text-[14px] font-[650] text-[#35526a]">
                 Share access
               </strong>
 
-              <small className="text-[8px] text-[#8799a7]">
+              <small className="text-[12px] text-[#8799a7]">
                 Manage who can view and download this album
               </small>
             </span>

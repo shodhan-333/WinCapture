@@ -333,8 +333,8 @@ export default function AlbumsPage() {
                       </span>
 
                       <span className="grid min-w-0 gap-0.5">
-                        <small className="text-[8px] text-[#94a5b3]">Owner</small>
-                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-semibold text-[#4e677d]"
+                        <small className="text-[11px] text-[#94a5b3]">Owner</small>
+                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#4e677d]"
                           title={
                             album.ownerName
                           }
@@ -354,8 +354,8 @@ export default function AlbumsPage() {
                       </span>
 
                       <span className="grid min-w-0 gap-0.5">
-                        <small className="text-[8px] text-[#94a5b3]">Created</small>
-                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-semibold text-[#4e677d]">
+                        <small className="text-[11px] text-[#94a5b3]">Created</small>
+                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#4e677d]">
                           {formatDate(
                             album.createdAt,
                           )}
