@@ -74,10 +74,10 @@ const sharePanelClass =
   "min-w-0 p-5 max-[760px]:p-[17px] max-[520px]:p-[14px]";
 
 const permissionToggleClass =
-  "inline-flex h-7 min-w-[52px] cursor-pointer items-center justify-center gap-[5px] rounded-full border border-[#dde7ee] bg-[#f4f7fa] px-2 text-[8px] font-bold text-[#8b9aa6] transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
+  "inline-flex h-6 min-w-[46px] cursor-pointer items-center justify-center gap-[4px] rounded-full border border-[#dde7ee] bg-[#f4f7fa] px-[7px] text-[9px] font-bold text-[#8b9aa6] transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
 
 const memberPermissionClass =
-  "inline-flex min-h-[26px] cursor-pointer items-center justify-center gap-1 rounded-[7px] border border-[#dce8ef] bg-[#f4f8fa] px-[7px] text-[7px] font-[650] text-[#7c91a2] transition-[color,background,border-color] duration-[160ms] disabled:cursor-not-allowed disabled:opacity-[0.47]";
+  "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] text-[11px] font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4] disabled:cursor-not-allowed disabled:opacity-[0.68]";
 
 export default function AlbumDetailPage() {
   const { instance } = useMsal();
@@ -865,7 +865,7 @@ export default function AlbumDetailPage() {
               disabled={deletingAlbum || uploading}
               aria-label="Delete album"
               title="Delete album"
-              className="inline-flex h-9 flex-none cursor-pointer items-center justify-center gap-[7px] rounded-[10px] border border-[rgba(203,154,157,0.55)] bg-[rgba(255,248,248,0.72)] px-3 text-[10px] font-semibold text-[#ad5960] transition-[background,border-color,color] duration-[180ms] hover:border-[rgba(195,105,113,0.7)] hover:bg-[rgba(255,236,237,0.9)] hover:text-[#a83f49] disabled:cursor-wait disabled:opacity-60 max-[520px]:min-w-0 max-[520px]:flex-1"
+              className="danger-gradient-action inline-flex h-9 flex-none cursor-pointer items-center justify-center gap-[7px] rounded-[10px] px-3 text-[10px] font-semibold transition-[transform,box-shadow] duration-[180ms] disabled:cursor-wait disabled:opacity-60 max-[520px]:min-w-0 max-[520px]:flex-1"
             >
               <Trash2
                 aria-hidden="true"
@@ -1093,11 +1093,11 @@ export default function AlbumDetailPage() {
               <div className="mt-[11px] overflow-hidden rounded-xl border border-[#e4edf3] bg-[rgba(255,255,255,0.28)]">
                 <div className="flex min-h-[60px] items-center justify-between gap-3 border-b border-[#e8eef3] px-3 py-[10px] last:border-0">
                   <div className="grid min-w-0 gap-[3px]">
-                    <strong className="text-[9px] font-[650] text-[#4b647a]">
+                    <strong className="text-[12px] font-[650] text-[#4b647a]">
                       Can view
                     </strong>
 
-                    <span className="text-[8px] leading-[1.4] text-[#91a1ad]">
+                    <span className="text-[11px] leading-[1.4] text-[#71879a]">
                       Allow this person to open the album.
                     </span>
                   </div>
@@ -1130,11 +1130,11 @@ export default function AlbumDetailPage() {
 
                 <div className="flex min-h-[60px] items-center justify-between gap-3 border-b border-[#e8eef3] px-3 py-[10px] last:border-0">
                   <div className="grid min-w-0 gap-[3px]">
-                    <strong className="text-[9px] font-[650] text-[#4b647a]">
+                    <strong className="text-[12px] font-[650] text-[#4b647a]">
                       Can download
                     </strong>
 
-                    <span className="text-[8px] leading-[1.4] text-[#91a1ad]">
+                    <span className="text-[11px] leading-[1.4] text-[#71879a]">
                       Allow files to be downloaded.
                     </span>
                   </div>
@@ -1188,7 +1188,7 @@ export default function AlbumDetailPage() {
                     Current members
                   </p>
 
-                  <h3 className="mt-1 mb-0 text-[16px] leading-[1.25] font-[650] tracking-[-0.025em] text-[#163855]">
+                  <h3 className="mt-1 mb-0 text-[18px] leading-[1.25] font-[650] tracking-[-0.025em] text-[#163855]">
                     People with access
                   </h3>
                 </div>
@@ -1231,22 +1231,26 @@ export default function AlbumDetailPage() {
                       </div>
 
                       <div className="grid min-w-0 flex-1 gap-0.5">
-                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[9px] font-[650] text-[#3b556b]">
+                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-[650] text-[#3b556b]">
                           {member.name || member.email}
                         </strong>
 
-                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[8px] text-[#8899a6]">
+                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[12px] text-[#71879a]">
                           {member.email}
                         </span>
 
-                        <small className="text-[7px] text-[#a0aeb8]">
+                        <small className="text-[10px] text-[#71879a]">
                           Granted {formatDate(member.grantedAt)}
                         </small>
+                        <span className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-1 text-[9px] font-semibold ${member.canDownload ? "bg-[#e8f2ff] text-[#245f9e]" : member.canView ? "bg-[#e8f7ef] text-[#216747]" : "bg-[#f0f3f6] text-[#5f7080]"}`}>
+                          {member.canDownload ? "View and download" : member.canView ? "View only" : "No access"}
+                        </span>
                       </div>
 
                       <div className="flex flex-wrap justify-end gap-1 max-[760px]:w-full max-[760px]:justify-start max-[760px]:pl-10 max-[520px]:pl-10">
                         <button
                           type="button"
+                          aria-label={`${member.canView ? "View allowed" : "View off"} for ${member.email}`}
                           aria-pressed={member.canView}
                           onClick={() =>
                             void handleUpdateMember(
@@ -1259,8 +1263,8 @@ export default function AlbumDetailPage() {
                           }
                           className={`${memberPermissionClass} ${
                             member.canView
-                              ? "border-[#d2ece5] bg-[#ebf9f5] text-[#227f6b]"
-                              : ""
+                              ? "primary-action !min-h-[36px] !rounded-[8px] !px-[11px] !text-[11px]"
+                              : "border-[#d4dde5] bg-[#f2f5f8] text-[#647789] hover:bg-[#eaf0f4]"
                           }`}
                         >
                           {member.canView && (
@@ -1270,11 +1274,12 @@ export default function AlbumDetailPage() {
                               strokeWidth={2}
                             />
                           )}
-                          View
+                          {member.canView ? "View allowed" : "View off"}
                         </button>
 
                         <button
                           type="button"
+                          aria-label={`${member.canDownload ? "Download allowed" : "Download off"} for ${member.email}`}
                           aria-pressed={member.canDownload}
                           disabled={!member.canView}
                           onClick={() =>
@@ -1286,8 +1291,8 @@ export default function AlbumDetailPage() {
                           }
                           className={`${memberPermissionClass} ${
                             member.canDownload
-                              ? "border-[#d2ece5] bg-[#ebf9f5] text-[#227f6b]"
-                              : ""
+                              ? "primary-action !min-h-[36px] !rounded-[8px] !px-[11px] !text-[11px]"
+                              : "border-[#d4dde5] bg-[#f2f5f8] text-[#647789] hover:bg-[#eaf0f4]"
                           } ${
                             !member.canView
                               ? "cursor-not-allowed opacity-[0.47]"
@@ -1301,7 +1306,7 @@ export default function AlbumDetailPage() {
                               strokeWidth={1.9}
                             />
                           )}
-                          Download
+                          {member.canDownload ? "Download allowed" : "Download off"}
                         </button>
 
                         <button
@@ -1311,7 +1316,7 @@ export default function AlbumDetailPage() {
                           onClick={() =>
                             void handleRemoveMember(member.userId)
                           }
-                          className="inline-flex min-h-[26px] cursor-pointer items-center justify-center gap-1 rounded-[7px] border border-[#efd6d8] bg-[#fff3f4] px-[7px] text-[7px] font-[650] text-[#d25259] transition-[color,background,border-color] duration-[160ms] hover:bg-[#ffe9eb] hover:text-[#bd3e47] max-[520px]:w-7 max-[520px]:px-0"
+                          className="danger-gradient-action inline-flex min-h-[30px] cursor-pointer items-center justify-center gap-1 rounded-[7px] px-[9px] text-[9px] font-[650] transition-[transform,box-shadow] duration-[160ms] max-[520px]:w-7 max-[520px]:px-0"
                         >
                           <Trash2
                             aria-hidden="true"

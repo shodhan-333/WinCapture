@@ -242,6 +242,22 @@ img {
     inset 0 1px rgba(255, 255, 255, 0.24);
 }
 
+.danger-gradient-action {
+  color: #ffffff;
+  border: 1px solid rgba(190, 48, 58, 0.72);
+  background: linear-gradient(145deg, #ff777f 0%, #e34450 55%, #c92737 100%);
+  box-shadow:
+    0 9px 20px rgba(190, 48, 58, 0.2),
+    inset 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.danger-gradient-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 24px rgba(190, 48, 58, 0.24),
+    inset 0 1px rgba(255, 255, 255, 0.24);
+}
+
 .secondary-action {
   color: #176ac2;
 
