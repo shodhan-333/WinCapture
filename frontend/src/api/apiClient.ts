@@ -263,6 +263,22 @@ export async function getMyAlbums(
   return (await response.json()) as PagedResponse<AlbumResponse>;
 }
 
+export async function getSharedAlbums(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  page = 1,
+  pageSize = 10,
+  search?: string,
+): Promise<PagedResponse<AlbumResponse>> {
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath("/api/albums/shared", page, pageSize, search),
+  );
+
+  return (await response.json()) as PagedResponse<AlbumResponse>;
+}
+
 export async function getAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,

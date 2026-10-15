@@ -21,6 +21,8 @@ public interface IAlbumRepository
 
     Task<PagedResponse<Album>> GetPagedOwnedByUserIdAsync(int userId, PaginationQuery pagination);
 
+    Task<PagedResponse<Album>> GetPagedSharedWithUserIdAsync(int userId, PaginationQuery pagination);
+
     // Returns all albums in the database.
     Task<IReadOnlyList<Album>> GetAllAsync();
 

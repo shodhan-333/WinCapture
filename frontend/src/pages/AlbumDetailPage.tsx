@@ -107,6 +107,7 @@ export default function AlbumDetailPage() {
 
   const [members, setMembers] = useState<AlbumMemberResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] =
     useState<string | null>(null);
@@ -236,6 +237,7 @@ export default function AlbumDetailPage() {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   };
 
@@ -651,7 +653,7 @@ export default function AlbumDetailPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="app-page">
         <section className="skeleton-panel relative flex items-center gap-[17px] overflow-hidden rounded-[20px] p-[22px] max-[760px]:flex-wrap max-[760px]:p-[18px]">
@@ -664,11 +666,11 @@ export default function AlbumDetailPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-3 gap-[17px]">
-          {[1, 2, 3].map((item) => (
+        <section className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
+          {[1, 2, 3, 4].map((item) => (
             <div
               key={item}
-              className="surface h-[315px] rounded-[17px]"
+              className="surface h-[230px] rounded-[16px]"
             />
           ))}
         </section>

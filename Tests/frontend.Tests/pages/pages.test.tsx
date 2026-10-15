@@ -12,12 +12,13 @@ import AdminPage from "../../../frontend/src/pages/AdminPage";
 import AlbumDetailPage from "../../../frontend/src/pages/AlbumDetailPage";
 import Layout from "../../../frontend/src/components/Layout";
 import type { AlbumResponse } from "../../../frontend/src/types/album";
+import { ApiError } from "../../../frontend/src/types/api";
 import type { FileResponse, AdminFileResponse } from "../../../frontend/src/types/file";
 
 const state = vi.hoisted(() => ({
   api: {
     getMyAlbums: vi.fn(), getFiles: vi.fn(), getFilePreviewUrl: vi.fn(),
-    getAlbums: vi.fn(), createAlbum: vi.fn(), getFavorites: vi.fn(),
+    getAlbums: vi.fn(), getSharedAlbums: vi.fn(), createAlbum: vi.fn(), getFavorites: vi.fn(),
     getMyAdminAlbums: vi.fn(), getMyAdminFiles: vi.fn(), getAdminAlbums: vi.fn(), getAdminFiles: vi.fn(),
     deleteAlbum: vi.fn(), deleteFile: vi.fn(), getAlbum: vi.fn(), getAlbumFiles: vi.fn(), getAlbumMembers: vi.fn(),
     getFile: vi.fn(), uploadFile: vi.fn(), replaceFile: vi.fn(), downloadFileByPath: vi.fn(),
@@ -123,6 +124,7 @@ describe("page workflows", () => {
     state.api.getMyAlbums.mockResolvedValue(paged());
     state.api.getFiles.mockResolvedValue(paged());
     state.api.getAlbums.mockResolvedValue(paged());
+    state.api.getSharedAlbums.mockResolvedValue(paged());
     state.api.getAlbumFiles.mockResolvedValue(paged());
     state.api.getAlbumMembers.mockResolvedValue([]);
   });
@@ -150,6 +152,46 @@ describe("page workflows", () => {
     await waitFor(() => expect(screen.getByTestId("current-path")).toHaveTextContent("/albums/7"));
   });
 
+  it("filters albums by ownership and searches the selected result set", async () => {
+    state.api.getSharedAlbums.mockResolvedValue(paged([{
+      ...album,
+      id: 8,
+      albumName: "Shared coast",
+      ownerId: 9,
+      ownerName: "Alex Owner",
+    }]));
+    renderPage(<AlbumsPage />);
+
+    await screen.findByRole("heading", { name: "No albums available" });
+    fireEvent.click(screen.getByRole("button", { name: "Shared with me" }));
+    await waitFor(() => expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, ""));
+    expect(await screen.findByText("Shared coast")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search albums" }), {
+      target: { value: "coast" },
+    });
+    await waitFor(() => expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"));
+
+    fireEvent.click(screen.getByRole("button", { name: "My albums" }));
+    await waitFor(() => expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"));
+    fireEvent.click(screen.getByRole("button", { name: "All" }));
+    await waitFor(() => expect(state.api.getAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"));
+  });
+
+  it("falls back to accessible albums when the deployed API lacks the shared-albums route", async () => {
+    const sharedAlbum = { ...album, id: 8, albumName: "Shared coast", ownerId: 9, ownerName: "Alex Owner" };
+    state.api.getSharedAlbums.mockRejectedValue(new ApiError("Not found", 404));
+    state.api.getAlbums.mockResolvedValue(paged([album, sharedAlbum]));
+
+    renderPage(<AlbumsPage />);
+    await screen.findByText("Coastal trip");
+    fireEvent.click(screen.getByRole("button", { name: "Shared with me" }));
+
+    expect(await screen.findByText("Shared coast")).toBeInTheDocument();
+    expect(screen.queryByText("Coastal trip")).not.toBeInTheDocument();
+    expect(state.api.getAlbums).toHaveBeenLastCalledWith(expect.anything(), account, 1, 100, "");
+  });
+
   it("loads files, searches the current list, and requests favorites on view change", async () => {
     state.api.getFiles.mockImplementation((_instance, _account, _page, _size, search) =>
       Promise.resolve(search === "missing" ? paged() : paged([file])));
@@ -166,6 +208,8 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
     expect(await screen.findByRole("heading", { name: "Favorites" })).toBeInTheDocument();
     expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "All");
+    fireEvent.click(screen.getByRole("button", { name: "Videos" }));
+    await waitFor(() => expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "Videos"));
   });
 
   it("keeps the file page visible while previews are loading", async () => {

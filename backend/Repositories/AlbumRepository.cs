@@ -102,6 +102,32 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
             .ToPagedResponseAsync(pagination);
     }
 
+    public async Task<PagedResponse<Album>> GetPagedSharedWithUserIdAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        IQueryable<Album> query = db.Albums
+            .AsNoTracking()
+            .Include(album => album.Owner)
+            .Where(album => album.CreatedBy != userId &&
+                album.Access.Any(access => access.UserId == userId && access.CanView));
+
+        var search = pagination.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            query = query.Where(album =>
+                album.AlbumName.Contains(search) ||
+                album.Id.ToString().Contains(search) ||
+                album.CreatedBy.ToString().Contains(search) ||
+                album.Owner.Name.Contains(search));
+        }
+
+        return await query
+            .OrderByDescending(album => album.CreatedAt)
+            .ThenByDescending(album => album.Id)
+            .ToPagedResponseAsync(pagination);
+    }
+
     // Returns all albums with their owner details, newest first.
     public async Task<IReadOnlyList<Album>> GetAllAsync()
     {

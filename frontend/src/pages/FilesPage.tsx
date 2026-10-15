@@ -79,6 +79,7 @@ export default function FilesPage() {
     useState(1);
   const [loading, setLoading] =
     useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] =
     useState<string | null>(null);
   const [uploading, setUploading] =
@@ -155,6 +156,7 @@ export default function FilesPage() {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   };
 
@@ -356,7 +358,7 @@ export default function FilesPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="app-page">
         <section className={pageHeaderSkeletonClass}>
@@ -373,13 +375,13 @@ export default function FilesPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
+        <section className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
           {[1, 2, 3, 4].map((item) => (
             <div
               key={item}
               className="surface overflow-hidden rounded-[17px]"
             >
-              <div className="relative mx-[10px] mt-[10px] h-[176px] w-[calc(100%-20px)] overflow-hidden rounded-[13px] bg-[linear-gradient(145deg,#e3edf5,#d7e5ef)] after:absolute after:top-0 after:bottom-0 after:w-[35%] after:translate-x-[-130%] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] after:animate-[skeleton-shimmer_1.55s_infinite_ease-in-out] after:content-['']" />
+              <div className="relative mx-[8px] mt-[8px] h-[136px] w-[calc(100%-16px)] overflow-hidden rounded-[11px] bg-[linear-gradient(145deg,#e3edf5,#d7e5ef)] after:absolute after:top-0 after:bottom-0 after:w-[35%] after:translate-x-[-130%] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] after:animate-[skeleton-shimmer_1.55s_infinite_ease-in-out] after:content-['']" />
 
               <div className="grid gap-1 p-4">
                 <span className="skeleton-line skeleton-line-md" />
@@ -397,11 +399,6 @@ export default function FilesPage() {
     <div className="app-page">
       <section className={pageHeaderClass}>
         <div className="min-w-0">
-          <div className="page-kicker">
-            <span className="page-kicker-dot" />
-            Your library
-          </div>
-
           <h1 className="page-heading">
             {view === "favorites" ? "Favorites" : "Files"}
           </h1>
@@ -535,9 +532,9 @@ export default function FilesPage() {
         />
       </section>
 
-      {view === "all" && <div className="flex flex-wrap gap-2" role="group" aria-label="Filter files by category">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={view === "favorites" ? "Filter favorite files by category" : "Filter files by category"}>
         {FILE_CATEGORY_FILTERS.map((category) => <button key={category} type="button" aria-pressed={categoryFilter === category} onClick={() => { setCategoryFilter(category); setCurrentPage(1); }} className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "border-[#8bbdec] bg-[#edf6fd] text-[#236eaf]" : ""}`}>{category}</button>)}
-      </div>}
+      </div>
 
       {error && <ErrorBanner message={error} />}
       {successMessage && <p role="status" className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]">{successMessage}</p>}

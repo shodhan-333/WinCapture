@@ -4,11 +4,12 @@ import {
   FolderOpen,
   Images,
   ArrowUpRight,
+  Search,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
 
-import { createAlbum, getAlbums } from "../api/apiClient";
+import { createAlbum, getAlbums, getMyAlbums, getSharedAlbums } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import Pagination from "../components/ui/Pagination";
 import {
@@ -18,10 +19,13 @@ import {
 import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
+import type { PagedResponse } from "../types/api";
+import { ApiError } from "../types/api";
 import { formatDate } from "../utils/formatters";
 import { getAccountKey } from "../utils/accountKey";
 
 const PAGE_SIZE = 9;
+type AlbumFilter = "all" | "shared" | "mine";
 
 export default function AlbumsPage() {
   const { instance } = useMsal();
@@ -33,7 +37,11 @@ export default function AlbumsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [albumFilter, setAlbumFilter] = useState<AlbumFilter>("all");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(
     null,
   );
@@ -47,7 +55,11 @@ export default function AlbumsPage() {
     user?.role === "Admin",
   );
 
-  const loadAlbums = async (requestedPage: number = currentPage) => {
+  const loadAlbums = async (
+    requestedPage: number = currentPage,
+    requestedFilter: AlbumFilter = albumFilter,
+    requestedSearch: string = searchQuery,
+  ) => {
     if (!account) {
       return;
     }
@@ -56,12 +68,51 @@ export default function AlbumsPage() {
       setLoading(true);
       setError(null);
 
-      const page = await getAlbums(
+      let page: PagedResponse<AlbumResponse>;
+      if (requestedFilter === "shared") {
+        try {
+          page = await getSharedAlbums(
+            instance,
+            account,
+            requestedPage,
+            PAGE_SIZE,
+            requestedSearch,
+          );
+        } catch (caughtError) {
+          if (!(caughtError instanceof ApiError) || caughtError.status !== 404 || !user?.userId) {
+            throw caughtError;
+          }
+
+          // Older deployed APIs do not have /albums/shared yet. The accessible
+          // albums endpoint still enforces view permission, so filter its
+          // paginated results by owner while the backend deployment catches up.
+          const firstPage = await getAlbums(instance, account, 1, 100, requestedSearch);
+          const accessibleAlbums = [...firstPage.items];
+          for (let pageNumber = 2; pageNumber <= firstPage.pageCount; pageNumber += 1) {
+            const nextPage = await getAlbums(instance, account, pageNumber, 100, requestedSearch);
+            accessibleAlbums.push(...nextPage.items);
+          }
+
+          const sharedAlbums = accessibleAlbums.filter((item) => item.ownerId !== user.userId);
+          const startIndex = (requestedPage - 1) * PAGE_SIZE;
+          page = {
+            items: sharedAlbums.slice(startIndex, startIndex + PAGE_SIZE),
+            totalItems: sharedAlbums.length,
+            page: requestedPage,
+            pageSize: PAGE_SIZE,
+            pageCount: Math.ceil(sharedAlbums.length / PAGE_SIZE),
+          };
+        }
+      } else {
+        const loadPage = requestedFilter === "mine" ? getMyAlbums : getAlbums;
+        page = await loadPage(
           instance,
           account,
           requestedPage,
           PAGE_SIZE,
+          requestedSearch,
         );
+      }
       setAlbums(page.items);
       setCurrentPage(page.page);
       setPageCount(page.pageCount);
@@ -74,12 +125,21 @@ export default function AlbumsPage() {
       );
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   };
 
   useEffect(() => {
-    void loadAlbums(currentPage);
-  }, [accountKey, instance, currentPage]);
+    void loadAlbums(currentPage, albumFilter, searchQuery);
+  }, [accountKey, instance, currentPage, albumFilter, searchQuery]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+      setCurrentPage(1);
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchInput]);
 
   const handleCreateAlbum = async () => {
     if (!account || !albumName.trim()) {
@@ -115,7 +175,7 @@ export default function AlbumsPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="app-page">
         <section className={pageHeaderSkeletonClass}>
@@ -131,14 +191,14 @@ export default function AlbumsPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
+        <section className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
           {[1, 2, 3, 4, 5, 6].map(
             (item) => (
               <article
                 key={item}
-                className="surface min-h-[315px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[18px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
+                className="surface min-h-[270px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[16px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
               >
-                <div className="relative h-[188px] w-full overflow-hidden bg-[linear-gradient(145deg,#e3edf5,#d7e5ef)] after:absolute after:top-0 after:bottom-0 after:w-[35%] after:translate-x-[-130%] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] after:animate-[skeleton-shimmer_1.55s_infinite_ease-in-out] after:content-['']" />
+                <div className="relative h-[148px] w-full overflow-hidden bg-[linear-gradient(145deg,#e3edf5,#d7e5ef)] after:absolute after:top-0 after:bottom-0 after:w-[35%] after:translate-x-[-130%] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] after:animate-[skeleton-shimmer_1.55s_infinite_ease-in-out] after:content-['']" />
 
                 <div className="p-4">
                   <span className="skeleton-line skeleton-line-sm" />
@@ -157,11 +217,6 @@ export default function AlbumsPage() {
     <div className="app-page">
       <section className={pageHeaderClass}>
         <div className="min-w-0">
-          <div className="page-kicker">
-            <span className="page-kicker-dot" />
-            Your library
-          </div>
-
           <h1 className="page-heading">
             Albums
           </h1>
@@ -227,6 +282,41 @@ export default function AlbumsPage() {
 
       {error && <ErrorBanner message={error} />}
 
+      <section className="flex flex-wrap items-center justify-between gap-3 max-[760px]:items-stretch">
+        <div className="inline-flex flex-wrap gap-1 rounded-[11px] border border-[#dce8f0] bg-[rgba(244,248,251,0.8)] p-[3px]" role="group" aria-label="Album filters">
+          {([
+            ["all", "All"],
+            ["shared", "Shared with me"],
+            ["mine", "My albums"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={albumFilter === value}
+              onClick={() => {
+                setAlbumFilter(value);
+                setCurrentPage(1);
+              }}
+              className={`min-h-[33px] rounded-[8px] border-0 px-3 text-[10px] font-semibold transition-[color,background,box-shadow] ${albumFilter === value ? "bg-white text-[#1e5f9c] shadow-[0_2px_7px_rgba(42,88,125,0.1)]" : "bg-transparent text-[#71879a] hover:text-[#315c7d]"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <label className="flex min-h-[39px] w-[min(300px,100%)] items-center gap-2 rounded-[11px] border border-[#dbe8f1] bg-[rgba(255,255,255,0.63)] px-[11px] text-[#8195a5] shadow-[0_6px_17px_rgba(45,94,136,0.03),inset_0_1px_rgba(255,255,255,0.78)] focus-within:border-[#8bbdec] focus-within:shadow-[0_0_0_3px_rgba(75,155,227,0.09)] max-[760px]:w-full">
+          <Search aria-hidden="true" size={15} />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search albums"
+            aria-label="Search albums"
+            className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-[#284963] outline-none placeholder:text-[#8b9eae]"
+          />
+        </label>
+      </section>
+
       <section className="min-w-0">
         {albums.length === 0 ? (
           <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
@@ -267,7 +357,7 @@ export default function AlbumsPage() {
             </div>
           </section>
         ) : (
-          <div className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
+          <div className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
             {albums.map((album) => (
                 <button
                   key={album.id}
@@ -277,9 +367,9 @@ export default function AlbumsPage() {
                       `/albums/${album.id}`,
                     )
                   }
-                  className="surface w-full min-w-0 cursor-pointer overflow-hidden rounded-[18px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
+                  className="surface w-full min-w-0 cursor-pointer overflow-hidden rounded-[16px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
                 >
-                <div className="relative h-[188px] overflow-hidden max-[760px]:h-[148px] max-[520px]:h-[181px]">
+                <div className="relative h-[148px] overflow-hidden max-[760px]:h-[132px] max-[520px]:h-[148px]">
                   <div className="relative grid h-full w-full place-items-center overflow-hidden bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.62),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b8ddfa_48%,#d8eaf8_100%)]">
                     {coverUrls[album.id] ? (
                       <img
@@ -304,13 +394,6 @@ export default function AlbumsPage() {
                     )}
                   </div>
 
-                  <span className="absolute top-[11px] right-[11px] grid h-[31px] w-[31px] place-items-center rounded-[9px] border border-[rgba(255,255,255,0.26)] bg-[rgba(17,59,92,0.32)] text-white backdrop-blur-[8px]">
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      size={18}
-                      strokeWidth={1.8}
-                    />
-                  </span>
 
                 </div>
 

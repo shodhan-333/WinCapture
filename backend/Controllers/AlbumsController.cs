@@ -100,6 +100,15 @@ public sealed class AlbumsController(IAlbumService albumService, IAlbumFileServi
         return Ok(await albumService.GetOwnedByUserPageAsync(UserId, pagination));
     }
 
+    [HttpGet("shared")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    [ProducesResponseType<PagedResponse<AlbumResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<AlbumResponse>>> GetSharedWithCurrentUser(
+        [FromQuery] PaginationQuery pagination)
+    {
+        return Ok(await albumService.GetSharedWithUserPageAsync(UserId, pagination));
+    }
+
     // Retrieves an album using the current user's identity and role for access checks.
     [HttpGet("{id:long}")]
     [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]

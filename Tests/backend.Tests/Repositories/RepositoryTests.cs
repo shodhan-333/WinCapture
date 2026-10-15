@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using WinCapture.Data;
+using WinCapture.DTOs.Common;
 using WinCapture.Models;
 using WinCapture.Repositories;
 using Xunit;
@@ -48,6 +49,49 @@ public sealed class RepositoryTests
         Assert.Equal(new[] { shared.Id }, result.Select(album => album.Id));
         Assert.DoesNotContain(result, album => album.Id == hidden.Id);
         Assert.DoesNotContain(result, album => album.Id == owned.Id);
+    }
+
+    [Fact]
+    public async Task AlbumRepository_ReturnsOnlyViewableAlbumsSharedWithUserAndFiltersSearch()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+
+        var owner = AddUser(database, "owner");
+        var member = AddUser(database, "member");
+        var shared = AddAlbum(database, owner, "Coastal collection");
+        var hidden = AddAlbum(database, AddUser(database, "private-owner"), "Coastal private");
+        var owned = AddAlbum(database, member, "Coastal owned");
+        database.AlbumAccess.AddRange(
+            new AlbumAccess
+            {
+                AlbumId = shared.Id,
+                UserId = member.Id,
+                CanView = true,
+                GrantedBy = owner.Id,
+                GrantedAt = DateTime.UtcNow
+            },
+            new AlbumAccess
+            {
+                AlbumId = hidden.Id,
+                UserId = member.Id,
+                CanView = false,
+                GrantedBy = hidden.CreatedBy,
+                GrantedAt = DateTime.UtcNow
+            });
+        await database.SaveChangesAsync();
+
+        var result = await new AlbumRepository(database).GetPagedSharedWithUserIdAsync(
+            member.Id,
+            new PaginationQuery { Page = 1, PageSize = 10, Search = "Coastal" });
+
+        Assert.Equal(new[] { shared.Id }, result.Items.Select(album => album.Id));
+        Assert.Equal(1, result.TotalItems);
+        Assert.DoesNotContain(result.Items, album => album.Id == hidden.Id || album.Id == owned.Id);
     }
 
     [Fact]

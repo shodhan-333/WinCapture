@@ -18,7 +18,7 @@ import {
 
 import FileActionMenu from "./files/FileActionMenu";
 import type { FileResponse } from "../types/file";
-import { getFileCategory, isPreviewableFile } from "../constants/fileSupport";
+import { getFileCategory } from "../constants/fileSupport";
 import { formatFileType } from "../utils/formatters";
 import PreviewThumbnail from "./files/PreviewThumbnail";
 
@@ -128,7 +128,7 @@ export default function FileCard({
 
   return (
     <article ref={cardRef} className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-[3px] hover:border-[rgba(178,207,231,0.68)] hover:shadow-[0_17px_34px_rgba(49,103,149,0.12),inset_0_0_0_1px_rgba(201,222,237,0.22)]">
-      <div className="relative m-[10px] h-[176px] min-w-0 overflow-hidden rounded-[13px] bg-[linear-gradient(145deg,#eef7fe,#e4f0f8)] max-[520px]:h-[190px]">
+      <div className="relative m-2 h-[136px] min-w-0 overflow-hidden rounded-[11px] bg-[linear-gradient(145deg,#eef7fe,#e4f0f8)] max-[520px]:h-[150px]">
         {previewArea}
         {!isImage && fileCategory && <span className="pointer-events-none absolute bottom-[9px] right-[9px] z-[2] rounded-full border border-white/70 bg-white/85 p-1.5 text-[#4f7a99] shadow-sm">{fileCategory === "Videos" ? <Play size={13} fill="currentColor" /> : fileCategory === "Audio" ? <Icon size={14} /> : fileCategory === "Archives" ? <Icon size={14} /> : <Icon size={14} />}</span>}
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(11,42,68,0.08),transparent_30%,rgba(11,42,68,0.16))]" />
@@ -197,8 +197,6 @@ export default function FileCard({
               fileName={file.originalFileName}
               canManage={effectiveCanManage}
               onDetails={onDetails}
-              onPreview={() => void openPreview()}
-              canPreview={isPreviewableFile(file.originalFileName)}
               onReplace={onReplace}
               onDownload={onDownload}
               onDelete={onDelete}

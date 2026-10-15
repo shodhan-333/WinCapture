@@ -24,6 +24,7 @@ describe("API route coverage", () => {
     ["current-user", () => api.getCurrentUser(instance, account), "/api/auth/me", "GET"],
     ["albums", () => api.getAlbums(instance, account), "/api/albums", "GET"],
     ["my albums", () => api.getMyAlbums(instance, account), "/api/albums/mine", "GET"],
+    ["shared albums", () => api.getSharedAlbums(instance, account), "/api/albums/shared", "GET"],
     ["one album", () => api.getAlbum(instance, account, 8), "/api/albums/8", "GET"],
     ["create album", () => api.createAlbum(instance, account, { albumName: "Trips" }), "/api/albums", "POST"],
     ["update album", () => api.updateAlbum(instance, account, 8, { albumName: "Trips" }), "/api/albums/8", "PUT"],

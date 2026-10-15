@@ -24,6 +24,8 @@ public interface IAlbumService
 
     Task<PagedResponse<AlbumResponse>> GetOwnedByUserPageAsync(int userId, PaginationQuery pagination);
 
+    Task<PagedResponse<AlbumResponse>> GetSharedWithUserPageAsync(int userId, PaginationQuery pagination);
+
     // Returns all albums for admin management.
     Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync();
 

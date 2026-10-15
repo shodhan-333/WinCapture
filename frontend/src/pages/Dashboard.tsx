@@ -65,6 +65,7 @@ export default function Dashboard() {
   const [files, setFiles] = useState<FileResponse[]>([]);
   const [fileCategoryCounts, setFileCategoryCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recentAlbums = albums;
@@ -137,6 +138,7 @@ export default function Dashboard() {
       } finally {
         if (active) {
           setLoading(false);
+          setHasLoaded(true);
         }
       }
     }
@@ -148,7 +150,7 @@ export default function Dashboard() {
     };
   }, [account?.homeAccountId, instance]);
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="app-page">
         <section className="skeleton-panel flex min-h-[218px] items-center justify-between p-[30px] max-[960px]:flex-col max-[960px]:items-start max-[760px]:rounded-[17px] max-[760px]:px-5 max-[760px]:py-[23px]">
@@ -194,11 +196,6 @@ export default function Dashboard() {
         <div className="pointer-events-none absolute bottom-[-145px] left-[28%] h-[210px] w-[210px] rounded-full bg-[rgba(143,220,255,0.14)] blur-[10px]" />
 
         <div className="relative z-[1] flex max-w-[740px] flex-col justify-center">
-          <div className="mb-2 inline-flex w-fit items-center gap-2 rounded-full border border-white/85 bg-white/45 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#66839d] shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_6px_16px_rgba(65,118,159,0.04)] backdrop-blur-[18px]">
-            <span className="h-[6px] w-[6px] rounded-full bg-[#1b86ee] shadow-[0_0_0_4px_rgba(27,134,238,0.08)]" />
-            Your workspace
-          </div>
-
           <h1 className="m-0 text-[clamp(30px,3.1vw,40px)] font-bold leading-[1.04] tracking-[-0.05em] text-[#0b2f51] max-[760px]:text-[29px]">
             Welcome back,{" "}
             <span className="text-[#2278d7]">
@@ -348,7 +345,6 @@ export default function Dashboard() {
         <section className={dashboardPanelClass}>
           <div className={dashboardPanelHeaderClass}>
             <div>
-              <p className="dashboard-panel-kicker">Your library</p>
               <h2 className="mb-0 mt-1 text-[18px] font-semibold tracking-[-0.025em] text-[#153756] max-[520px]:text-[16px]">
                 Recent files
               </h2>

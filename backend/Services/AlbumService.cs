@@ -71,6 +71,14 @@ public sealed class AlbumService(
         return MapPage(page);
     }
 
+    public async Task<PagedResponse<AlbumResponse>> GetSharedWithUserPageAsync(
+        int userId,
+        PaginationQuery pagination)
+    {
+        var page = await albums.GetPagedSharedWithUserIdAsync(userId, pagination);
+        return MapPage(page);
+    }
+
     // Returns all albums for admin management.
     public async Task<IReadOnlyList<AlbumResponse>> GetAllForAdminAsync()
     {

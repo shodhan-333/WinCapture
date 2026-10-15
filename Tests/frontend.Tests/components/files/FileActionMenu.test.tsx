@@ -18,6 +18,7 @@ describe("FileActionMenu", () => {
 
     expect(screen.getByRole("menuitem", { name: "Details" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Download" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Replace" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
   });

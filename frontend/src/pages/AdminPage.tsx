@@ -57,6 +57,7 @@ export default function AdminPage() {
   const [albumsPage, setAlbumsPage] = useState(1);
   const [filesPage, setFilesPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,9 +69,6 @@ export default function AdminPage() {
       try {
         setLoading(true);
         setError(null);
-        setAlbums([]);
-        setFiles([]);
-
         const [albumResult, fileResult] = scope === "mine"
           ? await Promise.all([
               getMyAdminAlbums(instance, account, albumsPage, PAGE_SIZE, searchQuery),
@@ -98,7 +96,10 @@ export default function AdminPage() {
             : "Unable to load admin data.",
         );
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          setHasLoaded(true);
+        }
       }
     }
 
@@ -149,7 +150,7 @@ export default function AdminPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="app-page">
         <section className="skeleton-panel relative flex min-h-[174px] items-center justify-between overflow-hidden rounded-[20px] px-[30px] py-[28px] after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] max-[760px]:[min-height:auto] max-[760px]:px-5 max-[760px]:py-[22px]">

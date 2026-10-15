@@ -37,7 +37,7 @@ export default function FileCardGrid({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-[17px] max-[1200px]:grid-cols-2 max-[760px]:grid-cols-2 max-[760px]:gap-3 max-[520px]:grid-cols-1">
+    <div className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
       {files.map((file) => {
         const effectiveCanManage =
           typeof canManage === "function"
