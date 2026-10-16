@@ -40,7 +40,7 @@ export default function useAlbumCoverPreviews(
       const entries = await Promise.all(
         albums.map(async (album) => {
           try {
-            const page = await getAlbumFiles(instance, account, album.id, 1, 1, "Images");
+            const page = await getAlbumFiles(instance, account, album.id, 1, 100, "Images");
             const image = page.items[0];
             if (!image) return null;
 

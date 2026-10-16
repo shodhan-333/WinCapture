@@ -18,7 +18,7 @@ export default function FileDetailsDialog({
 }: FileDetailsDialogProps) {
   return (
     <div
-      className="fixed inset-0 z-[200] grid place-items-center bg-[rgba(20,43,62,0.32)] p-4 backdrop-blur-[3px]"
+      className="fixed inset-0 z-[200] grid place-items-center bg-[rgba(15,35,55,0.30)] p-4 backdrop-blur-[12px]"
       onKeyDown={(event) => {
         if (event.key === "Escape") onClose();
       }}
@@ -30,14 +30,14 @@ export default function FileDetailsDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="file-details-title"
-        className="surface !bg-white !backdrop-blur-none w-[min(420px,100%)] rounded-[18px] border-[#d6e2eb] p-5 shadow-[0_24px_60px_rgba(31,67,97,0.2)]"
+        className="glass-dialog w-[min(430px,100%)] rounded-[20px] p-6 shadow-[0_24px_64px_rgba(16,40,64,0.16)]"
       >
         <header className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="page-kicker mb-2 text-[#55738d]">File details</p>
+            <p className="page-kicker mb-2 text-[#5a778e]">File details</p>
             <h2
               id="file-details-title"
-              className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-[16px] font-semibold text-[#102d45]"
+              className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-[16px] font-semibold text-[#143653]"
               title={file.originalFileName}
             >
               {file.originalFileName}
@@ -48,23 +48,23 @@ export default function FileDetailsDialog({
             onClick={onClose}
             autoFocus
             aria-label="Close file details"
-            className="grid h-8 w-8 flex-none cursor-pointer place-items-center rounded-[9px] border border-[#dce8f0] bg-[rgba(255,255,255,0.64)] text-[#688196] hover:bg-[#edf6fd] hover:text-[#286eae]"
+            className="grid h-8 w-8 flex-none cursor-pointer place-items-center rounded-[10px] border border-white/70 bg-white/55 text-[#506d84] shadow-sm backdrop-blur-sm transition-colors hover:border-white/90 hover:bg-white/80 hover:text-[#1b74d3]"
           >
             <X aria-hidden="true" size={17} />
           </button>
         </header>
 
-        <dl className="mt-5 grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-3 border-t border-[#dce6ee] pt-4 text-[11px]">
-          <dt className="text-[#536d82]">File ID</dt>
-          <dd className="m-0 break-all font-semibold text-[#193c59]">{file.id}</dd>
-          <dt className="text-[#536d82]">Type</dt>
-          <dd className="m-0 break-all font-semibold text-[#193c59]">
-            {formatFileType(file.contentType)} <span className="font-medium text-[#536d82]">({file.contentType})</span>
+        <dl className="mt-5 grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-3 border-t border-[rgba(255,255,255,0.45)] pt-4 text-[11px]">
+          <dt className="text-[#5a778e]">File ID</dt>
+          <dd className="m-0 break-all font-semibold text-[#163855]">{file.id}</dd>
+          <dt className="text-[#5a778e]">Type</dt>
+          <dd className="m-0 break-all font-semibold text-[#163855]">
+            {formatFileType(file.contentType)} <span className="font-medium text-[#658299]">({file.contentType})</span>
           </dd>
-          <dt className="text-[#536d82]">Size</dt>
-          <dd className="m-0 font-semibold text-[#193c59]">{formatFileSize(file.fileSize)}</dd>
-          <dt className="text-[#536d82]">Added</dt>
-          <dd className="m-0 font-semibold text-[#193c59]">{formatDate(file.uploadedAt)}</dd>
+          <dt className="text-[#5a778e]">Size</dt>
+          <dd className="m-0 font-semibold text-[#163855]">{formatFileSize(file.fileSize)}</dd>
+          <dt className="text-[#5a778e]">Added</dt>
+          <dd className="m-0 font-semibold text-[#163855]">{formatDate(file.uploadedAt)}</dd>
         </dl>
       </section>
     </div>

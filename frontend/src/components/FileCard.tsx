@@ -123,15 +123,15 @@ export default function FileCard({
   ) : fileCategory && !isImage ? (
     <div className="relative h-full w-full overflow-hidden"><PreviewThumbnail file={file} src={contentUrl} /><button type="button" onClick={() => void openPreview()} disabled={previewLoading} aria-label={`Open preview of ${file.originalFileName}`} className="absolute inset-0 z-[1] grid cursor-pointer place-items-center border-0 bg-transparent text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#3787d4] disabled:cursor-wait">{previewLoading && <span className="grid h-10 w-10 place-items-center rounded-full border border-white/75 bg-[#153b59]/55 shadow-lg backdrop-blur-sm"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-label="Loading preview" /></span>}</button></div>
   ) : (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[linear-gradient(145deg,#eef6fa,#e7f0f4)]"><span className="grid h-[57px] w-[57px] place-items-center rounded-[17px] bg-[rgba(255,255,255,0.66)] text-[#3788da] shadow-[0_9px_20px_rgba(49,109,161,0.07),inset_0_1px_rgba(255,255,255,0.76)]"><Icon aria-hidden="true" size={38} strokeWidth={1.45} /></span><span className="rounded-full bg-[rgba(255,255,255,0.56)] px-[7px] py-1 text-[8px] font-bold tracking-[0.08em] text-[#608099]">{formatFileType(file.contentType)}</span></div>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.5),transparent_40%),linear-gradient(145deg,rgba(225,242,255,0.65),rgba(205,230,248,0.5))]"><span className="grid h-[57px] w-[57px] place-items-center rounded-[17px] border border-white/80 bg-white/60 text-[#1b74d3] shadow-[0_8px_20px_rgba(26,54,80,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-md"><Icon aria-hidden="true" size={38} strokeWidth={1.45} /></span><span className="rounded-full border border-white/60 bg-white/50 px-[7px] py-1 text-[8px] font-bold tracking-[0.08em] text-[#4d6b82] backdrop-blur-sm">{formatFileType(file.contentType)}</span></div>
   );
 
   return (
-    <article ref={cardRef} className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-[3px] hover:border-[rgba(178,207,231,0.68)] hover:shadow-[0_17px_34px_rgba(49,103,149,0.12),inset_0_0_0_1px_rgba(201,222,237,0.22)]">
-      <div className="relative m-2 h-[136px] min-w-0 overflow-hidden rounded-[11px] bg-[linear-gradient(145deg,#eef7fe,#e4f0f8)] max-[520px]:h-[150px]">
+    <article ref={cardRef} className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)]">
+      <div className="relative m-2 h-[136px] min-w-0 overflow-hidden rounded-[12px] border border-white/60 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_40%),linear-gradient(145deg,rgba(215,238,255,0.65)_0%,rgba(190,222,248,0.45)_50%,rgba(220,238,252,0.60)_100%)] max-[520px]:h-[150px]">
         {previewArea}
-        {!isImage && fileCategory && <span className="pointer-events-none absolute bottom-[9px] right-[9px] z-[2] rounded-full border border-white/70 bg-white/85 p-1.5 text-[#4f7a99] shadow-sm">{fileCategory === "Videos" ? <Play size={13} fill="currentColor" /> : fileCategory === "Audio" ? <Icon size={14} /> : fileCategory === "Archives" ? <Icon size={14} /> : <Icon size={14} />}</span>}
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(11,42,68,0.08),transparent_30%,rgba(11,42,68,0.16))]" />
+        {!isImage && fileCategory && <span className="pointer-events-none absolute bottom-[9px] right-[9px] z-[2] rounded-full border border-white/75 bg-white/70 p-1.5 text-[#3b678a] shadow-sm backdrop-blur-sm">{fileCategory === "Videos" ? <Play size={13} fill="currentColor" /> : fileCategory === "Audio" ? <Icon size={14} /> : fileCategory === "Archives" ? <Icon size={14} /> : <Icon size={14} />}</span>}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(11,42,68,0.06),transparent_30%,rgba(11,42,68,0.14))]" />
 
         <button
           type="button"
@@ -148,8 +148,8 @@ export default function FileCard({
           }
           disabled={favoritePending}
           onClick={onFavoriteToggle}
-          className={`absolute right-[9px] top-[9px] z-[2] grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-full border border-[rgba(255,255,255,0.75)] bg-[rgba(255,255,255,0.76)] text-[#627d92] shadow-[0_7px_16px_rgba(27,76,119,0.1),inset_0_1px_rgba(255,255,255,0.85)] backdrop-blur-[9px] transition-[transform,color,background] duration-[180ms] hover:enabled:scale-[1.06] hover:enabled:bg-[rgba(255,255,255,0.9)] hover:enabled:text-[#da8b16] disabled:opacity-[0.55] ${
-            file.isFavorite ? "text-[#e79a1b]" : ""
+          className={`absolute right-[9px] top-[9px] z-[2] grid h-[34px] w-[34px] cursor-pointer place-items-center rounded-full border border-white/80 bg-white/60 text-[#526f86] shadow-[0_4px_14px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)] backdrop-blur-md transition-[transform,color,background,border-color] duration-[180ms] hover:enabled:scale-[1.06] hover:enabled:bg-white/85 hover:enabled:text-[#d48410] disabled:opacity-[0.55] ${
+            file.isFavorite ? "!text-[#d9850e] bg-white/80" : ""
           }`}
         >
           <Star
@@ -164,7 +164,7 @@ export default function FileCard({
           />
         </button>
 
-        <div className="absolute bottom-[9px] left-[9px] z-[2] rounded-full border border-[rgba(255,255,255,0.22)] bg-[rgba(10,36,57,0.33)] px-[7px] py-1 text-[8px] font-bold tracking-[0.06em] text-[rgba(255,255,255,0.96)] backdrop-blur-[7px]">
+        <div className="absolute bottom-[9px] left-[9px] z-[2] rounded-full border border-white/35 bg-[rgba(10,36,57,0.30)] px-[8px] py-1 text-[8px] font-bold tracking-[0.06em] text-white shadow-sm backdrop-blur-md">
           {formatFileType(file.contentType)}
         </div>
       </div>

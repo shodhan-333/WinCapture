@@ -284,7 +284,7 @@ export default function AlbumsPage() {
       {error && <ErrorBanner message={error} />}
 
       <section className="flex flex-wrap items-center justify-between gap-3 max-[760px]:items-stretch">
-        <div className="inline-flex flex-wrap gap-1 rounded-[11px] border border-[#dce8f0] bg-[rgba(244,248,251,0.8)] p-[3px]" role="group" aria-label="Album filters">
+        <div className="glass-toolbar inline-flex flex-wrap gap-1 rounded-[11px] p-[3px]" role="group" aria-label="Album filters">
           {([
             ["all", "All"],
             ["shared", "Shared with me"],
@@ -298,14 +298,14 @@ export default function AlbumsPage() {
                 setAlbumFilter(value);
                 setCurrentPage(1);
               }}
-              className={`min-h-[33px] rounded-[8px] border-0 px-3 text-[10px] font-semibold transition-[color,background,box-shadow] ${albumFilter === value ? "bg-white text-[#1e5f9c] shadow-[0_2px_7px_rgba(42,88,125,0.1)]" : "bg-transparent text-[#71879a] hover:text-[#315c7d]"}`}
+              className={`min-h-[33px] rounded-[8px] border px-3 text-[10px] font-semibold transition-[color,background,box-shadow,border-color] ${albumFilter === value ? "border-white/80 bg-white/70 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : "border-transparent bg-transparent text-[#557086] hover:bg-white/30 hover:text-[#194b75]"}`}
             >
               {label}
             </button>
           ))}
         </div>
 
-        <label className="flex min-h-[39px] w-[min(300px,100%)] items-center gap-2 rounded-[11px] border border-[#dbe8f1] bg-[rgba(255,255,255,0.63)] px-[11px] text-[#8195a5] shadow-[0_6px_17px_rgba(45,94,136,0.03),inset_0_1px_rgba(255,255,255,0.78)] focus-within:border-[#8bbdec] focus-within:shadow-[0_0_0_3px_rgba(75,155,227,0.09)] max-[760px]:w-full">
+        <label className="glass-toolbar flex min-h-[39px] w-[min(300px,100%)] items-center gap-2 rounded-[11px] px-[11px] text-[#8195a5] focus-within:border-[#87a9c2] focus-within:shadow-[0_0_0_3px_rgba(84,132,169,0.1)] max-[760px]:w-full">
           <Search aria-hidden="true" size={15} />
           <input
             type="search"
@@ -321,7 +321,7 @@ export default function AlbumsPage() {
       <section className="min-w-0">
         {albums.length === 0 ? (
           <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
-            <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] bg-[#e7f3ff] text-[#2a7dd7] shadow-[inset_0_1px_rgba(255,255,255,0.72),0_7px_18px_rgba(45,111,176,0.06)]">
+            <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] border border-white/80 bg-white/50 text-[#1b74d3] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_6px_18px_rgba(26,54,80,0.06)] backdrop-blur-md">
               <Images
                 aria-hidden="true"
                 size={28}
@@ -368,23 +368,23 @@ export default function AlbumsPage() {
                       `/albums/${album.id}`,
                     )
                   }
-                  className="surface w-full min-w-0 cursor-pointer overflow-hidden rounded-[16px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-1 hover:border-[rgba(180,209,231,0.75)] hover:shadow-[0_18px_38px_rgba(49,102,148,0.13),inset_0_0_0_1px_rgba(202,224,240,0.3)]"
+                  className="surface group w-full min-w-0 cursor-pointer overflow-hidden rounded-[16px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)]"
                 >
                 <div className="relative h-[148px] overflow-hidden max-[760px]:h-[132px] max-[520px]:h-[148px]">
-                  <div className="relative grid h-full w-full place-items-center overflow-hidden bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.62),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b8ddfa_48%,#d8eaf8_100%)]">
+                  <div className="relative grid h-full w-full place-items-center overflow-hidden bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_35%),linear-gradient(145deg,rgba(215,238,255,0.7)_0%,rgba(180,218,250,0.5)_48%,rgba(215,235,250,0.65)_100%)]">
                     {coverUrls[album.id] ? (
                       <img
                         src={coverUrls[album.id]}
                         alt=""
                         aria-hidden="true"
-                        className="absolute inset-0 h-full w-full object-cover"
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
                       <>
                         <span className="absolute right-[-22px] top-[-92px] h-[170px] w-[170px] rounded-full bg-[rgba(75,158,237,0.24)] blur-[1px]" />
                         <span className="absolute bottom-[-78px] left-[-23px] h-[125px] w-[125px] rounded-full bg-[rgba(255,255,255,0.36)] blur-[1px]" />
 
-                        <span className="relative z-[1] grid h-[61px] w-[61px] place-items-center rounded-[18px] border border-[rgba(255,255,255,0.72)] bg-[rgba(255,255,255,0.5)] text-[#1c7bde] shadow-[0_12px_27px_rgba(49,110,169,0.11),inset_0_1px_rgba(255,255,255,0.7)] backdrop-blur-[11px]">
+                        <span className="relative z-[1] grid h-[61px] w-[61px] place-items-center rounded-[18px] border border-[rgba(255,255,255,0.8)] bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-[0_8px_20px_rgba(26,54,80,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-md">
                           <Images
                             aria-hidden="true"
                             size={28}
@@ -406,9 +406,9 @@ export default function AlbumsPage() {
                     {album.albumName}
                   </h3>
 
-                  <div className="mt-[15px] grid grid-cols-2 gap-[9px] border-t border-[#e7eef4] pt-3 max-[760px]:grid-cols-1 max-[760px]:gap-[7px]">
+                  <div className="mt-[15px] grid grid-cols-2 gap-[9px] border-t border-[rgba(255,255,255,0.45)] pt-3 max-[760px]:grid-cols-1 max-[760px]:gap-[7px]">
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-[#edf5fc] text-[#4385ca]">
+                      <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] border border-white/60 bg-[rgba(255,255,255,0.5)] text-[#246bb1]">
                         <FolderOpen
                           aria-hidden="true"
                           size={14}
@@ -417,8 +417,8 @@ export default function AlbumsPage() {
                       </span>
 
                       <span className="grid min-w-0 gap-0.5">
-                        <small className="text-[11px] text-[#94a5b3]">Owner</small>
-                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#4e677d]"
+                        <small className="text-[11px] text-[#869cb0]">Owner</small>
+                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#3b5973]"
                           title={
                             album.ownerName
                           }
@@ -429,7 +429,7 @@ export default function AlbumsPage() {
                     </div>
 
                     <div className="flex min-w-0 items-center gap-2">
-                      <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] bg-[#edf5fc] text-[#4385ca]">
+                      <span className="grid h-7 w-7 flex-none place-items-center rounded-[9px] border border-white/60 bg-[rgba(255,255,255,0.5)] text-[#246bb1]">
                         <CalendarDays
                           aria-hidden="true"
                           size={14}
@@ -438,8 +438,8 @@ export default function AlbumsPage() {
                       </span>
 
                       <span className="grid min-w-0 gap-0.5">
-                        <small className="text-[11px] text-[#94a5b3]">Created</small>
-                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#4e677d]">
+                        <small className="text-[11px] text-[#869cb0]">Created</small>
+                        <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#3b5973]">
                           {formatDate(
                             album.createdAt,
                           )}
@@ -448,7 +448,7 @@ export default function AlbumsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-[13px] flex items-center justify-between gap-[10px] border-t border-[#e7eef4] pt-[11px] text-[8px] text-[#90a0ae]">
+                  <div className="mt-[13px] flex items-center justify-between gap-[10px] border-t border-[rgba(255,255,255,0.45)] pt-[11px] text-[8px] text-[#8299aa]">
                     <span>
                       {album.updatedAt
                         ? `Updated ${formatDate(
@@ -457,7 +457,7 @@ export default function AlbumsPage() {
                         : "Not updated"}
                     </span>
 
-                    <span className="inline-flex items-center gap-1 text-[8px] font-semibold text-[#2c79d1]">
+                    <span className="inline-flex items-center gap-1 text-[8px] font-semibold text-[#1a74d2]">
                       Open
                       <ArrowUpRight
                         aria-hidden="true"

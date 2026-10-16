@@ -92,8 +92,11 @@ function AuthGate() {
 
   if (error) {
     return (
-      <main className="grid min-h-screen place-items-center bg-[#f3f8fc] p-6">
-        <section className="surface w-[min(460px,100%)] rounded-[20px] p-7">
+      <main className="relative isolate grid min-h-screen place-items-center overflow-hidden bg-[radial-gradient(circle_at_20%_18%,rgba(255,255,255,0.98),transparent_28%),radial-gradient(circle_at_82%_75%,rgba(117,190,255,0.22),transparent_31%),linear-gradient(145deg,#f6faff_0%,#e5f1fc_49%,#f6f7fb_100%)] p-6 max-[520px]:p-[17px]">
+        <div className="pointer-events-none absolute right-[-90px] top-[-170px] z-[-1] h-[340px] w-[340px] rounded-full bg-[rgba(86,169,242,0.16)] blur-[1px]" />
+        <div className="pointer-events-none absolute bottom-[-150px] left-[-100px] z-[-1] h-[280px] w-[280px] rounded-full bg-[rgba(103,181,247,0.13)] blur-[1px]" />
+
+        <section className="surface relative w-[min(460px,100%)] rounded-[22px] p-7 shadow-[0_24px_60px_rgba(44,93,135,0.11),inset_0_1px_rgba(255,255,255,0.86)]">
           <h1 className="text-lg font-semibold text-[#183a57]">Unable to connect to WinCapture</h1>
           <p role="alert" className="mt-3 text-sm text-[#60798e]">{error}</p>
           <div className="mt-5 flex gap-3">

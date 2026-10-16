@@ -37,7 +37,7 @@ type ContentType = "albums" | "files";
 const PAGE_SIZE = 10;
 
 const scopeButtonClass = (active: boolean) =>
-  `min-h-[34px] cursor-pointer rounded-[9px] border-0 px-[11px] text-[9px] font-semibold transition-[color,background,box-shadow] ${active ? "bg-white text-[#1e5f9c] shadow-[0_2px_7px_rgba(42,88,125,0.1)]" : "bg-transparent text-[#71879a] hover:text-[#315c7d]"}`;
+  `min-h-[34px] cursor-pointer rounded-[9px] border px-[11px] text-[9px] font-semibold transition-[color,background,box-shadow,border-color] duration-150 ${active ? "border-white/80 bg-white/75 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : "border-transparent bg-transparent text-[#617c91] hover:bg-white/30 hover:text-[#284f70]"}`;
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -80,14 +80,18 @@ export default function AdminPage() {
             ]);
 
         if (!active) return;
-        setAlbums(albumResult.items);
-        setFiles(fileResult.items);
-        setTotalAlbums(albumResult.totalItems);
-        setTotalFiles(fileResult.totalItems);
-        setAlbumsPage(albumResult.page);
-        setFilesPage(fileResult.page);
-        setAlbumsPageCount(albumResult.pageCount);
-        setFilesPageCount(fileResult.pageCount);
+        const albumItems = Array.isArray(albumResult) ? albumResult : (albumResult?.items ?? []);
+        const fileItems = Array.isArray(fileResult) ? fileResult : (fileResult?.items ?? []);
+        const totalAlbumCount = Array.isArray(albumResult) ? albumResult.length : (albumResult?.totalItems ?? albumItems.length);
+        const totalFileCount = Array.isArray(fileResult) ? fileResult.length : (fileResult?.totalItems ?? fileItems.length);
+        setAlbums(albumItems);
+        setFiles(fileItems);
+        setTotalAlbums(totalAlbumCount);
+        setTotalFiles(totalFileCount);
+        setAlbumsPage(Array.isArray(albumResult) ? 1 : (albumResult?.page ?? 1));
+        setFilesPage(Array.isArray(fileResult) ? 1 : (fileResult?.page ?? 1));
+        setAlbumsPageCount(Array.isArray(albumResult) ? 1 : (albumResult?.pageCount ?? 1));
+        setFilesPageCount(Array.isArray(fileResult) ? 1 : (fileResult?.pageCount ?? 1));
       } catch (caughtError) {
         if (!active) return;
         setError(
@@ -179,9 +183,6 @@ export default function AdminPage() {
   return (
     <div className="app-page admin-page">
       <section className="surface relative flex min-h-[132px] items-center justify-between overflow-hidden rounded-[16px] px-6 py-4 after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] max-[760px]:[min-height:auto] max-[760px]:px-4 max-[760px]:py-4">
-        <div className="pointer-events-none absolute right-[-70px] top-[-130px] h-[230px] w-[230px] rounded-full bg-[rgba(119,177,246,0.15)] blur-[2px]" />
-        <div className="pointer-events-none absolute bottom-[-155px] right-[26%] h-[190px] w-[190px] rounded-full bg-[rgba(213,230,249,0.35)] blur-[2px]" />
-
         <div className="relative z-[1]">
           <div className="page-kicker">
             <span className="page-kicker-dot" />
@@ -193,7 +194,7 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <div className="relative z-[1] grid h-16 w-16 flex-none place-items-center rounded-[18px] border border-[rgba(194,218,237,0.72)] bg-[rgba(255,255,255,0.54)] text-[#397bc7] shadow-[0_12px_26px_rgba(46,101,150,0.075),inset_0_1px_rgba(255,255,255,0.8)] max-[760px]:h-[51px] max-[760px]:w-[51px] max-[760px]:rounded-[15px]">
+        <div className="relative z-[1] grid h-16 w-16 flex-none place-items-center rounded-[18px] border border-white/80 bg-[rgba(255,255,255,0.54)] text-[#2d7ad1] shadow-[0_8px_24px_rgba(30,80,120,0.08),inset_0_1px_1.5px_rgba(255,255,255,0.95)] backdrop-blur-md max-[760px]:h-[51px] max-[760px]:w-[51px] max-[760px]:rounded-[15px]">
           <ShieldCheck aria-hidden="true" size={31} strokeWidth={1.45} />
         </div>
       </section>
@@ -206,12 +207,12 @@ export default function AdminPage() {
       )}
 
       <section className="surface flex flex-wrap items-center gap-3 rounded-[14px] p-[12px] max-[760px]:items-stretch">
-        <div className="inline-flex rounded-[11px] border border-[#dce8f0] bg-[rgba(244,248,251,0.8)] p-[3px]" role="group" aria-label="Content scope">
+        <div className="inline-flex rounded-[11px] border border-white/60 bg-[rgba(255,255,255,0.38)] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] backdrop-blur-md" role="group" aria-label="Content scope">
           <button type="button" aria-pressed={scope === "mine"} className={scopeButtonClass(scope === "mine")} onClick={() => changeScope("mine")}>My Content</button>
           <button type="button" aria-pressed={scope === "all"} className={scopeButtonClass(scope === "all")} onClick={() => changeScope("all")}>All Content</button>
         </div>
 
-        <div className="inline-flex rounded-[11px] border border-[#dce8f0] bg-[rgba(244,248,251,0.8)] p-[3px]" role="group" aria-label="Content type">
+        <div className="inline-flex rounded-[11px] border border-white/60 bg-[rgba(255,255,255,0.38)] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] backdrop-blur-md" role="group" aria-label="Content type">
           <button type="button" aria-pressed={contentType === "albums"} className={scopeButtonClass(contentType === "albums")} onClick={() => changeContentType("albums")}>
             <Images aria-hidden="true" className="mr-[5px] inline-block align-[-3px]" size={13} />Albums
           </button>
@@ -220,7 +221,7 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <label className="ml-auto flex min-h-[38px] min-w-[min(260px,100%)] flex-1 items-center gap-2 rounded-[10px] border border-[#dbe8f1] bg-[rgba(255,255,255,0.63)] px-[10px] text-[#8195a5] shadow-[0_5px_14px_rgba(45,94,136,0.03)] focus-within:border-[#8bbdec] max-[760px]:ml-0 max-[760px]:basis-full">
+        <label className="ml-auto flex min-h-[38px] min-w-[min(260px,100%)] flex-1 items-center gap-2 rounded-[11px] border border-white/70 bg-[rgba(255,255,255,0.48)] px-[11px] text-[#71889c] shadow-[0_2px_8px_rgba(26,56,84,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-[12px] focus-within:border-[#8ec4f5] focus-within:bg-[rgba(255,255,255,0.68)] max-[760px]:ml-0 max-[760px]:basis-full">
           <Search aria-hidden="true" size={16} />
           <input
             type="search"
@@ -234,7 +235,7 @@ export default function AdminPage() {
       </section>
 
       <section className="surface min-w-0 overflow-hidden rounded-[17px]">
-        <header className="flex min-h-[70px] items-center justify-between gap-3 border-b border-[#e4edf4] px-[18px]">
+        <header className="flex min-h-[70px] items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.5)] px-[18px]">
           <div>
             <p className="dashboard-panel-kicker">
               {scope === "mine" ? "My Content" : "All Content"}
@@ -243,7 +244,7 @@ export default function AdminPage() {
               {contentType === "albums" ? "Albums" : "Files"}
             </h2>
           </div>
-          <span className="inline-flex h-[27px] min-w-7 items-center justify-center rounded-full border border-[#dfeaf2] bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#688096]">
+          <span className="inline-flex h-[27px] min-w-7 items-center justify-center rounded-full border border-white/70 bg-[rgba(255,255,255,0.50)] px-2 text-[9px] font-semibold text-[#54738c] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)]">
             {contentType === "albums" ? totalAlbums : totalFiles}
           </span>
         </header>
@@ -251,7 +252,7 @@ export default function AdminPage() {
         {contentType === "albums" ? (
           totalAlbums === 0 ? (
             <div className="flex min-h-[220px] items-center justify-center gap-[11px] p-[22px]">
-              <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[12px] bg-[#e9f3ff] text-[#2a7bd4]">
+              <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[13px] border border-white/70 bg-[rgba(235,245,255,0.65)] text-[#2a7bd4] shadow-[0_4px_12px_rgba(42,123,212,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
                 <Images aria-hidden="true" size={23} strokeWidth={1.5} />
               </span>
               <div>
@@ -266,8 +267,8 @@ export default function AdminPage() {
           ) : (
             <div className="flex flex-col">
               {albums.map((album) => (
-                <div key={album.id} className="flex min-h-[72px] items-center gap-[10px] border-b border-[#e6eef4] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(231,242,252,0.58)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]">
-                  <span className="grid h-[37px] w-[37px] flex-none place-items-center rounded-[11px] bg-[#eaf3ff] text-[#2b7ed8]">
+                <div key={album.id} className="flex min-h-[72px] items-center gap-[10px] border-b border-[rgba(255,255,255,0.45)] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(255,255,255,0.45)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]">
+                  <span className="grid h-[37px] w-[37px] flex-none place-items-center rounded-[11px] border border-white/70 bg-[rgba(235,244,255,0.7)] text-[#2879d1] shadow-[0_2px_8px_rgba(40,120,210,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
                     <Images aria-hidden="true" size={17} strokeWidth={1.7} />
                   </span>
                   <div className="grid min-w-0 flex-1 gap-1">
@@ -284,10 +285,10 @@ export default function AdminPage() {
                   </div>
                   <span className="flex-none text-[8px] text-[#9baab6] max-[520px]:hidden">#{album.id}</span>
                   <div className="flex flex-none items-center gap-1">
-                    <button type="button" onClick={() => navigate(`/albums/${album.id}`)} className="inline-flex min-h-[30px] items-center gap-1 rounded-[8px] border border-[#dce8f0] bg-[rgba(255,255,255,0.7)] px-2 text-[9px] font-semibold text-[#397bc7] hover:bg-white" aria-label={`Manage access to ${album.albumName}`} title="Open album and manage access">
+                    <button type="button" onClick={() => navigate(`/albums/${album.id}`)} className="inline-flex min-h-[30px] items-center gap-1 rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#2b72bd] shadow-[0_2px_6px_rgba(30,60,90,0.04),inset_0_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-all hover:bg-white/80 hover:text-[#185394]" aria-label={`Manage access to ${album.albumName}`} title="Open album and manage access">
                       <Settings2 aria-hidden="true" size={13} />Manage
                     </button>
-                    <button type="button" onClick={() => void handleDeleteAlbum(album)} className="grid h-[30px] w-[30px] place-items-center rounded-[8px] border border-[#f0dada] bg-[rgba(255,255,255,0.7)] text-[#ae5555] hover:bg-[#fff1f1]" aria-label={`Delete album ${album.albumName}`} title="Delete album">
+                    <button type="button" onClick={() => void handleDeleteAlbum(album)} className="grid h-[30px] w-[30px] place-items-center rounded-[8px] border border-[rgba(240,160,160,0.45)] bg-[rgba(255,245,245,0.55)] text-[#b04040] shadow-[0_2px_6px_rgba(180,40,40,0.05),inset_0_1px_rgba(255,255,255,0.8)] backdrop-blur-md transition-all hover:bg-[rgba(255,235,235,0.8)] hover:text-[#9e2c2c]" aria-label={`Delete album ${album.albumName}`} title="Delete album">
                       <Trash2 aria-hidden="true" size={13} />
                     </button>
                   </div>
@@ -297,7 +298,7 @@ export default function AdminPage() {
           )
         ) : totalFiles === 0 ? (
           <div className="flex min-h-[220px] items-center justify-center gap-[11px] p-[22px]">
-            <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[12px] bg-[#efedff] text-[#6e65ce]">
+            <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[13px] border border-white/70 bg-[rgba(240,238,255,0.65)] text-[#6e65ce] shadow-[0_4px_12px_rgba(110,101,206,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
               <FileText aria-hidden="true" size={23} strokeWidth={1.5} />
             </span>
             <div>
@@ -312,8 +313,8 @@ export default function AdminPage() {
         ) : (
           <div className="flex flex-col">
             {files.map((file) => (
-              <div key={file.id} className="flex min-h-[72px] items-center gap-[10px] border-b border-[#e6eef4] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(231,242,252,0.58)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]">
-                <span className="grid h-[37px] w-[37px] flex-none place-items-center rounded-[11px] bg-[#efedff] text-[#6c68d2]">
+              <div key={file.id} className="flex min-h-[72px] items-center gap-[10px] border-b border-[rgba(255,255,255,0.45)] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(255,255,255,0.45)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]">
+                <span className="grid h-[37px] w-[37px] flex-none place-items-center rounded-[11px] border border-white/70 bg-[rgba(240,238,255,0.7)] text-[#6862d0] shadow-[0_2px_8px_rgba(100,90,210,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
                   <FolderOpen aria-hidden="true" size={17} strokeWidth={1.7} />
                 </span>
                 <div className="grid min-w-0 flex-1 gap-1">
@@ -332,7 +333,7 @@ export default function AdminPage() {
                   <strong className="text-[8px] font-semibold text-[#73899b]">{formatFileSize(file.fileSize)}</strong>
                 </div>
                 <span className="flex-none text-[8px] text-[#9baab6] max-[520px]:hidden">#{file.id}</span>
-                <button type="button" onClick={() => void handleDeleteFile(file)} className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[8px] border border-[#f0dada] bg-[rgba(255,255,255,0.7)] text-[#ae5555] hover:bg-[#fff1f1]" aria-label={`Delete file ${file.originalFileName}`} title="Delete file">
+                <button type="button" onClick={() => void handleDeleteFile(file)} className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[8px] border border-[rgba(240,160,160,0.45)] bg-[rgba(255,245,245,0.55)] text-[#b04040] shadow-[0_2px_6px_rgba(180,40,40,0.05),inset_0_1px_rgba(255,255,255,0.8)] backdrop-blur-md transition-all hover:bg-[rgba(255,235,235,0.8)] hover:text-[#9e2c2c]" aria-label={`Delete file ${file.originalFileName}`} title="Delete file">
                   <Trash2 aria-hidden="true" size={13} />
                 </button>
               </div>

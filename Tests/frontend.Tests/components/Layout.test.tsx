@@ -45,11 +45,12 @@ describe("Layout navigation", () => {
     expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
   });
 
-  it("uses the album detail title for nested album routes and invokes logout", () => {
+  it("opens Sign out from the profile menu", () => {
     auth.user = { ...auth.user, role: "User" };
-    renderLayout("/albums/12");
-    expect(screen.getByRole("heading", { name: "Album details" })).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: /Sign out/ })[0]);
+    renderLayout("/dashboard");
+    expect(screen.queryByRole("menuitem", { name: "Sign out" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Profile menu for Test User" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     expect(auth.logout).toHaveBeenCalledOnce();
   });
 });

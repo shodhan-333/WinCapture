@@ -17,4 +17,4 @@ export const brandMarkSmallLetterClass =
   "text-[12px]";
 
 export const appShellClass =
-  "relative isolate flex min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_82%_5%,rgba(255,255,255,0.96),transparent_24%),radial-gradient(circle_at_8%_76%,rgba(123,190,255,0.2),transparent_30%),radial-gradient(circle_at_70%_88%,rgba(188,221,255,0.2),transparent_28%),linear-gradient(145deg,#f8fbff_0%,#e7f2fc_47%,#f4f7fb_100%)] before:pointer-events-none before:fixed before:inset-[auto_-8%_-4%_-8%] before:z-[-1] before:h-[44%] before:bg-[linear-gradient(155deg,transparent_12%,rgba(65,146,225,0.09)_12.4%,transparent_43%),linear-gradient(20deg,rgba(67,154,233,0.08),transparent_52%)] before:content-[''] after:pointer-events-none after:fixed after:inset-0 after:z-[-1] after:bg-[radial-gradient(circle_at_52%_30%,rgba(255,255,255,0.45),transparent_32%)] after:content-['']";
+  "app-shell relative isolate flex min-h-screen overflow-x-clip";

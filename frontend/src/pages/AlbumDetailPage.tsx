@@ -74,7 +74,7 @@ const sharePanelClass =
   "min-w-0 p-5 max-[760px]:p-[17px] max-[520px]:p-[14px]";
 
 const permissionToggleClass =
-  "inline-flex h-6 min-w-[46px] cursor-pointer items-center justify-center gap-[4px] rounded-full border border-[#dde7ee] bg-[#f4f7fa] px-[7px] text-[9px] font-bold text-[#8b9aa6] transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
+  "inline-flex h-6 min-w-[46px] cursor-pointer items-center justify-center gap-[4px] rounded-full border border-[rgba(255,255,255,0.65)] bg-[rgba(255,255,255,0.45)] px-[7px] text-[9px] font-bold text-[#648096] shadow-[inset_0_1px_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
 
 const memberPermissionClass =
   "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] text-[11px] font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4] disabled:cursor-not-allowed disabled:opacity-[0.68]";
@@ -730,7 +730,7 @@ export default function AlbumDetailPage() {
       </div>
 
       <section className="surface relative flex items-center gap-3 overflow-hidden rounded-[16px] p-4 max-[760px]:flex-wrap max-[760px]:p-3">
-        <div className="relative grid h-[64px] w-[78px] flex-none place-items-center overflow-hidden rounded-xl bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.66),transparent_30%),linear-gradient(145deg,#dff2ff_0%,#b7daf6_49%,#dceefa_100%)] max-[520px]:h-[54px] max-[520px]:w-[66px]">
+        <div className="relative grid h-[64px] w-[78px] flex-none place-items-center overflow-hidden rounded-xl bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_35%),linear-gradient(145deg,rgba(215,238,255,0.7)_0%,rgba(180,218,250,0.5)_49%,rgba(215,235,250,0.65)_100%)] max-[520px]:h-[54px] max-[520px]:w-[66px]">
           {albumCoverPreview ? (
             <img
               src={previewUrls[albumCoverPreview.id]}
@@ -743,7 +743,7 @@ export default function AlbumDetailPage() {
               <span className="absolute right-[-45px] top-[-68px] h-[115px] w-[115px] rounded-full bg-[rgba(75,158,237,0.24)]" />
               <span className="absolute bottom-[-52px] left-[-36px] h-[90px] w-[90px] rounded-full bg-[rgba(255,255,255,0.36)]" />
 
-              <span className="relative z-[1] grid h-12 w-12 place-items-center rounded-[14px] border border-[rgba(255,255,255,0.72)] bg-[rgba(255,255,255,0.5)] text-[#237edb] shadow-[0_12px_27px_rgba(49,110,169,0.11),inset_0_1px_rgba(255,255,255,0.7)] backdrop-blur-[11px] max-[520px]:h-[39px] max-[520px]:w-[39px] max-[520px]:rounded-xl">
+              <span className="relative z-[1] grid h-12 w-12 place-items-center rounded-[14px] border border-white/80 bg-white/55 text-[#1b74d3] shadow-[0_8px_20px_rgba(26,54,80,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-md max-[520px]:h-[39px] max-[520px]:w-[39px] max-[520px]:rounded-xl">
                 <Images
                   aria-hidden="true"
                   size={31}
@@ -813,7 +813,7 @@ export default function AlbumDetailPage() {
               {canManageAlbum && (
                 <button
                   type="button"
-                  className="grid h-[31px] w-[31px] flex-none place-items-center rounded-[9px] border border-[#dce9f2] bg-[rgba(255,255,255,0.63)] text-[#628097] transition-[color,background] duration-[180ms] hover:bg-[#eef7ff] hover:text-[#1a70cb] max-[520px]:mt-[3px]"
+                  className="grid h-[31px] w-[31px] flex-none place-items-center rounded-[9px] border border-white/70 bg-[rgba(255,255,255,0.5)] text-[#4f6e86] backdrop-blur-sm transition-[color,background,border-color] duration-[180ms] hover:border-white/90 hover:bg-white/75 hover:text-[#1a70cb] max-[520px]:mt-[3px]"
                   onClick={() => setEditingName(true)}
                   aria-label="Edit album name"
                   title="Edit album name"
@@ -834,7 +834,7 @@ export default function AlbumDetailPage() {
           </p>
 
           <div className="mt-[13px] flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-[5px] rounded-full border border-[#dceaf3] bg-[rgba(255,255,255,0.47)] px-2 py-[5px] text-[8px] font-semibold text-[#638096] max-[520px]:gap-[5px] max-[520px]:text-[7px]">
+            <span className="inline-flex items-center gap-[5px] rounded-full border border-white/60 bg-[rgba(255,255,255,0.5)] px-2 py-[5px] text-[8px] font-semibold text-[#4e6c84] shadow-sm backdrop-blur-sm max-[520px]:gap-[5px] max-[520px]:text-[7px]">
               <UserPlus
                 aria-hidden="true"
                 size={14}
@@ -843,7 +843,7 @@ export default function AlbumDetailPage() {
               {album.ownerName}
             </span>
 
-            <span className="inline-flex items-center gap-[5px] rounded-full border border-[#dceaf3] bg-[rgba(255,255,255,0.47)] px-2 py-[5px] text-[8px] font-semibold text-[#638096] max-[520px]:gap-[5px] max-[520px]:text-[7px]">
+            <span className="inline-flex items-center gap-[5px] rounded-full border border-white/60 bg-[rgba(255,255,255,0.5)] px-2 py-[5px] text-[8px] font-semibold text-[#4e6c84] shadow-sm backdrop-blur-sm max-[520px]:gap-[5px] max-[520px]:text-[7px]">
               <CalendarDays
                 aria-hidden="true"
                 size={14}
@@ -853,7 +853,7 @@ export default function AlbumDetailPage() {
             </span>
 
             {album.updatedAt && (
-              <span className="inline-flex items-center gap-[5px] rounded-full border border-[#dceaf3] bg-[rgba(255,255,255,0.47)] px-2 py-[5px] text-[8px] font-semibold text-[#638096] max-[520px]:gap-[5px] max-[520px]:text-[7px]">
+              <span className="inline-flex items-center gap-[5px] rounded-full border border-white/60 bg-[rgba(255,255,255,0.5)] px-2 py-[5px] text-[8px] font-semibold text-[#4e6c84] shadow-sm backdrop-blur-sm max-[520px]:gap-[5px] max-[520px]:text-[7px]">
                 Updated {formatDate(album.updatedAt)}
               </span>
             )}
@@ -918,7 +918,7 @@ export default function AlbumDetailPage() {
       {successMessage && (
         <p
           role="status"
-          className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]"
+          className="glass-alert-success rounded-[11px] px-3 py-2 text-[10px] font-medium text-[#34734b]"
         >
           {successMessage}
         </p>
@@ -954,7 +954,7 @@ export default function AlbumDetailPage() {
               }}
               className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${
                 categoryFilter === category
-                  ? "border-[#8bbdec] bg-[#edf6fd] text-[#236eaf]"
+                  ? "!border-white/80 !bg-white/70 !text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]"
                   : ""
               }`}
             >
@@ -1052,7 +1052,7 @@ export default function AlbumDetailPage() {
               </small>
             </span>
 
-            <span className="inline-flex h-[27px] min-w-[34px] items-center justify-center gap-1 rounded-full bg-[#eef4f8] px-2 text-[8px] font-semibold text-[#6d8395]">
+            <span className="inline-flex h-[27px] min-w-[34px] items-center justify-center gap-1 rounded-full border border-white/60 bg-[rgba(255,255,255,0.45)] px-2 text-[8px] font-semibold text-[#506c82] shadow-sm backdrop-blur-sm">
               <Users
                 aria-hidden="true"
                 size={14}
@@ -1071,7 +1071,7 @@ export default function AlbumDetailPage() {
 
           <div className="grid grid-cols-[minmax(280px,0.85fr)_minmax(0,1.45fr)] gap-0 max-[960px]:grid-cols-1 max-[760px]:block max-[520px]:overflow-hidden">
             <div
-              className={`${sharePanelClass} border-r border-[#e4edf4] max-[960px]:border-r-0 max-[960px]:border-b max-[960px]:border-[#e4edf4]`}
+              className={`${sharePanelClass} border-r border-[rgba(255,255,255,0.45)] max-[960px]:border-r-0 max-[960px]:border-b max-[960px]:border-[rgba(255,255,255,0.45)]`}
             >
               <div className="mb-[15px] flex items-center justify-between gap-[14px]">
                 <div>
@@ -1084,7 +1084,7 @@ export default function AlbumDetailPage() {
                   </h3>
                 </div>
 
-                <span className="grid h-[33px] w-[33px] flex-none place-items-center rounded-[10px] bg-[#eaf4ff] text-[#347fcf]">
+                <span className="grid h-[33px] w-[33px] flex-none place-items-center rounded-[10px] border border-white/70 bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-sm backdrop-blur-sm">
                   <UserPlus
                     aria-hidden="true"
                     size={17}
@@ -1108,8 +1108,8 @@ export default function AlbumDetailPage() {
                 className="field w-full"
               />
 
-              <div className="mt-[11px] overflow-hidden rounded-xl border border-[#e4edf3] bg-[rgba(255,255,255,0.28)]">
-                <div className="flex min-h-[60px] items-center justify-between gap-3 border-b border-[#e8eef3] px-3 py-[10px] last:border-0">
+              <div className="mt-[11px] overflow-hidden rounded-xl border border-[rgba(255,255,255,0.55)] bg-[rgba(255,255,255,0.30)] backdrop-blur-md">
+                <div className="flex min-h-[60px] items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.35)] px-3 py-[10px] last:border-0">
                   <div className="grid min-w-0 gap-[3px]">
                     <strong className="text-[12px] font-[650] text-[#4b647a]">
                       Can view
@@ -1211,14 +1211,14 @@ export default function AlbumDetailPage() {
                   </h3>
                 </div>
 
-                <span className="inline-flex h-[27px] min-w-[29px] items-center justify-center rounded-full bg-[#eff4f7] text-[8px] font-semibold text-[#718698]">
+                <span className="inline-flex h-[27px] min-w-[29px] items-center justify-center rounded-full border border-white/60 bg-[rgba(255,255,255,0.45)] text-[8px] font-semibold text-[#506c82] shadow-sm backdrop-blur-sm">
                   {members.length}
                 </span>
               </div>
 
               {members.length === 0 ? (
                 <div className="flex min-h-[205px] flex-col items-center justify-center text-center">
-                  <span className="grid h-12 w-12 place-items-center rounded-[14px] bg-[#edf3f7] text-[#6e879b]">
+                  <span className="grid h-12 w-12 place-items-center rounded-[14px] border border-white/70 bg-[rgba(255,255,255,0.50)] text-[#506c82] shadow-sm backdrop-blur-sm">
                     <Users
                       aria-hidden="true"
                       size={23}
@@ -1235,13 +1235,13 @@ export default function AlbumDetailPage() {
                   </small>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-[#e4edf3] bg-[rgba(255,255,255,0.24)] max-[760px]:rounded-[10px]">
+                <div className="overflow-hidden rounded-xl border border-[rgba(255,255,255,0.55)] bg-[rgba(255,255,255,0.30)] backdrop-blur-md max-[760px]:rounded-[10px]">
                   {members.map((member) => (
                     <div
                       key={member.userId}
-                      className="flex min-w-0 items-center gap-[9px] border-b border-[#e7eef3] px-[11px] py-[10px] transition-colors duration-[170ms] hover:bg-[rgba(235,244,251,0.48)] last:border-b-0 max-[760px]:flex-wrap"
+                      className="flex min-w-0 items-center gap-[9px] border-b border-[rgba(255,255,255,0.35)] px-[11px] py-[10px] transition-colors duration-[170ms] hover:bg-[rgba(255,255,255,0.45)] last:border-b-0 max-[760px]:flex-wrap"
                     >
-                      <div className="grid h-[31px] w-[31px] flex-none place-items-center rounded-full bg-[#e8f3ff] text-[9px] font-bold text-[#2f73bb]">
+                      <div className="grid h-[31px] w-[31px] flex-none place-items-center rounded-full border border-white/60 bg-[rgba(255,255,255,0.55)] text-[9px] font-bold text-[#1b6ecf] shadow-sm">
                         {member.name
                           ?.charAt(0)
                           .toUpperCase() ??
@@ -1356,21 +1356,21 @@ export default function AlbumDetailPage() {
       )}
 
       {!canManageAlbum && (
-        <section className="surface flex items-center gap-[11px] rounded-[13px] px-[15px] py-[13px]">
-          <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[10px] bg-[#eaf3fa] text-[#4c7597]">
+        <section className="surface flex items-center gap-[11px] rounded-[14px] px-[16px] py-[14px]">
+          <span className="grid h-[36px] w-[36px] flex-none place-items-center rounded-[11px] border border-white/70 bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-sm backdrop-blur-sm">
             <Users
               aria-hidden="true"
-              size={17}
+              size={18}
               strokeWidth={1.8}
             />
           </span>
 
           <div className="min-w-0">
-            <strong className="block text-[10px] font-[650] text-[#446078]">
+            <strong className="block text-[11px] font-semibold text-[#183955]">
               Shared album
             </strong>
 
-            <p className="mt-[3px] text-[9px] text-[#899baa]">
+            <p className="mt-[3px] text-[10px] text-[#658299]">
               You have access to this collection based on the
               permissions assigned to your account.
             </p>

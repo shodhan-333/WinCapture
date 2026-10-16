@@ -197,7 +197,7 @@ export default function FileActionMenu({
       <button
         ref={triggerRef}
         type="button"
-        className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[9px] border-0 bg-transparent p-0 font-[inherit] text-[#8297a8] transition-[color,background] duration-[180ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#2b73bf] aria-expanded:bg-[#eaf4fc] aria-expanded:text-[#2876c7]"
+        className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[9px] border border-transparent bg-transparent p-0 font-[inherit] text-[#71879c] transition-all duration-[180ms] ease-out hover:border-white/70 hover:bg-white/60 hover:text-[#185fa6] hover:shadow-[0_2px_8px_rgba(20,54,84,0.06),inset_0_1px_rgba(255,255,255,0.85)] aria-expanded:border-white/80 aria-expanded:bg-white/75 aria-expanded:text-[#145a99] aria-expanded:shadow-[0_2px_10px_rgba(20,54,84,0.08),inset_0_1px_rgba(255,255,255,0.95)]"
         onClick={() =>
           setOpen(
             (current) => !current,
@@ -219,7 +219,7 @@ export default function FileActionMenu({
         createPortal(
           <div
             ref={menuRef}
-            className="z-[1000] w-[148px] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-[11px] border border-[rgba(199,222,239,0.86)] bg-[rgba(255,255,255,0.92)] p-[5px] shadow-[0_16px_34px_rgba(37,78,111,0.13),inset_0_1px_rgba(255,255,255,0.88)] backdrop-blur-[16px]"
+            className="glass-popover z-[1000] w-[148px] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-[12px] p-[6px]"
             role="menu"
             style={{
               position: "fixed",
@@ -229,7 +229,7 @@ export default function FileActionMenu({
           >
             <button
               type="button"
-              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
+              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#4d667c] transition-all duration-[160ms] ease-out hover:bg-white/60 hover:text-[#15599c] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
               role="menuitem"
               onClick={() => runAction(onDetails)}
             >
@@ -240,7 +240,7 @@ export default function FileActionMenu({
             {canManage && (
               <button
                 type="button"
-                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
+                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#4d667c] transition-all duration-[160ms] ease-out hover:bg-white/60 hover:text-[#15599c] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
                 role="menuitem"
                 onClick={() =>
                   runAction(onReplace)
@@ -258,7 +258,7 @@ export default function FileActionMenu({
 
             <button
               type="button"
-              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#5d7489] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#edf6fd] hover:text-[#1c68b5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
+              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#4d667c] transition-all duration-[160ms] ease-out hover:bg-white/60 hover:text-[#15599c] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
               role="menuitem"
               onClick={() =>
                 runAction(onDownload)
@@ -276,7 +276,7 @@ export default function FileActionMenu({
             {canManage && (
               <button
                 type="button"
-                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#d85059] transition-[color,background] duration-[160ms] ease-[ease] hover:bg-[#fff0f1] hover:text-[#c33d46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d85059]"
+                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#c9454f] transition-all duration-[160ms] ease-out hover:bg-[rgba(255,235,238,0.7)] hover:text-[#b52a35] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d85059]"
                 role="menuitem"
                 onClick={() =>
                   runAction(onDelete)

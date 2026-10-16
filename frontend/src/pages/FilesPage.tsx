@@ -44,11 +44,11 @@ import { FILE_CATEGORY_FILTERS, type FileCategoryFilter, SUPPORTED_FILE_ACCEPT, 
 const fileToolbarClass =
   "flex flex-wrap items-center justify-end gap-2 max-[960px]:w-full max-[960px]:justify-start max-[760px]:grid max-[760px]:grid-cols-1";
 const viewSwitcherClass =
-  "inline-flex rounded-[10px] border border-[#dce8f0] bg-[rgba(244,248,251,0.8)] p-[3px] max-[760px]:w-full";
+  "glass-toolbar inline-flex rounded-[12px] p-[3px] max-[760px]:w-full";
 const viewButtonClass =
-  "inline-flex min-h-[34px] cursor-pointer items-center justify-center gap-[6px] rounded-lg border-0 bg-transparent px-[10px] text-[9px] font-semibold text-[#74899a] transition-[color,background,box-shadow] duration-[160ms] hover:text-[#425f76]";
+  "inline-flex min-h-[34px] cursor-pointer items-center justify-center gap-[6px] rounded-lg border px-[11px] text-[10px] font-semibold transition-[color,background,box-shadow,border-color] duration-[160ms]";
 const searchFieldClass =
-  "flex min-h-10 w-[min(280px,100%)] items-center gap-2 rounded-[11px] border border-[#dbe8f1] bg-[rgba(255,255,255,0.63)] px-[10px] text-[#8195a5] shadow-[0_6px_17px_rgba(45,94,136,0.03),inset_0_1px_rgba(255,255,255,0.78)] focus-within:border-[#8bbdec] focus-within:shadow-[0_0_0_3px_rgba(75,155,227,0.09),0_6px_17px_rgba(45,94,136,0.04)] max-[760px]:w-full";
+  "glass-toolbar flex min-h-10 w-[min(280px,100%)] items-center gap-2 rounded-[12px] px-[11px] text-[#71879a] focus-within:border-[rgba(30,120,214,0.65)] focus-within:shadow-[0_0_0_3px_rgba(30,120,214,0.14)] max-[760px]:w-full";
 
 type FileView =
   | "all"
@@ -423,7 +423,7 @@ export default function FilesPage() {
                 setView("all");
                 setCurrentPage(1);
               }}
-              className={`${viewButtonClass} ${view === "all" ? "bg-[rgba(255,255,255,0.8)] text-[#224762] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""}`}
+              className={`${viewButtonClass} ${view === "all" ? "border-white/80 bg-white/70 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : "border-transparent bg-transparent text-[#557086] hover:bg-white/30 hover:text-[#194b75]"}`}
             >
               <FolderOpen
                 aria-hidden="true"
@@ -441,7 +441,7 @@ export default function FilesPage() {
                 setView("favorites");
                 setCurrentPage(1);
               }}
-              className={`${viewButtonClass} ${view === "favorites" ? "bg-[rgba(255,255,255,0.8)] text-[#b47818] shadow-[0_3px_9px_rgba(48,88,119,0.07),inset_0_1px_rgba(255,255,255,0.82)]" : ""}`}
+              className={`${viewButtonClass} ${view === "favorites" ? "border-white/80 bg-white/70 text-[#ad6f12] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : "border-transparent bg-transparent text-[#557086] hover:bg-white/30 hover:text-[#194b75]"}`}
             >
               <Star
                 aria-hidden="true"
@@ -534,11 +534,11 @@ export default function FilesPage() {
       </section>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label={view === "favorites" ? "Filter favorite files by category" : "Filter files by category"}>
-        {FILE_CATEGORY_FILTERS.map((category) => <button key={category} type="button" aria-pressed={categoryFilter === category} onClick={() => { setCategoryFilter(category); setCurrentPage(1); }} className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "border-[#8bbdec] bg-[#edf6fd] text-[#236eaf]" : ""}`}>{category}</button>)}
+        {FILE_CATEGORY_FILTERS.map((category) => <button key={category} type="button" aria-pressed={categoryFilter === category} onClick={() => { setCategoryFilter(category); setCurrentPage(1); }} className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "!border-white/80 !bg-white/70 !text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : ""}`}>{category}</button>)}
       </div>
 
       {error && <ErrorBanner message={error} />}
-      {successMessage && <p role="status" className="rounded-[11px] border border-[#cce8d6] bg-[rgba(239,250,243,0.9)] px-3 py-2 text-[10px] font-medium text-[#34734b]">{successMessage}</p>}
+      {successMessage && <p role="status" className="glass-alert-success rounded-[11px] px-3 py-2 text-[10px] font-medium text-[#34734b]">{successMessage}</p>}
 
       <section
         className="min-w-0"
@@ -548,7 +548,7 @@ export default function FilesPage() {
       >
         {files.length === 0 ? (
           <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
-            <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] bg-[#e7f3ff] text-[#2a7dd7] shadow-[inset_0_1px_rgba(255,255,255,0.72),0_7px_18px_rgba(45,111,176,0.06)]">
+            <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] border border-white/80 bg-white/50 text-[#1b74d3] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_6px_18px_rgba(26,54,80,0.06)] backdrop-blur-md">
               {view === "favorites" ? (
                 <Star
                   aria-hidden="true"
