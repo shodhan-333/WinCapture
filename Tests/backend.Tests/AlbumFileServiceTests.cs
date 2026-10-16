@@ -285,8 +285,9 @@ public sealed class AlbumFileServiceTests
         _storage.Setup(service => service.DeleteAsync(file.StoredFileName)).Returns(Task.CompletedTask);
         _files.Setup(repository => repository.DeleteAsync(file)).Returns(Task.CompletedTask);
 
-        await _service.DeleteAsync(AlbumId, FileId, new User { Id = OwnerId }, UserRole.User);
+        var cleanupComplete = await _service.DeleteAsync(AlbumId, FileId, new User { Id = OwnerId }, UserRole.User);
 
+        Assert.True(cleanupComplete);
         _storage.Verify(service => service.DeleteAsync(file.StoredFileName), Times.Once);
         _files.Verify(repository => repository.DeleteAsync(file), Times.Once);
     }
@@ -301,13 +302,44 @@ public sealed class AlbumFileServiceTests
         _storage.Setup(service => service.DeleteAsync(file.StoredFileName))
             .ThrowsAsync(new StorageException("storage unavailable", new IOException()));
 
-        await _service.DeleteAsync(
+        var cleanupComplete = await _service.DeleteAsync(
             AlbumId,
             FileId,
             new User { Id = OwnerId },
             UserRole.User);
 
+        Assert.False(cleanupComplete);
         _files.Verify(repository => repository.DeleteAsync(file), Times.Once);
+    }
+
+    [Fact]
+    public async Task RemoveFromAlbumAsync_DetachesFileAndKeepsBlob()
+    {
+        var file = ExistingFile();
+        _albums.Setup(service => service.GetForUploadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(new Album { Id = AlbumId, CreatedBy = OwnerId });
+        _files.Setup(repository => repository.GetByIdAsync(FileId)).ReturnsAsync(file);
+        _files.Setup(repository => repository.UpdateAsync(file)).Returns(Task.CompletedTask);
+
+        await _service.RemoveFromAlbumAsync(AlbumId, FileId, new User { Id = OwnerId }, UserRole.User);
+
+        Assert.Null(file.AlbumId);
+        _files.Verify(repository => repository.UpdateAsync(file), Times.Once);
+        _files.Verify(repository => repository.DeleteAsync(It.IsAny<FileMetadata>()), Times.Never);
+        _storage.Verify(service => service.DeleteAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RemoveFromAlbumAsync_RequiresAlbumManagementPermission()
+    {
+        _albums.Setup(service => service.GetForUploadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ThrowsAsync(new ForbiddenException("Only the album owner or an Admin can manage this album."));
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            _service.RemoveFromAlbumAsync(AlbumId, FileId, new User { Id = 20 }, UserRole.User));
+
+        _files.Verify(repository => repository.GetByIdAsync(It.IsAny<long>()), Times.Never);
+        _files.Verify(repository => repository.UpdateAsync(It.IsAny<FileMetadata>()), Times.Never);
     }
 
     private static FileMetadata ExistingFile() => new()

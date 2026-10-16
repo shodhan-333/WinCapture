@@ -167,7 +167,7 @@ public sealed class FileService(
     }
 
     // Commits metadata deletion first so a database failure cannot leave a live record pointing to missing content.
-    public async Task DeleteAsync(
+    public async Task<bool> DeleteAsync(
         long fileId,
         int userId,
         UserRole userRole)
@@ -179,7 +179,7 @@ public sealed class FileService(
             requireManage: true);
 
         await files.DeleteAsync(file);
-        await TryDeleteStoredFileAsync(file.StoredFileName);
+        return await TryDeleteStoredFileAsync(file.StoredFileName);
     }
 
     // Returns all files with their uploader and album details for admin management.
@@ -401,11 +401,12 @@ public sealed class FileService(
     }
 
     // Attempts to remove a stored blob during cleanup and logs any failure.
-    private async Task TryDeleteStoredFileAsync(string storedFileName)
+    private async Task<bool> TryDeleteStoredFileAsync(string storedFileName)
     {
         try
         {
             await storage.DeleteAsync(storedFileName);
+            return true;
         }
         catch (Exception exception)
         {
@@ -413,6 +414,7 @@ public sealed class FileService(
                 exception,
                 "Database metadata was removed but blob cleanup failed. Reconciliation is required for {StoredFileName}.",
                 storedFileName);
+            return false;
         }
     }
 

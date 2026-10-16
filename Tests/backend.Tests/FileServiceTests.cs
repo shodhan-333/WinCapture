@@ -316,8 +316,9 @@ public sealed class FileServiceTests
             .ThrowsAsync(new StorageException("Storage unavailable.", new IOException()));
 
         _files.Setup(repository => repository.DeleteAsync(file)).Returns(Task.CompletedTask);
-        await _service.DeleteAsync(file.Id, UserId, UserRole.User);
+        var cleanupComplete = await _service.DeleteAsync(file.Id, UserId, UserRole.User);
 
+        Assert.False(cleanupComplete);
         _files.Verify(repository => repository.DeleteAsync(file), Times.Once);
     }
 
@@ -329,8 +330,9 @@ public sealed class FileServiceTests
         _storage.Setup(storage => storage.DeleteAsync(file.StoredFileName)).Returns(Task.CompletedTask);
         _files.Setup(repository => repository.DeleteAsync(file)).Returns(Task.CompletedTask);
 
-        await _service.DeleteAsync(file.Id, UserId, UserRole.User);
+        var cleanupComplete = await _service.DeleteAsync(file.Id, UserId, UserRole.User);
 
+        Assert.True(cleanupComplete);
         _storage.Verify(storage => storage.DeleteAsync(file.StoredFileName), Times.Once);
         _files.Verify(repository => repository.DeleteAsync(file), Times.Once);
     }

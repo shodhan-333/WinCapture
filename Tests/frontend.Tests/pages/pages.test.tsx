@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
     getFile: vi.fn(), uploadFile: vi.fn(), replaceFile: vi.fn(), downloadFileByPath: vi.fn(),
     updateAlbum: vi.fn(), addAlbumMember: vi.fn(), updateAlbumMember: vi.fn(), removeAlbumMember: vi.fn(),
     downloadAlbumFile: vi.fn(), deleteAlbumFile: vi.fn(), uploadAlbumFile: vi.fn(), replaceAlbumFile: vi.fn(),
+    removeFavorite: vi.fn(), removeAlbumFileAssociation: vi.fn(),
     getAlbumFile: vi.fn(), getFilePreviewUrlByPath: vi.fn(),
   },
   user: { userId: 7, name: "Maya Chen", email: "maya@example.test", role: "User", authenticationType: "Microsoft Entra ID" },
@@ -331,5 +332,82 @@ describe("page workflows", () => {
     expect(await screen.findByText("Shared album")).toBeInTheDocument();
     expect(state.api.getAlbumMembers).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Edit album name" })).not.toBeInTheDocument();
+  });
+
+  it("hides selection controls until requested and permanently deletes selected files", async () => {
+    state.api.getFiles.mockResolvedValue(paged([file]));
+    state.api.deleteFile.mockResolvedValue(undefined);
+    renderPage(<FilesPage />);
+    expect(await screen.findByText("coast.pdf")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Select coast.pdf" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select files" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Permanently delete 1 file?");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("stored content");
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    await waitFor(() => expect(state.api.deleteFile).toHaveBeenCalledWith(expect.anything(), account, file.id));
+    await waitFor(() => expect(screen.queryByRole("checkbox", { name: "Select coast.pdf" })).not.toBeInTheDocument());
+  });
+
+  it("removes selected favorites without deleting their files", async () => {
+    state.api.getFavorites.mockResolvedValue(paged([{ ...file, isFavorite: true }]));
+    state.api.removeFavorite.mockResolvedValue(undefined);
+    renderPage(<FilesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Favorites" }));
+    await screen.findByText("coast.pdf");
+    fireEvent.click(screen.getByRole("button", { name: "Select files" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("underlying files will remain");
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove from Favorites" }));
+    await waitFor(() => expect(state.api.removeFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id));
+    expect(state.api.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it("removes album associations through the non-destructive album action", async () => {
+    state.api.getAlbumFiles.mockResolvedValue(paged([file]));
+    state.api.removeAlbumFileAssociation.mockResolvedValue(undefined);
+    renderPage(<AlbumDetailPage />, "/albums/7");
+    await screen.findByText("coast.pdf");
+    expect(screen.queryByRole("checkbox", { name: "Select coast.pdf" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Select files" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from album" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("file and its stored content remain");
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove from album" }));
+    await waitFor(() => expect(state.api.removeAlbumFileAssociation).toHaveBeenCalledWith(expect.anything(), account, 7, file.id));
+    expect(state.api.deleteAlbumFile).not.toHaveBeenCalled();
+  });
+
+  it("keeps failed files selected after a partial delete", async () => {
+    const secondFile = { ...file, id: 22, originalFileName: "second.pdf" };
+    state.api.getFiles.mockResolvedValue(paged([file, secondFile]));
+    state.api.deleteFile.mockImplementation((_instance, _account, id) => id === file.id ? Promise.reject(new Error("Unavailable")) : Promise.resolve(undefined));
+    renderPage(<FilesPage />);
+    await screen.findByText("coast.pdf");
+    fireEvent.click(screen.getByRole("button", { name: "Select files" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select second.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }));
+    await waitFor(() => expect(screen.getByText(/1 completed; 1 failed.*selected for review or retry\./)).toBeInTheDocument());
+    expect(screen.getByRole("checkbox", { name: "Select coast.pdf" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select second.pdf" })).not.toBeChecked();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+  });
+
+  it("clears selection and hides checkboxes when selection mode is canceled", async () => {
+    state.api.getFiles.mockResolvedValue(paged([file]));
+    renderPage(<FilesPage />);
+    await screen.findByText("coast.pdf");
+    fireEvent.click(screen.getByRole("button", { name: "Select files" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel selection" }));
+    expect(screen.queryByRole("checkbox", { name: "Select coast.pdf" })).not.toBeInTheDocument();
+    expect(screen.queryByText("1 selected")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select files" })).toBeInTheDocument();
   });
 });

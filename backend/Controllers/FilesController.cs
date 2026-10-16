@@ -152,13 +152,12 @@ public sealed class FilesController(IFileService fileService) : ControllerBase
 
     // Deletes the specified file after the service checks the current user's permissions.
     [HttpDelete("{id:long}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(long id)
     {
-        await fileService.DeleteAsync(id, UserId, CurrentUserRole);
-
-        return NoContent();
+        var storageCleanupComplete = await fileService.DeleteAsync(id, UserId, CurrentUserRole);
+        return Ok(new { storageCleanupComplete });
     }
 }

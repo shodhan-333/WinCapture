@@ -33,6 +33,7 @@ public sealed class ControllerTests
         service.Setup(x => x.DownloadAsync(5, 3, UserRole.User))
             .ReturnsAsync(new FileDownloadResult(new MemoryStream([1]), "image/png", "photo.png"));
         service.Setup(x => x.ReplaceAsync(5, It.IsAny<IFormFile>(), 3, UserRole.User)).ReturnsAsync(FileResponse);
+        service.Setup(x => x.DeleteAsync(5, 3, UserRole.User)).ReturnsAsync(true);
 
         var controller = WithUser(new FilesController(service.Object), 3, "WinCapture.User");
         var upload = await controller.Upload(Mock.Of<IFormFile>());
@@ -53,7 +54,7 @@ public sealed class ControllerTests
         Assert.IsType<OkObjectResult>(replace.Result);
         Assert.IsType<NoContentResult>(added);
         Assert.IsType<NoContentResult>(removed);
-        Assert.IsType<NoContentResult>(deleted);
+        Assert.IsType<OkObjectResult>(deleted);
         service.Verify(x => x.AddFavoriteAsync(5, 3, UserRole.User), Times.Once);
         service.Verify(x => x.RemoveFavoriteAsync(5, 3), Times.Once);
         service.Verify(x => x.DeleteAsync(5, 3, UserRole.User), Times.Once);
@@ -182,7 +183,7 @@ public sealed class ControllerTests
             .ReturnsAsync(new FileDownloadResult(new MemoryStream([1]), "image/png", "photo.png"));
         albumFiles.Setup(x => x.DownloadAsync(8, 5, It.IsAny<User>(), UserRole.User))
             .ReturnsAsync(new FileDownloadResult(new MemoryStream([1]), "image/png", "photo.png"));
-        albumFiles.Setup(x => x.DeleteAsync(8, 5, It.IsAny<User>(), UserRole.User)).Returns(Task.CompletedTask);
+        albumFiles.Setup(x => x.DeleteAsync(8, 5, It.IsAny<User>(), UserRole.User)).ReturnsAsync(true);
 
         var controller = WithUser(new AlbumsController(albums.Object, albumFiles.Object), 3, "WinCapture.User", "Ari", "ari@example.test");
 
@@ -198,7 +199,7 @@ public sealed class ControllerTests
         Assert.IsType<OkObjectResult>((await controller.GetFile(8, 5)).Result);
         Assert.IsAssignableFrom<FileStreamResult>(await controller.PreviewFile(8, 5));
         Assert.IsAssignableFrom<FileStreamResult>(await controller.DownloadFile(8, 5));
-        Assert.IsType<NoContentResult>(await controller.DeleteFile(8, 5));
+        Assert.IsType<OkObjectResult>(await controller.DeleteFile(8, 5));
         Assert.IsType<OkObjectResult>((await controller.GetMembers(8)).Result);
         Assert.IsType<NoContentResult>(await controller.AddMember(8, new AddAlbumMemberRequest("x@test", true, false)));
         Assert.IsType<NoContentResult>(await controller.UpdateMember(8, 4, new UpdateAlbumMemberRequest(true, true)));

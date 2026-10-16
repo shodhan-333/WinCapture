@@ -131,8 +131,8 @@ export default function MultiFileUploadDialog({
       <section role="dialog" aria-modal="true" aria-labelledby="multi-upload-title" className="surface w-full max-w-[620px] overflow-hidden rounded-[20px] border border-white/80 shadow-[0_24px_80px_rgba(9,30,50,0.32)]">
         <header className="flex items-start justify-between gap-4 border-b border-white/55 px-5 py-4">
           <div>
-            <h2 id="multi-upload-title" className="m-0 text-[17px] font-[700] text-[#183b50]">{title}</h2>
-            <p className="mb-0 mt-1 text-[12px] leading-relaxed text-[#183b59]">{description}</p>
+            <h2 id="multi-upload-title" className="m-0 text-[17px] font-[700] text-[#183b59]">{title}</h2>
+            <p className="mb-0 mt-1 text-[11px] leading-relaxed text-[#71879a]">{description}</p>
           </div>
           <button type="button" onClick={onClose} disabled={isUploading} aria-label="Close upload dialog" className="grid h-8 w-8 flex-none place-items-center rounded-full border border-white/70 bg-white/55 text-[#58738a] disabled:opacity-50"><X size={16} /></button>
         </header>
@@ -162,7 +162,7 @@ export default function MultiFileUploadDialog({
             >
               <span className="mx-auto grid h-11 w-11 place-items-center rounded-[14px] border border-white/80 bg-white/65 text-[#2879d1]"><FilePlus2 size={21} /></span>
               <p className="mb-0 mt-3 text-[12px] font-semibold text-[#38566f]">Drop files here, or choose files</p>
-              <p className="mb-3 mt-1 text-[10px] text-[#183b59]">Supported formats only up to 10 MB per file</p>
+              <p className="mb-3 mt-1 text-[10px] text-[#8296a6]">Supported formats only · up to 10 MB per file</p>
               <button type="button" onClick={() => inputRef.current?.click()} disabled={isUploading} className="secondary-action min-h-[32px] px-3 text-[10px] disabled:opacity-50">Choose files</button>
             </div>
           )}
@@ -179,7 +179,7 @@ export default function MultiFileUploadDialog({
                     <span className="grid h-8 w-8 flex-none place-items-center rounded-[9px] bg-[rgba(230,241,250,0.75)] text-[#5283aa]"><FilePlus2 size={15} /></span>
                     <span className="min-w-0 flex-1">
                       <strong className="block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#38566f]" title={item.file.name}>{item.file.name}</strong>
-                      <span className="text-[9px] text-[#100c08 ]">{formatFileSize(item.file.size)}{item.message ? ` · ${item.message}` : ""}</span>
+                      <span className="text-[9px] text-[#8296a6]">{formatFileSize(item.file.size)}{item.message ? ` · ${item.message}` : ""}</span>
                     </span>
                     <span className={`flex-none text-[9px] font-semibold ${item.status === "success" ? "text-[#34734b]" : item.status === "failed" || item.status === "invalid" ? "text-[#b2454d]" : "text-[#54738c]"}`} role={item.status === "failed" || item.status === "invalid" ? "status" : undefined}>
                       {item.status === "queued" ? "Ready" : item.status === "uploading" ? <span className="inline-flex items-center gap-1"><LoaderCircle size={12} className="animate-spin" />Uploading</span> : item.status === "success" ? <span className="inline-flex items-center gap-1"><Check size={12} />Uploaded</span> : item.status === "invalid" ? "Invalid" : "Failed"}

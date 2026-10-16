@@ -34,6 +34,9 @@ interface FileCardProps {
   loadPreview?: (file: FileResponse) => Promise<string>;
   onDownload: () => void;
   onDelete: () => void;
+  selected?: boolean;
+  onSelectionToggle?: () => void;
+  selectionDisabled?: boolean;
 }
 
 export default function FileCard({
@@ -48,6 +51,9 @@ export default function FileCard({
   loadPreview,
   onDownload,
   onDelete,
+  selected = false,
+  onSelectionToggle,
+  selectionDisabled = false,
 }: FileCardProps) {
   const fileCategory = getFileCategory(file.originalFileName);
   const isImage = fileCategory === "Images";
@@ -130,6 +136,9 @@ export default function FileCard({
     <article ref={cardRef} className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)]">
       <div className="relative m-2 h-[136px] min-w-0 overflow-hidden rounded-[12px] border border-white/60 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_40%),linear-gradient(145deg,rgba(215,238,255,0.65)_0%,rgba(190,222,248,0.45)_50%,rgba(220,238,252,0.60)_100%)] max-[520px]:h-[150px]">
         {previewArea}
+        {onSelectionToggle && <label className="absolute left-2 top-2 z-[4] grid h-8 w-8 cursor-pointer place-items-center rounded-lg border border-white/80 bg-white/85 shadow-sm backdrop-blur" onClick={(event) => event.stopPropagation()} title={`Select ${file.originalFileName}`}>
+          <input type="checkbox" className="h-4 w-4 cursor-pointer accent-[#287dd7]" checked={selected} disabled={selectionDisabled} onChange={onSelectionToggle} aria-label={`Select ${file.originalFileName}`} />
+        </label>}
         {!isImage && fileCategory && <span className="pointer-events-none absolute bottom-[9px] right-[9px] z-[2] rounded-full border border-white/75 bg-white/70 p-1.5 text-[#3b678a] shadow-sm backdrop-blur-sm">{fileCategory === "Videos" ? <Play size={13} fill="currentColor" /> : fileCategory === "Audio" ? <Icon size={14} /> : fileCategory === "Archives" ? <Icon size={14} /> : <Icon size={14} />}</span>}
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(11,42,68,0.06),transparent_30%,rgba(11,42,68,0.14))]" />
 

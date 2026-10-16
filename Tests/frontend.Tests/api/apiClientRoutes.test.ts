@@ -36,6 +36,7 @@ describe("API route coverage", () => {
     ["album files", () => api.getAlbumFiles(instance, account, 8), "/api/albums/8/files", "GET"],
     ["album file", () => api.getAlbumFile(instance, account, 8, 9), "/api/albums/8/files/9", "GET"],
     ["delete album file", () => api.deleteAlbumFile(instance, account, 8, 9), "/api/albums/8/files/9", "DELETE"],
+    ["remove album file association", () => api.removeAlbumFileAssociation(instance, account, 8, 9), "/api/albums/8/files/9/association", "DELETE"],
     ["personal files", () => api.getFiles(instance, account), "/api/files", "GET"],
     ["one personal file", () => api.getFile(instance, account, 9), "/api/files/9", "GET"],
     ["favorites", () => api.getFavorites(instance, account), "/api/files/favorites", "GET"],

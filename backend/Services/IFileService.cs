@@ -40,7 +40,7 @@ public interface IFileService
         UserRole userRole);
 
     // Deletes a file after checking the user's management permissions.
-    Task DeleteAsync(
+    Task<bool> DeleteAsync(
         long fileId,
         int userId,
         UserRole userRole);

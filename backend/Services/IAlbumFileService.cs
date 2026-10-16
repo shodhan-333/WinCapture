@@ -56,9 +56,11 @@ public interface IAlbumFileService
         UserRole role);
 
     // Deletes a file from the specified album.
-    Task DeleteAsync(
+    Task<bool> DeleteAsync(
         long albumId,
         long fileId,
         User currentUser,
         UserRole role);
+
+    Task RemoveFromAlbumAsync(long albumId, long fileId, User currentUser, UserRole role);
 }

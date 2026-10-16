@@ -448,8 +448,21 @@ export async function deleteAlbumFile(
   account: AccountInfo,
   albumId: number,
   fileId: number,
+): Promise<{ storageCleanupComplete: boolean }> {
+  const response = await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`, {
+    method: "DELETE",
+  });
+  if (response.status === 204) return { storageCleanupComplete: true };
+  return (await response.json()) as { storageCleanupComplete: boolean };
+}
+
+export async function removeAlbumFileAssociation(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+  albumId: number,
+  fileId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`, {
+  await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}/association`, {
     method: "DELETE",
   });
 }
@@ -561,10 +574,12 @@ export async function deleteFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
   fileId: number,
-): Promise<void> {
-  await callApi(instance, account, `/api/files/${fileId}`, {
+): Promise<{ storageCleanupComplete: boolean }> {
+  const response = await callApi(instance, account, `/api/files/${fileId}`, {
     method: "DELETE",
   });
+  if (response.status === 204) return { storageCleanupComplete: true };
+  return (await response.json()) as { storageCleanupComplete: boolean };
 }
 
 // Admin API

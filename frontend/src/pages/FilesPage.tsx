@@ -8,6 +8,7 @@ import {
 import {
   FilePlus2,
   FolderOpen,
+  ListChecks,
   Search,
   Star,
   Upload,
@@ -23,6 +24,7 @@ import {
   getFilePreviewUrlByPath,
   getFiles,
   replaceFile,
+  removeFavorite,
   uploadFile,
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
@@ -34,9 +36,12 @@ import {
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import FilePreviewModal from "../components/files/FilePreviewModal";
+import BulkDeleteDialog from "../components/files/BulkDeleteDialog";
+import BulkSelectionToolbar from "../components/files/BulkSelectionToolbar";
 import MultiFileUploadDialog from "../components/files/MultiFileUploadDialog";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
+import useBulkSelection from "../hooks/useBulkSelection";
 import { useAuth } from "../context/AuthContext";
 import type { FileResponse } from "../types/file";
 import { getAccountKey } from "../utils/accountKey";
@@ -59,6 +64,7 @@ const searchFieldClass =
 type FileView = "all" | "favorites";
 
 const PAGE_SIZE = 12;
+type BulkAction = "delete" | "unfavorite" | null;
 
 export default function FilesPage() {
   const { instance } = useMsal();
@@ -88,6 +94,9 @@ export default function FilesPage() {
   const [fileDetails, setFileDetails] = useState<FileResponse | null>(null);
   const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
   const [previewSource, setPreviewSource] = useState<string | undefined>();
+  const { selectionMode, selectedIds, startSelection, cancelSelection, toggle, selectAll, remove, retain } = useBulkSelection<number>();
+  const [bulkAction, setBulkAction] = useState<BulkAction>(null);
+  const [bulkPending, setBulkPending] = useState(false);
 
   const loadPreview = useCallback(
     async (file: FileResponse) => {
@@ -148,6 +157,7 @@ export default function FilesPage() {
             );
 
       setFiles(nextPage.items);
+      retain(nextPage.items.filter((file) => nextView === "favorites" || file.canManage).map((file) => file.id));
       setTotalItems(nextPage.totalItems);
       setPageCount(nextPage.pageCount);
       setCurrentPage(nextPage.page);
@@ -155,6 +165,7 @@ export default function FilesPage() {
       // Clear old results so they are not displayed under a different view
       // when the new request fails, such as showing All files under Favorites.
       setFiles([]);
+      retain([]);
       setTotalItems(0);
       setPageCount(1);
       setError(
@@ -171,6 +182,10 @@ export default function FilesPage() {
   useEffect(() => {
     void loadFiles(view, currentPage);
   }, [accountKey, instance, view, currentPage, searchQuery, categoryFilter]);
+
+  useEffect(() => {
+    cancelSelection();
+  }, [accountKey, cancelSelection]);
 
   const handleReplace = async (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -236,7 +251,9 @@ export default function FilesPage() {
 
     try {
       setError(null);
-      await deleteFile(instance, account, fileId);
+      const result = await deleteFile(instance, account, fileId);
+      remove([fileId]);
+      if (result?.storageCleanupComplete === false) setSuccessMessage("The file record was deleted, but its stored content needs cleanup reconciliation.");
       await loadFiles(view);
     } catch (caughtError) {
       setError(
@@ -245,6 +262,38 @@ export default function FilesPage() {
           : "Delete failed. You can safely retry.",
       );
     }
+  };
+
+  const selectableFiles = view === "favorites" ? files : files.filter((file) => file.canManage);
+  const selectedFiles = selectableFiles.filter((file) => selectedIds.has(file.id));
+  const allSelectedFilesManageable = selectedFiles.length > 0 && selectedFiles.every((file) => file.canManage);
+
+  const runBulkAction = async () => {
+    if (!account || bulkPending || !selectedFiles.length || !bulkAction) return;
+    setBulkPending(true);
+    setError(null);
+    const results = await Promise.all(selectedFiles.map(async (file) => {
+      try {
+        const deletion = bulkAction === "unfavorite" ? undefined : await deleteFile(instance, account, file.id);
+        if (bulkAction === "unfavorite") await removeFavorite(instance, account, file.id);
+        return { id: file.id, ok: true as const, cleanupComplete: deletion?.storageCleanupComplete !== false };
+      } catch (failure) {
+        return { id: file.id, ok: false as const, message: failure instanceof Error ? failure.message : "Request failed." };
+      }
+    }));
+    const succeeded = results.filter((result) => result.ok).map((result) => result.id);
+    const failed = results.filter((result) => !result.ok);
+    const cleanupWarnings = results.filter((result) => result.ok && !result.cleanupComplete).length;
+    const failedNames = failed.map((result) => selectedFiles.find((file) => file.id === result.id)?.originalFileName).filter(Boolean);
+    remove(succeeded);
+    const failureSummary = failed.length ? `${succeeded.length} completed; ${failed.length} failed (${failedNames.join(", ")}). Failed files that remain available are selected for review or retry.` : null;
+    const cleanupNames = results.filter((result) => result.ok && !result.cleanupComplete).map((result) => selectedFiles.find((file) => file.id === result.id)?.originalFileName).filter(Boolean);
+    setSuccessMessage(succeeded.length ? `${succeeded.length} ${bulkAction === "unfavorite" ? `file${succeeded.length === 1 ? "" : "s"} removed from Favorites` : `file${succeeded.length === 1 ? "" : "s"} permanently deleted`}.${cleanupWarnings ? ` Storage cleanup needs reconciliation for: ${cleanupNames.join(", ")}. The file records are already removed.` : ""}` : null);
+    setBulkAction(null);
+    if (!failed.length) cancelSelection();
+    await loadFiles(view, currentPage);
+    if (failureSummary) setError(failureSummary);
+    setBulkPending(false);
   };
 
   const handleFavoriteSuccess = useCallback(
@@ -266,11 +315,12 @@ export default function FilesPage() {
       });
 
       if (view === "favorites" && !nextFavorite) {
+        remove([file.id]);
         // Refresh the list and pagination totals after removing the favorite.
         void loadFiles(view, currentPage);
       }
     },
-    [view, currentPage],
+    [view, currentPage, remove],
   );
 
   const handleFavoriteError = useCallback((message: string) => {
@@ -374,6 +424,7 @@ export default function FilesPage() {
               type="button"
               aria-pressed={view === "all"}
               onClick={() => {
+                cancelSelection();
                 setView("all");
                 setCurrentPage(1);
               }}
@@ -387,6 +438,7 @@ export default function FilesPage() {
               type="button"
               aria-pressed={view === "favorites"}
               onClick={() => {
+                cancelSelection();
                 setView("favorites");
                 setCurrentPage(1);
               }}
@@ -411,6 +463,7 @@ export default function FilesPage() {
               className="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
               value={searchQuery}
               onChange={(event) => {
+                cancelSelection();
                 setSearchQuery(event.target.value);
                 setCurrentPage(1);
               }}
@@ -424,6 +477,7 @@ export default function FilesPage() {
                 className="grid h-[25px] w-[25px] flex-none cursor-pointer place-items-center rounded-[7px] border-0 bg-transparent text-[#8296a6] hover:bg-[#edf4f9] hover:text-[#527087]"
                 aria-label="Clear file search"
                 onClick={() => {
+                  cancelSelection();
                   setSearchQuery("");
                   setCurrentPage(1);
                 }}
@@ -453,30 +507,57 @@ export default function FilesPage() {
         />
       </section>
 
-      <div
-        className="flex flex-wrap gap-2"
-        role="group"
-        aria-label={
-          view === "favorites"
-            ? "Filter favorite files by category"
-            : "Filter files by category"
-        }
-      >
-        {FILE_CATEGORY_FILTERS.map((category) => (
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label={
+            view === "favorites"
+              ? "Filter favorite files by category"
+              : "Filter files by category"
+          }
+        >
+          {FILE_CATEGORY_FILTERS.map((category) => (
+            <button
+              key={category}
+              type="button"
+              aria-pressed={categoryFilter === category}
+              onClick={() => {
+                cancelSelection();
+                setCategoryFilter(category);
+                setCurrentPage(1);
+              }}
+              className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "!border-white/80 !bg-white/70 !text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : ""}`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
+        {!selectionMode && selectableFiles.length > 0 && (
           <button
-            key={category}
             type="button"
-            aria-pressed={categoryFilter === category}
-            onClick={() => {
-              setCategoryFilter(category);
-              setCurrentPage(1);
-            }}
-            className={`secondary-action min-h-[32px] px-3 py-1 text-[9px] ${categoryFilter === category ? "!border-white/80 !bg-white/70 !text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]" : ""}`}
+            onClick={startSelection}
+            className="secondary-action inline-flex min-h-[32px] flex-none items-center gap-1.5 rounded-[9px] border border-white/75 bg-white/45 px-3 py-1 text-[9px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-colors hover:bg-white/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4]"
           >
-            {category}
+            <ListChecks aria-hidden="true" size={14} strokeWidth={1.8} />
+            Select files
           </button>
-        ))}
+        )}
       </div>
+      {selectionMode && (
+        <BulkSelectionToolbar
+          selectedCount={selectedIds.size}
+          visibleCount={selectableFiles.length}
+          disabled={bulkPending}
+          onSelectAll={() => selectAll(selectableFiles.map((file) => file.id))}
+          onCancel={cancelSelection}
+          actions={view === "favorites" ? <>
+            <button type="button" disabled={!selectedIds.size || bulkPending} onClick={() => setBulkAction("unfavorite")} className="primary-action disabled:opacity-50">Remove from Favorites</button>
+            {selectedIds.size > 0 && allSelectedFilesManageable && <button type="button" disabled={bulkPending} onClick={() => setBulkAction("delete")} className="danger-gradient-action inline-flex min-h-[36px] items-center rounded-[10px] px-3 text-[10px] font-semibold text-white disabled:opacity-50">Delete permanently</button>}
+          </> : <button type="button" disabled={!selectedIds.size || bulkPending} onClick={() => setBulkAction("delete")} className="danger-gradient-action inline-flex min-h-[36px] items-center rounded-[10px] px-3 text-[10px] font-semibold text-white disabled:opacity-50">Delete selected</button>}
+        />
+      )}
 
       {error && <ErrorBanner message={error} />}
 
@@ -570,6 +651,11 @@ export default function FilesPage() {
             }}
             onDownload={(file) => void handleDownload(file)}
             onDelete={(file) => void handleDelete(file.id)}
+            selectionMode={selectionMode}
+            selectionDisabled={bulkPending}
+            selectedIds={selectedIds}
+            selectionEligible={(file) => view === "favorites" || file.canManage}
+            onSelectionToggle={(file) => toggle(file.id)}
           />
         )}
 
@@ -577,7 +663,7 @@ export default function FilesPage() {
           <Pagination
             currentPage={currentPage}
             pageCount={pageCount}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) => { cancelSelection(); setCurrentPage(page); }}
           />
         )}
       </section>
@@ -586,6 +672,20 @@ export default function FilesPage() {
         <FileDetailsDialog
           file={fileDetails}
           onClose={() => setFileDetails(null)}
+        />
+      )}
+
+      {bulkAction && (
+        <BulkDeleteDialog
+          count={selectedFiles.length}
+          title={bulkAction === "unfavorite" ? `Remove ${selectedFiles.length} ${selectedFiles.length === 1 ? "file" : "files"} from Favorites?` : `Permanently delete ${selectedFiles.length} ${selectedFiles.length === 1 ? "file" : "files"}?`}
+          description={bulkAction === "unfavorite" ? "This removes only your Favorites entries. The underlying files will remain available." : "This permanently deletes the selected files and their stored content. This action cannot be undone."}
+          confirmLabel={bulkAction === "unfavorite" ? "Remove from Favorites" : "Delete permanently"}
+          pendingLabel={bulkAction === "unfavorite" ? "Removing…" : "Deleting…"}
+          destructive={bulkAction === "delete"}
+          pending={bulkPending}
+          onCancel={() => setBulkAction(null)}
+          onConfirm={() => void runBulkAction()}
         />
       )}
 

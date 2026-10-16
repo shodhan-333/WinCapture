@@ -16,6 +16,11 @@ interface FileCardGridProps {
   onDownload: (file: FileResponse) => void;
   onDelete: (file: FileResponse) => void;
   empty?: ReactNode;
+  selectionMode?: boolean;
+  selectedIds?: ReadonlySet<number>;
+  onSelectionToggle?: (file: FileResponse) => void;
+  selectionEligible?: (file: FileResponse) => boolean;
+  selectionDisabled?: boolean;
 }
 
 export default function FileCardGrid({
@@ -31,6 +36,11 @@ export default function FileCardGrid({
   onDownload,
   onDelete,
   empty,
+  selectionMode = false,
+  selectedIds,
+  onSelectionToggle,
+  selectionEligible,
+  selectionDisabled = false,
 }: FileCardGridProps) {
   if (files.length === 0) {
     return <>{empty}</>;
@@ -62,6 +72,9 @@ export default function FileCardGrid({
             onPreview={(selectedFile, url) => onPreview(selectedFile, url)}
             onDownload={() => onDownload(file)}
             onDelete={() => onDelete(file)}
+            selected={selectedIds?.has(file.id)}
+            onSelectionToggle={selectionMode && (selectionEligible?.(file) ?? true) ? () => onSelectionToggle?.(file) : undefined}
+            selectionDisabled={selectionDisabled}
           />
         );
       })}

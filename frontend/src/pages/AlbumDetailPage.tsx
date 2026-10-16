@@ -33,6 +33,7 @@ import {
   addAlbumMember,
   deleteAlbum,
   deleteAlbumFile,
+  removeAlbumFileAssociation,
   downloadAlbumFile,
   getAlbum,
   getAlbumFile,
@@ -50,9 +51,12 @@ import Pagination from "../components/ui/Pagination";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import FilePreviewModal from "../components/files/FilePreviewModal";
+import BulkDeleteDialog from "../components/files/BulkDeleteDialog";
+import BulkSelectionToolbar from "../components/files/BulkSelectionToolbar";
 import MultiFileUploadDialog from "../components/files/MultiFileUploadDialog";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
+import useBulkSelection from "../hooks/useBulkSelection";
 import { useAuth } from "../context/AuthContext";
 
 import type {
@@ -70,6 +74,7 @@ import { formatDate } from "../utils/formatters";
 import { getAccountKey } from "../utils/accountKey";
 
 const PAGE_SIZE = 12;
+type AlbumBulkAction = "remove" | "delete" | null;
 
 const sharePanelClass =
   "min-w-0 p-5 max-[760px]:p-[17px] max-[520px]:p-[14px]";
@@ -115,6 +120,9 @@ export default function AlbumDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [deletingAlbum, setDeletingAlbum] = useState(false);
+  const { selectionMode, selectedIds, startSelection, cancelSelection, toggle, selectAll, remove, retain } = useBulkSelection<number>();
+  const [bulkAction, setBulkAction] = useState<AlbumBulkAction>(null);
+  const [bulkPending, setBulkPending] = useState(false);
 
   const [memberEmail, setMemberEmail] = useState("");
   const [canView, setCanView] = useState(true);
@@ -211,6 +219,7 @@ export default function AlbumDetailPage() {
       );
 
       setFiles(fileResult.items);
+      retain(fileResult.items.filter((file) => file.canManage).map((file) => file.id));
       setTotalFiles(fileResult.totalItems);
       setPageCount(fileResult.pageCount);
       setCurrentPage(fileResult.page);
@@ -252,6 +261,14 @@ export default function AlbumDetailPage() {
     user?.role,
     user?.userId,
   ]);
+
+  useEffect(() => {
+    cancelSelection();
+  }, [accountKey, numericAlbumId, cancelSelection]);
+
+  useEffect(() => {
+    if (!canManageAlbum) cancelSelection();
+  }, [canManageAlbum, cancelSelection]);
 
   useEffect(() => {
     if (
@@ -336,12 +353,15 @@ export default function AlbumDetailPage() {
     try {
       setError(null);
 
-      await deleteAlbumFile(
+      const result = await deleteAlbumFile(
         instance,
         account,
         numericAlbumId,
         fileId,
       );
+
+      remove([fileId]);
+      if (result?.storageCleanupComplete === false) setSuccessMessage("The file record was deleted, but its stored content needs cleanup reconciliation.");
 
       await loadAlbumData();
     } catch (caughtError) {
@@ -353,6 +373,39 @@ export default function AlbumDetailPage() {
       );
     }
   };
+
+  const runBulkAction = async () => {
+    if (!account || !Number.isFinite(numericAlbumId) || !bulkAction || bulkPending || !selectedFiles.length) return;
+    setBulkPending(true);
+    setError(null);
+    const results = await Promise.all(selectedFiles.map(async (file) => {
+      try {
+        if (bulkAction === "remove") {
+          await removeAlbumFileAssociation(instance, account, numericAlbumId, file.id);
+          return { id: file.id, ok: true as const, cleanupComplete: true };
+        }
+        const deletion = await deleteAlbumFile(instance, account, numericAlbumId, file.id);
+        return { id: file.id, ok: true as const, cleanupComplete: deletion?.storageCleanupComplete !== false };
+      } catch {
+        return { id: file.id, ok: false as const };
+      }
+    }));
+    const succeeded = results.filter((result) => result.ok).map((result) => result.id);
+    const failedCount = results.length - succeeded.length;
+    const cleanupWarnings = results.filter((result) => result.ok && !result.cleanupComplete).length;
+    const failedNames = results.filter((result) => !result.ok).map((result) => selectedFiles.find((file) => file.id === result.id)?.originalFileName).filter(Boolean);
+    remove(succeeded);
+    const failureSummary = failedCount ? `${succeeded.length} completed; ${failedCount} failed (${failedNames.join(", ")}). Failed files that remain available are selected for review or retry.` : null;
+    const cleanupNames = results.filter((result) => result.ok && !result.cleanupComplete).map((result) => selectedFiles.find((file) => file.id === result.id)?.originalFileName).filter(Boolean);
+    setSuccessMessage(succeeded.length ? `${succeeded.length} ${bulkAction === "remove" ? `file${succeeded.length === 1 ? "" : "s"} removed from this album. The files remain in their owners’ libraries.` : `file${succeeded.length === 1 ? "" : "s"} permanently deleted.`}${cleanupWarnings ? ` Storage cleanup needs reconciliation for: ${cleanupNames.join(", ")}. The file records are already removed.` : ""}` : null);
+    setBulkAction(null);
+    if (!failedCount) cancelSelection();
+    await loadAlbumData();
+    if (failureSummary) setError(failureSummary);
+    setBulkPending(false);
+  };
+
+  const selectedFiles = files.filter((file) => selectedIds.has(file.id));
 
   const handleReplace = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -897,6 +950,7 @@ export default function AlbumDetailPage() {
               type="button"
               aria-pressed={categoryFilter === category}
               onClick={() => {
+                cancelSelection();
                 setCategoryFilter(category);
                 setCurrentPage(1);
               }}
@@ -910,6 +964,23 @@ export default function AlbumDetailPage() {
             </button>
           ))}
         </div>
+
+        {canManageAlbum && !selectionMode && files.length > 0 && (
+          <button type="button" onClick={startSelection} className="secondary-action mb-4">Select files</button>
+        )}
+        {canManageAlbum && selectionMode && (
+          <BulkSelectionToolbar
+            selectedCount={selectedIds.size}
+            visibleCount={files.length}
+            disabled={bulkPending}
+            onSelectAll={() => selectAll(files.filter((file) => file.canManage).map((file) => file.id))}
+            onCancel={cancelSelection}
+            actions={<>
+              <button type="button" disabled={!selectedIds.size || bulkPending} onClick={() => setBulkAction("remove")} className="primary-action disabled:opacity-50">Remove from album</button>
+              <button type="button" disabled={!selectedIds.size || bulkPending} onClick={() => setBulkAction("delete")} className="danger-gradient-action inline-flex min-h-[36px] items-center rounded-[10px] px-3 text-[10px] font-semibold text-white disabled:opacity-50">Delete permanently</button>
+            </>}
+          />
+        )}
 
         <FileCardGrid
           files={files}
@@ -933,6 +1004,11 @@ export default function AlbumDetailPage() {
           }}
           onDownload={(file) => void handleDownload(file)}
           onDelete={(file) => void handleDelete(file.id)}
+          selectionMode={selectionMode && canManageAlbum}
+          selectionDisabled={bulkPending}
+          selectedIds={selectedIds}
+          selectionEligible={(file) => file.canManage}
+          onSelectionToggle={(file) => toggle(file.id)}
           empty={
             <section className="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
               <span className="grid h-[62px] w-[62px] place-items-center rounded-[19px] bg-[#e7f3ff] text-[#287dd7] shadow-[inset_0_1px_rgba(255,255,255,0.72),0_7px_18px_rgba(45,111,176,0.06)]">
@@ -977,7 +1053,7 @@ export default function AlbumDetailPage() {
           <Pagination
             currentPage={currentPage}
             pageCount={pageCount}
-            onPageChange={setCurrentPage}
+            onPageChange={(page) => { cancelSelection(); setCurrentPage(page); }}
           />
         )}
       </section>
@@ -1348,6 +1424,20 @@ export default function AlbumDetailPage() {
         <FileDetailsDialog
           file={fileDetails}
           onClose={() => setFileDetails(null)}
+        />
+      )}
+
+      {bulkAction && (
+        <BulkDeleteDialog
+          count={selectedFiles.length}
+          title={bulkAction === "remove" ? `Remove ${selectedFiles.length} ${selectedFiles.length === 1 ? "file" : "files"} from this album?` : `Permanently delete ${selectedFiles.length} ${selectedFiles.length === 1 ? "file" : "files"}?`}
+          description={bulkAction === "remove" ? "This removes only the album association. The file and its stored content remain in the uploader’s library." : "This permanently deletes the selected file records and stored content, including favorites. This action cannot be undone."}
+          confirmLabel={bulkAction === "remove" ? "Remove from album" : "Delete permanently"}
+          pendingLabel={bulkAction === "remove" ? "Removing…" : "Deleting…"}
+          destructive={bulkAction === "delete"}
+          pending={bulkPending}
+          onCancel={() => setBulkAction(null)}
+          onConfirm={() => void runBulkAction()}
         />
       )}
 

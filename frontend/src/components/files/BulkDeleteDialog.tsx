@@ -3,6 +3,10 @@ import { AlertTriangle } from "lucide-react";
 interface BulkDeleteDialogProps {
   count: number;
   description: string;
+  title?: string;
+  confirmLabel?: string;
+  pendingLabel?: string;
+  destructive?: boolean;
   pending: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -11,6 +15,10 @@ interface BulkDeleteDialogProps {
 export default function BulkDeleteDialog({
   count,
   description,
+  title,
+  confirmLabel = "Confirm",
+  pendingLabel = "Working…",
+  destructive = true,
   pending,
   onCancel,
   onConfirm,
@@ -37,7 +45,7 @@ export default function BulkDeleteDialog({
           id="bulk-delete-title"
           className="mt-4 mb-0 text-[16px] font-semibold text-[#163855]"
         >
-          Delete {count} {count === 1 ? "file" : "files"}?
+          {title ?? `Delete ${count} ${count === 1 ? "file" : "files"}?`}
         </h2>
         <p
           id="bulk-delete-description"
@@ -58,9 +66,9 @@ export default function BulkDeleteDialog({
             type="button"
             disabled={pending}
             onClick={onConfirm}
-            className="danger-gradient-action inline-flex min-h-[38px] min-w-[100px] items-center justify-center rounded-[10px] px-4 text-[10px] font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+            className={`${destructive ? "danger-gradient-action text-white" : "primary-action"} inline-flex min-h-[38px] min-w-[100px] items-center justify-center rounded-[10px] px-4 text-[10px] font-semibold disabled:cursor-wait disabled:opacity-60`}
           >
-            {pending ? "Deleting…" : "Confirm"}
+            {pending ? pendingLabel : confirmLabel}
           </button>
         </div>
       </section>

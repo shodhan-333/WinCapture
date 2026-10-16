@@ -220,8 +220,15 @@ public sealed class AlbumsController(IAlbumService albumService, IAlbumFileServi
     {
         var user = CurrentUser;
 
-        await albumFileService.DeleteAsync(id, fileId, user, CurrentUserRole);
+        var storageCleanupComplete = await albumFileService.DeleteAsync(id, fileId, user, CurrentUserRole);
+        return Ok(new { storageCleanupComplete });
+    }
 
+    [HttpDelete("{id:long}/files/{fileId:long}/association")]
+    [Authorize(Roles = "WinCapture.User,WinCapture.Admin")]
+    public async Task<IActionResult> RemoveFileFromAlbum(long id, long fileId)
+    {
+        await albumFileService.RemoveFromAlbumAsync(id, fileId, CurrentUser, CurrentUserRole);
         return NoContent();
     }
 
