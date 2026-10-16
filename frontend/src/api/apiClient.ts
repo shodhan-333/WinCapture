@@ -5,8 +5,7 @@ import {
 } from "@azure/msal-browser";
 
 import { apiBaseUrl, apiScope } from "../authConfig";
-import { ApiError } from "../types/api";
-import type { PagedResponse } from "../types/api";
+import { ApiError, type PagedResponse } from "../types/api";
 import type { CurrentUser } from "../types/auth";
 import type {
   AlbumResponse,
@@ -18,16 +17,17 @@ import type {
 } from "../types/album";
 import type { AdminFileResponse, FileResponse } from "../types/file";
 
+// Acquire an access token intended specifically for the WinCapture API.
 async function acquireAccessToken(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<string> {
   try {
-    const result =
-      await instance.acquireTokenSilent({
-        account,
-        scopes: [apiScope],
-      });
+    // Reuse the cached token when possible; MSAL refreshes it silently if needed.
+    const result = await instance.acquireTokenSilent({
+      account,
+      scopes: [apiScope],
+    });
 
     if (!result.accessToken) {
       throw new ApiError(
@@ -42,10 +42,8 @@ async function acquireAccessToken(
       throw error;
     }
 
-    if (
-      error instanceof
-      InteractionRequiredAuthError
-    ) {
+    // Interactive sign-in is handled by the authentication layer, not this API client.
+    if (error instanceof InteractionRequiredAuthError) {
       throw new ApiError(
         "Microsoft sign-in is required again before a WinCapture API access token can be acquired.",
         401,
@@ -59,20 +57,18 @@ async function acquireAccessToken(
   }
 }
 
-async function extractErrorMessage(
-  response: Response,
-): Promise<string> {
+async function extractErrorMessage(response: Response): Promise<string> {
   try {
-    const data =
-      (await response.json()) as {
-        message?: string;
-        Message?: string;
-        error?: string;
-        Error?: string;
-        status?: number;
-        Status?: number;
-      };
+    const data = (await response.json()) as {
+      message?: string;
+      Message?: string;
+      error?: string;
+      Error?: string;
+      status?: number;
+      Status?: number;
+    };
 
+    // Accept camelCase and PascalCase error fields from the backend.
     return (
       data.message ||
       data.Message ||
@@ -85,46 +81,32 @@ async function extractErrorMessage(
   }
 }
 
+// Centralize authentication headers, HTTP requests, and error handling.
 export async function callApi(
   instance: IPublicClientApplication,
   account: AccountInfo,
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const accessToken =
-    await acquireAccessToken(
-      instance,
-      account,
-    );
+  const accessToken = await acquireAccessToken(instance, account);
 
-  const headers =
-    new Headers(options.headers);
+  const headers = new Headers(options.headers);
 
-  headers.set(
-    "Authorization",
-    `Bearer ${accessToken}`,
-  );
+  // Send the Microsoft Entra access token directly to the backend.
+  headers.set("Authorization", `Bearer ${accessToken}`);
 
-  if (
-    options.body &&
-    !(options.body instanceof FormData)
-  ) {
-    headers.set(
-      "Content-Type",
-      "application/json",
-    );
+  // FormData must keep the browser-generated multipart boundary.
+  if (options.body && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
   }
 
   let response: Response;
 
   try {
-    response = await fetch(
-      `${apiBaseUrl}${path}`,
-      {
-        ...options,
-        headers,
-      },
-    );
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...options,
+      headers,
+    });
   } catch {
     throw new ApiError(
       "The WinCapture API could not be reached. Ensure the backend is running and reachable.",
@@ -133,58 +115,33 @@ export async function callApi(
   }
 
   if (!response.ok) {
-    const serverMessage =
-      await extractErrorMessage(
-        response,
-      );
+    const serverMessage = await extractErrorMessage(response);
+    let message = serverMessage;
 
-    let message =
-      serverMessage;
-
+    // Add context to common HTTP errors while retaining backend details.
     if (response.status === 400) {
-      message =
-        `Validation failed: ${serverMessage}`;
-    } else if (
-      response.status === 401
-    ) {
-      message =
-        `Authentication expired or invalid: ${serverMessage}`;
-    } else if (
-      response.status === 403
-    ) {
-      message =
-        `Access denied: ${serverMessage}`;
-    } else if (
-      response.status === 404
-    ) {
-      message =
-        `Resource not found: ${serverMessage}`;
-    } else if (
-      response.status === 409
-    ) {
-      message =
-        `Conflict: ${serverMessage}`;
-    } else if (
-      response.status === 413
-    ) {
-      message =
-        `File too large: ${serverMessage}`;
-    } else if (
-      response.status >= 500
-    ) {
-      message =
-        "An unexpected server error occurred. Please try again later.";
+      message = `Validation failed: ${serverMessage}`;
+    } else if (response.status === 401) {
+      message = `Authentication expired or invalid: ${serverMessage}`;
+    } else if (response.status === 403) {
+      message = `Access denied: ${serverMessage}`;
+    } else if (response.status === 404) {
+      message = `Resource not found: ${serverMessage}`;
+    } else if (response.status === 409) {
+      message = `Conflict: ${serverMessage}`;
+    } else if (response.status === 413) {
+      message = `File too large: ${serverMessage}`;
+    } else if (response.status >= 500) {
+      message = "An unexpected server error occurred. Please try again later.";
     }
 
-    throw new ApiError(
-      message,
-      response.status,
-    );
+    throw new ApiError(message, response.status);
   }
 
   return response;
 }
 
+// Build paginated URLs with optional search and category filters.
 function buildPagePath(
   path: string,
   page: number,
@@ -196,40 +153,32 @@ function buildPagePath(
     page: String(page),
     pageSize: String(pageSize),
   });
+
   const normalizedSearch = search?.trim();
+
   if (normalizedSearch) {
     query.set("search", normalizedSearch);
   }
+
+  // "All" means no category restriction, so omit it from the query string.
   if (category && category !== "All") {
     query.set("category", category);
   }
+
   return `${path}?${query.toString()}`;
 }
 
-// ==========================================
 // Authentication API
-// ==========================================
-
 export async function getCurrentUser(
   instance: IPublicClientApplication,
   account: AccountInfo,
 ): Promise<CurrentUser> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      "/api/auth/me",
-    );
+  const response = await callApi(instance, account, "/api/auth/me");
 
-  return (
-    await response.json()
-  ) as CurrentUser;
+  return (await response.json()) as CurrentUser;
 }
 
-// ==========================================
 // Albums API
-// ==========================================
-
 export async function getAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -237,12 +186,11 @@ export async function getAlbums(
   pageSize: number,
   search?: string,
 ): Promise<PagedResponse<AlbumResponse>> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      buildPagePath("/api/albums", page, pageSize, search),
-    );
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath("/api/albums", page, pageSize, search),
+  );
 
   return (await response.json()) as PagedResponse<AlbumResponse>;
 }
@@ -284,16 +232,9 @@ export async function getAlbum(
   account: AccountInfo,
   albumId: number,
 ): Promise<AlbumResponse> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/albums/${albumId}`,
-    );
+  const response = await callApi(instance, account, `/api/albums/${albumId}`);
 
-  return (
-    await response.json()
-  ) as AlbumResponse;
+  return (await response.json()) as AlbumResponse;
 }
 
 export async function createAlbum(
@@ -301,22 +242,12 @@ export async function createAlbum(
   account: AccountInfo,
   request: CreateAlbumRequest,
 ): Promise<AlbumResponse> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      "/api/albums",
-      {
-        method: "POST",
-        body: JSON.stringify(
-          request,
-        ),
-      },
-    );
+  const response = await callApi(instance, account, "/api/albums", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 
-  return (
-    await response.json()
-  ) as AlbumResponse;
+  return (await response.json()) as AlbumResponse;
 }
 
 export async function updateAlbum(
@@ -325,22 +256,12 @@ export async function updateAlbum(
   albumId: number,
   request: UpdateAlbumRequest,
 ): Promise<AlbumResponse> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/albums/${albumId}`,
-      {
-        method: "PUT",
-        body: JSON.stringify(
-          request,
-        ),
-      },
-    );
+  const response = await callApi(instance, account, `/api/albums/${albumId}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
 
-  return (
-    await response.json()
-  ) as AlbumResponse;
+  return (await response.json()) as AlbumResponse;
 }
 
 export async function deleteAlbum(
@@ -348,14 +269,9 @@ export async function deleteAlbum(
   account: AccountInfo,
   albumId: number,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}`,
-    {
-      method: "DELETE",
-    },
-  );
+  await callApi(instance, account, `/api/albums/${albumId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function getAlbumMembers(
@@ -363,16 +279,13 @@ export async function getAlbumMembers(
   account: AccountInfo,
   albumId: number,
 ): Promise<AlbumMemberResponse[]> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      `/api/albums/${albumId}/members`,
-    );
+  const response = await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/members`,
+  );
 
-  return (
-    await response.json()
-  ) as AlbumMemberResponse[];
+  return (await response.json()) as AlbumMemberResponse[];
 }
 
 export async function addAlbumMember(
@@ -381,17 +294,10 @@ export async function addAlbumMember(
   albumId: number,
   request: AddAlbumMemberRequest,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/members`,
-    {
-      method: "POST",
-      body: JSON.stringify(
-        request,
-      ),
-    },
-  );
+  await callApi(instance, account, `/api/albums/${albumId}/members`, {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function updateAlbumMember(
@@ -401,17 +307,10 @@ export async function updateAlbumMember(
   userId: number,
   request: UpdateAlbumMemberRequest,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/members/${userId}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(
-        request,
-      ),
-    },
-  );
+  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function removeAlbumMember(
@@ -420,20 +319,11 @@ export async function removeAlbumMember(
   albumId: number,
   userId: number,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/members/${userId}`,
-    {
-      method: "DELETE",
-    },
-  );
+  await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
+    method: "DELETE",
+  });
 }
-
-// ==========================================
 // Album Files API
-// ==========================================
-
 export async function getAlbumFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -442,12 +332,17 @@ export async function getAlbumFiles(
   pageSize: number,
   category?: string,
 ): Promise<PagedResponse<FileResponse>> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      buildPagePath(`/api/albums/${albumId}/files`, page, pageSize, undefined, category),
-    );
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath(
+      `/api/albums/${albumId}/files`,
+      page,
+      pageSize,
+      undefined,
+      category,
+    ),
+  );
 
   return (await response.json()) as PagedResponse<FileResponse>;
 }
@@ -520,18 +415,14 @@ export async function getFilePreviewUrl(
   albumId?: number,
   canManage = false,
 ): Promise<string> {
-  const path =
-    albumId
-      ? canManage
-        ? `/api/albums/${albumId}/files/${fileId}/download`
-        : `/api/albums/${albumId}/files/${fileId}/preview`
-      : `/api/files/${fileId}/download`;
+  // Managers can use the download endpoint; shared-album viewers use preview.
+  const path = albumId
+    ? canManage
+      ? `/api/albums/${albumId}/files/${fileId}/download`
+      : `/api/albums/${albumId}/files/${fileId}/preview`
+    : `/api/files/${fileId}/download`;
 
-  return getFilePreviewUrlByPath(
-    instance,
-    account,
-    path,
-  );
+  return getFilePreviewUrlByPath(instance, account, path);
 }
 
 export async function getFilePreviewUrlByPath(
@@ -540,29 +431,16 @@ export async function getFilePreviewUrlByPath(
   path: string,
   contentType?: string,
 ): Promise<string> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      path,
-    );
+  const response = await callApi(instance, account, path);
 
-  const responseBlob =
-    await response.blob();
+  const responseBlob = await response.blob();
 
-  const previewBlob =
-    contentType
-      ? new Blob(
-          [responseBlob],
-          {
-            type: contentType,
-          },
-        )
-      : responseBlob;
+  // Preserve the known MIME type so the browser can render the preview correctly.
+  const previewBlob = contentType
+    ? new Blob([responseBlob], { type: contentType })
+    : responseBlob;
 
-  return URL.createObjectURL(
-    previewBlob,
-  );
+  return URL.createObjectURL(previewBlob);
 }
 
 export async function deleteAlbumFile(
@@ -571,20 +449,12 @@ export async function deleteAlbumFile(
   albumId: number,
   fileId: number,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/albums/${albumId}/files/${fileId}`,
-    {
-      method: "DELETE",
-    },
-  );
+  await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`, {
+    method: "DELETE",
+  });
 }
 
-// ==========================================
-// Personal Files API
-// ==========================================
-
+// Personal Files
 export async function getFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -593,12 +463,11 @@ export async function getFiles(
   search?: string,
   category?: string,
 ): Promise<PagedResponse<FileResponse>> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      buildPagePath("/api/files", page, pageSize, search, category),
-    );
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath("/api/files", page, pageSize, search, category),
+  );
 
   return (await response.json()) as PagedResponse<FileResponse>;
 }
@@ -608,11 +477,7 @@ export async function getFile(
   account: AccountInfo,
   fileId: number,
 ): Promise<FileResponse> {
-  const response = await callApi(
-    instance,
-    account,
-    `/api/files/${fileId}`,
-  );
+  const response = await callApi(instance, account, `/api/files/${fileId}`);
 
   return (await response.json()) as FileResponse;
 }
@@ -625,12 +490,11 @@ export async function getFavorites(
   search?: string,
   category?: string,
 ): Promise<PagedResponse<FileResponse>> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      buildPagePath("/api/files/favorites", page, pageSize, search, category),
-    );
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath("/api/files/favorites", page, pageSize, search, category),
+  );
 
   return (await response.json()) as PagedResponse<FileResponse>;
 }
@@ -640,14 +504,9 @@ export async function addFavorite(
   account: AccountInfo,
   fileId: number,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/files/${fileId}/favorite`,
-    {
-      method: "PUT",
-    },
-  );
+  await callApi(instance, account, `/api/files/${fileId}/favorite`, {
+    method: "PUT",
+  });
 }
 
 export async function removeFavorite(
@@ -655,14 +514,9 @@ export async function removeFavorite(
   account: AccountInfo,
   fileId: number,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/files/${fileId}/favorite`,
-    {
-      method: "DELETE",
-    },
-  );
+  await callApi(instance, account, `/api/files/${fileId}/favorite`, {
+    method: "DELETE",
+  });
 }
 
 export async function uploadFile(
@@ -700,12 +554,7 @@ export async function downloadFileByPath(
   path: string,
   fallbackFileName: string,
 ): Promise<void> {
-  await downloadResponse(
-    instance,
-    account,
-    path,
-    fallbackFileName,
-  );
+  await downloadResponse(instance, account, path, fallbackFileName);
 }
 
 export async function deleteFile(
@@ -713,20 +562,12 @@ export async function deleteFile(
   account: AccountInfo,
   fileId: number,
 ): Promise<void> {
-  await callApi(
-    instance,
-    account,
-    `/api/files/${fileId}`,
-    {
-      method: "DELETE",
-    },
-  );
+  await callApi(instance, account, `/api/files/${fileId}`, {
+    method: "DELETE",
+  });
 }
 
-// ==========================================
 // Admin API
-// ==========================================
-
 export async function getAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -734,12 +575,11 @@ export async function getAdminFiles(
   pageSize: number,
   search?: string,
 ): Promise<PagedResponse<AdminFileResponse>> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      buildPagePath("/api/admin/files", page, pageSize, search),
-    );
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath("/api/admin/files", page, pageSize, search),
+  );
 
   return (await response.json()) as PagedResponse<AdminFileResponse>;
 }
@@ -767,12 +607,11 @@ export async function getAdminAlbums(
   pageSize: number,
   search?: string,
 ): Promise<PagedResponse<AlbumResponse>> {
-  const response =
-    await callApi(
-      instance,
-      account,
-      buildPagePath("/api/admin/albums", page, pageSize, search),
-    );
+  const response = await callApi(
+    instance,
+    account,
+    buildPagePath("/api/admin/albums", page, pageSize, search),
+  );
 
   return (await response.json()) as PagedResponse<AlbumResponse>;
 }
@@ -793,6 +632,7 @@ export async function getMyAdminAlbums(
   return (await response.json()) as PagedResponse<AlbumResponse>;
 }
 
+// Shared helper for uploading and replacing files in personal and album endpoints.
 async function uploadMultipartFile<T>(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -803,15 +643,11 @@ async function uploadMultipartFile<T>(
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await callApi(
-    instance,
-    account,
-    path,
-    {
-      method,
-      body: formData,
-    },
-  );
+  // Do not set Content-Type manually; fetch adds the required multipart boundary.
+  const response = await callApi(instance, account, path, {
+    method,
+    body: formData,
+  });
 
   return (await response.json()) as T;
 }
@@ -822,76 +658,43 @@ async function downloadResponse(
   path: string,
   fallbackFileName: string,
 ): Promise<void> {
-  const response = await callApi(
-    instance,
-    account,
-    path,
-  );
+  const response = await callApi(instance, account, path);
 
   const blob = await response.blob();
-  const fileName = extractFileNameFromHeaders(
-    response,
-    fallbackFileName,
-  );
+  const fileName = extractFileNameFromHeaders(response, fallbackFileName);
 
   triggerBrowserDownload(blob, fileName);
 }
 
-// ==========================================
 // Binary Download Utilities
-// ==========================================
-
 function extractFileNameFromHeaders(
   response: Response,
   fallback: string,
 ): string {
-  const disposition =
-    response.headers.get(
-      "content-disposition",
-    );
+  const disposition = response.headers.get("content-disposition");
 
   if (!disposition) {
     return fallback;
   }
 
-  const match =
-    disposition.match(
-      /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i,
-    );
+  const match = disposition.match(
+    /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i,
+  );
 
-  return match?.[1]
-    ? decodeURIComponent(
-        match[1],
-      )
-    : fallback;
+  return match?.[1] ? decodeURIComponent(match[1]) : fallback;
 }
 
-function triggerBrowserDownload(
-  blob: Blob,
-  filename: string,
-): void {
-  const url =
-    window.URL.createObjectURL(
-      blob,
-    );
-
-  const anchor =
-    document.createElement("a");
+function triggerBrowserDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
 
   anchor.href = url;
   anchor.download = filename;
 
-  document.body.appendChild(
-    anchor,
-  );
-
+  document.body.appendChild(anchor);
   anchor.click();
+  document.body.removeChild(anchor);
 
-  document.body.removeChild(
-    anchor,
-  );
-
-  window.URL.revokeObjectURL(
-    url,
-  );
+  // Release the temporary URL created for this download.
+  window.URL.revokeObjectURL(url);
 }

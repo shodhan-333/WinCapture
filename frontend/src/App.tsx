@@ -33,10 +33,13 @@ function AuthGate() {
   const redirectStarted = useRef(false);
 
   useEffect(() => {
+    // Start sign-in only once while unauthenticated to avoid repeated redirects.
     if (!loading && !error && !account && !user && !redirectStarted.current) {
       redirectStarted.current = true;
       void login();
     }
+
+    // Reset the guard when an account or user becomes available.
     if (account || user) redirectStarted.current = false;
   }, [account, error, loading, login, user]);
 
@@ -210,6 +213,7 @@ export default function App() {
           element={<FilesPage />}
         />
 
+        {/* Only users with the Admin role can reach the admin page route. */}
         {user.role === "Admin" && (
           <Route
             path="/admin"
@@ -218,6 +222,7 @@ export default function App() {
         )}
       </Route>
 
+      {/* Send unknown paths back to the main dashboard. */}
       <Route
         path="*"
         element={
@@ -230,5 +235,3 @@ export default function App() {
     </Routes>
   );
 }
-
-

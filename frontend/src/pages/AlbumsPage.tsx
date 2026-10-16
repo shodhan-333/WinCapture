@@ -79,13 +79,15 @@ export default function AlbumsPage() {
             requestedSearch,
           );
         } catch (caughtError) {
+          // Fall back only when the shared-albums endpoint is missing; other API
+          // errors should be surfaced instead of being treated as a deployment mismatch.
           if (!(caughtError instanceof ApiError) || caughtError.status !== 404 || !user?.userId) {
             throw caughtError;
           }
 
-          // Older deployed APIs do not have /albums/shared yet. The accessible
-          // albums endpoint still enforces view permission, so filter its
-          // paginated results by owner while the backend deployment catches up.
+          // The accessible-albums endpoint still checks view permission. Load its
+          // pages and filter out albums owned by the current user until the
+          // shared-albums endpoint is available in the deployed backend.
           const firstPage = await getAlbums(instance, account, 1, 100, requestedSearch);
           const accessibleAlbums = [...firstPage.items];
           for (let pageNumber = 2; pageNumber <= firstPage.pageCount; pageNumber += 1) {
@@ -134,6 +136,7 @@ export default function AlbumsPage() {
   }, [accountKey, instance, currentPage, albumFilter, searchQuery]);
 
   useEffect(() => {
+    // Debounce search so each keystroke does not trigger a separate API request.
     const timeoutId = window.setTimeout(() => {
       setSearchQuery(searchInput.trim());
       setCurrentPage(1);
@@ -175,6 +178,7 @@ export default function AlbumsPage() {
     }
   };
 
+  // Use skeletons on the initial load; later requests keep the existing page visible.
   if (loading && !hasLoaded) {
     return (
       <div className="app-page">

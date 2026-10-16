@@ -212,6 +212,23 @@ describe("page workflows", () => {
     await waitFor(() => expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "Videos"));
   });
 
+  it("uploads multiple personal files and refreshes the files page", async () => {
+    state.api.getFiles.mockResolvedValue(paged());
+    renderPage(<FilesPage />);
+    await screen.findByRole("heading", { name: "Files" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload files" }));
+    const first = new File(["first"], "first.pdf", { type: "application/pdf" });
+    const second = new File(["second"], "second.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Choose files to upload"), { target: { files: [first, second] } });
+    fireEvent.click(screen.getByRole("button", { name: "Upload 2 files" }));
+
+    await screen.findAllByText("Uploads finished: 2 successful, 0 failed.");
+    expect(state.api.uploadFile).toHaveBeenNthCalledWith(1, expect.anything(), account, first);
+    expect(state.api.uploadFile).toHaveBeenNthCalledWith(2, expect.anything(), account, second);
+    await waitFor(() => expect(state.api.getFiles).toHaveBeenCalledTimes(2));
+  });
+
   it("keeps the file page visible while previews are loading", async () => {
     state.previewLoading = true;
     state.api.getFiles.mockResolvedValue(paged([file]));
@@ -291,6 +308,20 @@ describe("page workflows", () => {
     expect(state.api.getAlbum).toHaveBeenCalledWith(expect.anything(), account, 7);
     expect(state.api.getAlbumFiles).toHaveBeenCalledWith(expect.anything(), account, 7, 1, 12, "All");
     expect(state.api.getAlbumMembers).toHaveBeenCalledWith(expect.anything(), account, 7);
+  });
+
+  it("associates each selected upload with the active album and refreshes its file list", async () => {
+    renderPage(<AlbumDetailPage />, "/albums/7");
+    await screen.findByRole("heading", { name: "Coastal trip" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add files" }));
+    const upload = new File(["album file"], "album.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Choose files to upload"), { target: { files: [upload] } });
+    fireEvent.click(screen.getByRole("button", { name: "Upload 1 file" }));
+
+    await screen.findAllByText("Uploads finished: 1 successful, 0 failed.");
+    expect(state.api.uploadAlbumFile).toHaveBeenCalledWith(expect.anything(), account, 7, upload);
+    await waitFor(() => expect(state.api.getAlbumFiles).toHaveBeenCalledTimes(2));
   });
 
   it("does not request sharing management data for a shared viewer", async () => {

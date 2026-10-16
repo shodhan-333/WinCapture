@@ -50,6 +50,7 @@ import Pagination from "../components/ui/Pagination";
 import FileCardGrid from "../components/files/FileCardGrid";
 import FileDetailsDialog from "../components/files/FileDetailsDialog";
 import FilePreviewModal from "../components/files/FilePreviewModal";
+import MultiFileUploadDialog from "../components/files/MultiFileUploadDialog";
 import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import { useAuth } from "../context/AuthContext";
@@ -87,8 +88,8 @@ export default function AlbumDetailPage() {
   const accountKey = getAccountKey(account);
   const { albumId } = useParams();
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  // Stores the file selected for replacement while the hidden file picker is open.
   const replaceTargetIdRef = useRef<number | null>(null);
 
   const [album, setAlbum] = useState<AlbumResponse | null>(null);
@@ -112,6 +113,7 @@ export default function AlbumDetailPage() {
   const [successMessage, setSuccessMessage] =
     useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [deletingAlbum, setDeletingAlbum] = useState(false);
 
   const [memberEmail, setMemberEmail] = useState("");
@@ -147,11 +149,12 @@ export default function AlbumDetailPage() {
     [accountKey, canManageAlbum, instance, numericAlbumId],
   );
 
-  // Keep the album cover available regardless of the selected filter.
+  // Keeps an image available for the album cover when it exists in the loaded files.
   const albumCoverFile = files.find((file) =>
     file.contentType.startsWith("image/"),
   );
 
+  // Includes the cover in preview loading even if it is not in the current file list.
   const previewFiles = useMemo(
     () => [
       ...files,
@@ -175,7 +178,8 @@ export default function AlbumDetailPage() {
       ? albumCoverFile
       : undefined;
 
-  const loadAlbumData = async () => {
+  // Loads album details, the selected file page, and sharing settings for managers.
+  const loadAlbumData = useCallback(async () => {
     if (!account || !Number.isFinite(numericAlbumId)) {
       return;
     }
@@ -239,7 +243,15 @@ export default function AlbumDetailPage() {
       setLoading(false);
       setHasLoaded(true);
     }
-  };
+  }, [
+    accountKey,
+    instance,
+    numericAlbumId,
+    currentPage,
+    categoryFilter,
+    user?.role,
+    user?.userId,
+  ]);
 
   useEffect(() => {
     if (
@@ -256,15 +268,7 @@ export default function AlbumDetailPage() {
     }
 
     void loadAlbumData();
-  }, [
-    accountKey,
-    instance,
-    numericAlbumId,
-    currentPage,
-    categoryFilter,
-    user?.role,
-    user?.userId,
-  ]);
+  }, [loadAlbumData, numericAlbumId]);
 
   const handleFavoriteSuccess = useCallback(
     (file: FileResponse, nextFavorite: boolean) => {
@@ -298,56 +302,6 @@ export default function AlbumDetailPage() {
     onSuccess: handleFavoriteSuccess,
     onError: handleFavoriteError,
   });
-
-  const handleUpload = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const selectedFile = event.target.files?.[0];
-
-    if (
-      !selectedFile ||
-      !account ||
-      !Number.isFinite(numericAlbumId)
-    ) {
-      return;
-    }
-
-    const validationError = validateUploadFile(selectedFile);
-
-    if (validationError) {
-      setError(validationError);
-      event.target.value = "";
-      return;
-    }
-
-    try {
-      setUploading(true);
-      setError(null);
-      setSuccessMessage(null);
-
-      await uploadAlbumFile(
-        instance,
-        account,
-        numericAlbumId,
-        selectedFile,
-      );
-
-      setSuccessMessage(
-        `${selectedFile.name} added to the album.`,
-      );
-
-      event.target.value = "";
-      await loadAlbumData();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Upload failed.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleDownload = async (file: FileResponse) => {
     if (!account || !Number.isFinite(numericAlbumId)) {
@@ -391,6 +345,7 @@ export default function AlbumDetailPage() {
 
       await loadAlbumData();
     } catch (caughtError) {
+      // Leaves the file visible when deletion fails so the user can retry.
       setError(
         caughtError instanceof Error
           ? `${caughtError.message} The file remains listed, so you can retry after resolving the issue.`
@@ -403,6 +358,7 @@ export default function AlbumDetailPage() {
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const selectedFile = event.target.files?.[0];
+    // The hidden file picker does not identify the file being replaced.
     const fileId = replaceTargetIdRef.current;
 
     if (
@@ -606,6 +562,7 @@ export default function AlbumDetailPage() {
         },
       );
 
+      // Download permission also requires view permission.
       setMembers((currentMembers) =>
         currentMembers.map((member) =>
           member.userId === userId
@@ -864,7 +821,7 @@ export default function AlbumDetailPage() {
           <div className="flex flex-none items-center gap-2 self-center max-[760px]:ml-auto max-[520px]:ml-0 max-[520px]:w-full">
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setShowUploadDialog(true)}
               disabled={uploading || deletingAlbum}
               className="primary-action flex-none justify-center disabled:opacity-60 disabled:cursor-wait max-[520px]:min-w-0 max-[520px]:flex-1"
             >
@@ -895,14 +852,6 @@ export default function AlbumDetailPage() {
             </button>
           </div>
         )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={SUPPORTED_FILE_ACCEPT}
-          className="hidden"
-          onChange={handleUpload}
-        />
 
         <input
           ref={replaceInputRef}
@@ -937,7 +886,6 @@ export default function AlbumDetailPage() {
           </div>
         </div>
 
-        {/* Category filters matching the Files page */}
         <div
           className="mb-4 flex flex-wrap gap-2"
           role="group"
@@ -979,7 +927,10 @@ export default function AlbumDetailPage() {
             }
           }}
           onDetails={(file) => void handleShowFileDetails(file)}
-          onPreview={(file, source) => { setPreviewFile(file); setPreviewSource(source); }}
+          onPreview={(file, source) => {
+            setPreviewFile(file);
+            setPreviewSource(source);
+          }}
           onDownload={(file) => void handleDownload(file)}
           onDelete={(file) => void handleDelete(file.id)}
           empty={
@@ -1007,7 +958,7 @@ export default function AlbumDetailPage() {
               {canManageAlbum && totalFiles === 0 && (
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setShowUploadDialog(true)}
                   className="primary-action"
                 >
                   <Upload
@@ -1260,8 +1211,21 @@ export default function AlbumDetailPage() {
                         <small className="text-[10px] text-[#71879a]">
                           Granted {formatDate(member.grantedAt)}
                         </small>
-                        <span className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-1 text-[9px] font-semibold ${member.canDownload ? "bg-[#e8f2ff] text-[#245f9e]" : member.canView ? "bg-[#e8f7ef] text-[#216747]" : "bg-[#f0f3f6] text-[#5f7080]"}`}>
-                          {member.canDownload ? "View and download" : member.canView ? "View only" : "No access"}
+
+                        <span
+                          className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-1 text-[9px] font-semibold ${
+                            member.canDownload
+                              ? "bg-[#e8f2ff] text-[#245f9e]"
+                              : member.canView
+                                ? "bg-[#e8f7ef] text-[#216747]"
+                                : "bg-[#f0f3f6] text-[#5f7080]"
+                          }`}
+                        >
+                          {member.canDownload
+                            ? "View and download"
+                            : member.canView
+                              ? "View only"
+                              : "No access"}
                         </span>
                       </div>
 
@@ -1324,7 +1288,9 @@ export default function AlbumDetailPage() {
                               strokeWidth={1.9}
                             />
                           )}
-                          {member.canDownload ? "Download allowed" : "Download off"}
+                          {member.canDownload
+                            ? "Download allowed"
+                            : "Download off"}
                         </button>
 
                         <button
@@ -1385,11 +1351,39 @@ export default function AlbumDetailPage() {
         />
       )}
 
+      {/* Prefer the selected preview source; fall back to the cached preview URL. */}
       {previewFile && (
         <FilePreviewModal
           file={previewFile}
           src={previewSource ?? previewUrls[previewFile.id]}
-          onClose={() => { setPreviewFile(null); setPreviewSource(undefined); }}
+          onClose={() => {
+            setPreviewFile(null);
+            setPreviewSource(undefined);
+          }}
+        />
+      )}
+      {showUploadDialog && canManageAlbum && (
+        <MultiFileUploadDialog
+          title="Add files to album"
+          description={`Upload supported files to ${album?.albumName ?? "this album"}. Each file can be up to 10 MB.`}
+          onUpload={(file) => {
+            if (!account || !canManageAlbum || !Number.isFinite(numericAlbumId)) {
+              throw new Error("You do not have permission to upload to this album.");
+            }
+            return uploadAlbumFile(instance, account, numericAlbumId, file);
+          }}
+          onUploadingChange={(isActive) => {
+            setUploading(isActive);
+            if (isActive) {
+              setError(null);
+              setSuccessMessage(null);
+            }
+          }}
+          onComplete={async (successCount, failureCount) => {
+            if (successCount > 0) await loadAlbumData();
+            setSuccessMessage(`Uploads finished: ${successCount} successful, ${failureCount} failed.`);
+          }}
+          onClose={() => setShowUploadDialog(false)}
         />
       )}
     </div>

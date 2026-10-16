@@ -37,6 +37,7 @@ function showStartupError(
       ? error.message
       : String(error);
 
+  // Show a readable error screen if environment validation or MSAL startup fails.
   root.render(
     <main className={`${appShellClass} min-h-screen px-5 py-8 sm:px-8 sm:py-12`}>
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-2xl items-center justify-center">
@@ -61,11 +62,7 @@ function showStartupError(
               </h1>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                WinCapture could not complete its
-                startup configuration. Check the
-                message below and correct the
-                environment configuration before
-                starting the application again.
+                WinCapture could not complete itsstartup configuration. Check themessage below and correct the environment configuration before starting the application again.
               </p>
             </div>
           </div>
@@ -101,6 +98,7 @@ async function startApp() {
         msalConfig,
       );
 
+    // Initialize MSAL before rendering components that use its context.
     await msalInstance.initialize();
 
     root.render(
@@ -122,5 +120,3 @@ async function startApp() {
 }
 
 void startApp();
-
-

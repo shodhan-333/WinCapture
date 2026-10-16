@@ -95,6 +95,7 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
+    // Prevent state updates if the component unmounts or this request becomes stale.
     let active = true;
 
     async function load() {
@@ -107,6 +108,8 @@ export default function Dashboard() {
         setLoading(true);
         setError(null);
 
+        // Load dashboard data concurrently; category requests return total counts
+        // without needing to download each category's complete file list.
         const [albumResult, fileResult, ...categoryResults] = await Promise.all([
           getMyAlbums(instance, account, 1, 4),
           getFiles(instance, account, 1, 4),
@@ -150,6 +153,7 @@ export default function Dashboard() {
     };
   }, [account?.homeAccountId, instance]);
 
+  // Show skeletons only on the first load; subsequent refreshes keep the page layout visible.
   if (loading && !hasLoaded) {
     return (
       <div className="app-page">
@@ -189,9 +193,7 @@ export default function Dashboard() {
 
   return (
     <div className="app-page">
-      {/* Welcome hero */}
       <section className="surface relative flex min-h-[138px] items-center justify-between gap-4 overflow-hidden rounded-[20px] px-6 py-4 max-[960px]:flex-col max-[960px]:items-start max-[760px]:rounded-[17px] max-[760px]:px-4 max-[760px]:py-4">
-
         <div className="relative z-[1] flex max-w-[740px] flex-col justify-center">
           <h1 className="m-0 text-[clamp(28px,2.7vw,35px)] font-bold leading-[1.04] tracking-[-0.045em] text-[#173a55] max-[760px]:text-[27px]">
             Welcome back,{" "}
@@ -229,7 +231,6 @@ export default function Dashboard() {
 
       {error && <ErrorBanner message={error} />}
 
-      {/* File type counts */}
       <section aria-label="File counts by type" className="grid grid-cols-5 gap-3 max-[960px]:grid-cols-3 max-[760px]:grid-cols-2 max-[520px]:gap-2">
         {dashboardFileCategories.map(({ label, icon: CategoryIcon }) => (
           <div key={label} className={`${dashboardStatCardClass} min-h-[68px] gap-2.5 rounded-[15px] px-3 py-2 max-[760px]:min-h-[64px] max-[760px]:px-2.5`}>
@@ -242,9 +243,7 @@ export default function Dashboard() {
         ))}
       </section>
 
-      {/* Recent collections and files */}
       <section className="grid grid-cols-2 gap-5 max-[960px]:grid-cols-1 max-[760px]:gap-4">
-        {/* Recent albums */}
         <section className={dashboardPanelClass}>
           <div className={dashboardPanelHeaderClass}>
             <div>
@@ -338,7 +337,6 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Recent files */}
         <section className={dashboardPanelClass}>
           <div className={dashboardPanelHeaderClass}>
             <div>

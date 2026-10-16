@@ -15,6 +15,7 @@ interface UseFilePreviewsResult {
 export default function useFilePreviews(
   files: FileResponse[],
   loadPreview: FilePreviewLoader,
+  includeAllFiles = false,
 ): UseFilePreviewsResult {
   const [previewUrls, setPreviewUrls] =
     useState<Record<number, string>>({});
@@ -26,7 +27,9 @@ export default function useFilePreviews(
   useEffect(() => {
     let active = true;
 
-    const imageFiles = files.filter((file) => isImagePreviewableFile(file.originalFileName));
+    const imageFiles = includeAllFiles
+      ? files
+      : files.filter((file) => isImagePreviewableFile(file.originalFileName));
 
     const signatureFor = (file: FileResponse) =>
       `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
@@ -110,7 +113,7 @@ export default function useFilePreviews(
     return () => {
       active = false;
     };
-  }, [files, loadPreview]);
+  }, [files, includeAllFiles, loadPreview]);
 
   useEffect(() => () => {
     currentSignatures.current.clear();
