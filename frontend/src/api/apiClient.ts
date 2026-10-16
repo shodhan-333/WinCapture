@@ -589,11 +589,12 @@ export async function getAdminFiles(
   page: number,
   pageSize: number,
   search?: string,
+  category?: string,
 ): Promise<PagedResponse<AdminFileResponse>> {
   const response = await callApi(
     instance,
     account,
-    buildPagePath("/api/admin/files", page, pageSize, search),
+    buildPagePath("/api/admin/files", page, pageSize, search, category),
   );
 
   return (await response.json()) as PagedResponse<AdminFileResponse>;

@@ -6,7 +6,6 @@ import {
   Images,
   Search,
   Settings2,
-  ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
@@ -18,13 +17,11 @@ import {
   getFilePreviewUrlByPath,
   getAdminAlbums,
   getAdminFiles,
-  getMyAdminAlbums,
-  getMyAdminFiles,
 } from "../api/apiClient";
-import ErrorBanner from "../components/ui/ErrorBanner";
-import FilePreviewModal from "../components/files/FilePreviewModal";
-import PreviewThumbnail from "../components/files/PreviewThumbnail";
-import Pagination from "../components/ui/Pagination";
+import ErrorBanner from "./ui/ErrorBanner";
+import FilePreviewModal from "./files/FilePreviewModal";
+import PreviewThumbnail from "./files/PreviewThumbnail";
+import Pagination from "./ui/Pagination";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { AdminFileResponse, FileResponse } from "../types/file";
@@ -33,20 +30,17 @@ import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
 import { getAccountKey } from "../utils/accountKey";
 import { formatDate, formatFileSize } from "../utils/formatters";
 
-type ContentScope = "mine" | "all";
 type ContentType = "albums" | "files";
 
 const PAGE_SIZE = 10;
 
-// Applies the active or inactive style to the filter buttons.
 const scopeButtonClass = (active: boolean) =>
-  `min-h-[34px] cursor-pointer rounded-[9px] border px-[11px] text-[9px] font-semibold transition-[color,background,box-shadow,border-color] duration-150 ${
-    active
-      ? "border-white/80 bg-white/75 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]"
-      : "border-transparent bg-transparent text-[#617c91] hover:bg-white/30 hover:text-[#284f70]"
+  `min-h-[34px] cursor-pointer rounded-[9px] border px-[11px] text-[9px] font-semibold transition-[color,background,box-shadow,border-color] duration-150 ${active
+    ? "border-white/80 bg-white/75 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]"
+    : "border-transparent bg-transparent text-[#617c91] hover:bg-white/30 hover:text-[#284f70]"
   }`;
 
-export default function AdminPage() {
+export default function AdminContentPanel({ onContentChanged }: { onContentChanged: () => void }) {
   const navigate = useNavigate();
   const { instance } = useMsal();
   const { account, user } = useAuth();
@@ -61,7 +55,6 @@ export default function AdminPage() {
   const [albumsPageCount, setAlbumsPageCount] = useState(1);
   const [filesPageCount, setFilesPageCount] = useState(1);
 
-  const [scope, setScope] = useState<ContentScope>("mine");
   const [contentType, setContentType] = useState<ContentType>("albums");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -101,41 +94,11 @@ export default function AdminPage() {
         setLoading(true);
         setError(null);
 
-        // Load both collections concurrently for the selected scope and pages.
-        const [albumResult, fileResult] =
-          scope === "mine"
-            ? await Promise.all([
-                getMyAdminAlbums(
-                  instance,
-                  account,
-                  albumsPage,
-                  PAGE_SIZE,
-                  searchQuery,
-                ),
-                getMyAdminFiles(
-                  instance,
-                  account,
-                  filesPage,
-                  PAGE_SIZE,
-                  searchQuery,
-                ),
-              ])
-            : await Promise.all([
-                getAdminAlbums(
-                  instance,
-                  account,
-                  albumsPage,
-                  PAGE_SIZE,
-                  searchQuery,
-                ),
-                getAdminFiles(
-                  instance,
-                  account,
-                  filesPage,
-                  PAGE_SIZE,
-                  searchQuery,
-                ),
-              ]);
+        // Load the current application-wide collections concurrently.
+        const [albumResult, fileResult] = await Promise.all([
+          getAdminAlbums(instance, account, albumsPage, PAGE_SIZE, searchQuery),
+          getAdminFiles(instance, account, filesPage, PAGE_SIZE, searchQuery),
+        ]);
 
         // Ignore results from an outdated request after filters or pages change.
         if (!active) {
@@ -206,17 +169,10 @@ export default function AdminPage() {
   }, [
     accountKey,
     instance,
-    scope,
     albumsPage,
     filesPage,
     searchQuery,
   ]);
-
-  const changeScope = (nextScope: ContentScope) => {
-    setScope(nextScope);
-    setAlbumsPage(1);
-    setFilesPage(1);
-  };
 
   const changeContentType = (nextType: ContentType) => {
     setContentType(nextType);
@@ -248,6 +204,7 @@ export default function AdminPage() {
       setAlbums((current) =>
         current.filter((item) => item.id !== album.id),
       );
+      onContentChanged();
     } catch (caughtError) {
       // Keep the album listed when deletion fails so the administrator can retry.
       setError(
@@ -276,6 +233,7 @@ export default function AdminPage() {
       setFiles((current) =>
         current.filter((item) => item.id !== file.id),
       );
+      onContentChanged();
     } catch (caughtError) {
       // Keep the file listed when deletion fails so the administrator can retry.
       setError(
@@ -339,30 +297,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="app-page admin-page">
-      <section className="surface relative flex min-h-[132px] items-center justify-between overflow-hidden rounded-[16px] px-6 py-4 after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] max-[760px]:[min-height:auto] max-[760px]:px-4 max-[760px]:py-4">
-        <div className="relative z-[1]">
-          <div className="page-kicker">
-            <span className="page-kicker-dot" />
-            Administration
-          </div>
-
-          <h1 className="page-heading">System overview</h1>
-
-          <p className="page-description">
-            Monitor your content or review albums and files across WinCapture.
-          </p>
-        </div>
-
-        <div className="relative z-[1] grid h-16 w-16 flex-none place-items-center rounded-[18px] border border-white/80 bg-[rgba(255,255,255,0.54)] text-[#2d7ad1] shadow-[0_8px_24px_rgba(30,80,120,0.08),inset_0_1px_1.5px_rgba(255,255,255,0.95)] backdrop-blur-md max-[760px]:h-[51px] max-[760px]:w-[51px] max-[760px]:rounded-[15px]">
-          <ShieldCheck
-            aria-hidden="true"
-            size={31}
-            strokeWidth={1.45}
-          />
-        </div>
-      </section>
-
+    <div className="min-w-0 space-y-4">
       {error && (
         <ErrorBanner
           message={error}
@@ -377,30 +312,6 @@ export default function AdminPage() {
       )}
 
       <section className="surface flex flex-wrap items-center gap-3 rounded-[14px] p-[12px] max-[760px]:items-stretch">
-        <div
-          className="inline-flex rounded-[11px] border border-white/60 bg-[rgba(255,255,255,0.38)] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] backdrop-blur-md"
-          role="group"
-          aria-label="Content scope"
-        >
-          <button
-            type="button"
-            aria-pressed={scope === "mine"}
-            className={scopeButtonClass(scope === "mine")}
-            onClick={() => changeScope("mine")}
-          >
-            My Content
-          </button>
-
-          <button
-            type="button"
-            aria-pressed={scope === "all"}
-            className={scopeButtonClass(scope === "all")}
-            onClick={() => changeScope("all")}
-          >
-            All Content
-          </button>
-        </div>
-
         <div
           className="inline-flex rounded-[11px] border border-white/60 bg-[rgba(255,255,255,0.38)] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] backdrop-blur-md"
           role="group"
@@ -453,7 +364,7 @@ export default function AdminPage() {
         <header className="flex min-h-[70px] items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.5)] px-[18px]">
           <div>
             <p className="dashboard-panel-kicker">
-              {scope === "mine" ? "My Content" : "All Content"}
+              All Content
             </p>
 
             <h2 className="mt-1 mb-0 text-[16px] leading-[1.25] font-[650] tracking-[-0.025em] text-[#163855]">
@@ -613,6 +524,7 @@ export default function AdminPage() {
                   <strong className="text-[8px] font-semibold text-[#73899b]">
                     {formatFileSize(file.fileSize)}
                   </strong>
+                    <small className="text-[7px] text-[#879aa9]">{formatDate(file.uploadedAt)}</small>
                 </div>
 
                 <span className="flex-none text-[8px] text-[#9baab6] max-[520px]:hidden">

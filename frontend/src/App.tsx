@@ -18,7 +18,6 @@ import Dashboard from "./pages/Dashboard";
 import AlbumsPage from "./pages/AlbumsPage";
 import AlbumDetailPage from "./pages/AlbumDetailPage";
 import FilesPage from "./pages/FilesPage";
-import AdminPage from "./pages/AdminPage";
 
 function AuthGate() {
   const {
@@ -213,13 +212,6 @@ export default function App() {
           element={<FilesPage />}
         />
 
-        {/* Only users with the Admin role can reach the admin page route. */}
-        {user.role === "Admin" && (
-          <Route
-            path="/admin"
-            element={<AdminPage />}
-          />
-        )}
       </Route>
 
       {/* Send unknown paths back to the main dashboard. */}

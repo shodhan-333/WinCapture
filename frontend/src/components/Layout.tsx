@@ -4,7 +4,6 @@ import {
   Images,
   LogOut,
   Menu,
-  Shield,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -126,21 +125,6 @@ export default function Layout() {
                 );
               })}
 
-              {user?.role === "Admin" && (
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    navLinkClass(isActive)
-                  }
-                >
-                  <Shield
-                    aria-hidden="true"
-                    size={21}
-                    strokeWidth={1.8}
-                  />
-                  <span>Admin</span>
-                </NavLink>
-              )}
             </nav>
 
             {/* Mobile navigation toggle */}
@@ -247,22 +231,6 @@ export default function Layout() {
                   );
                 })}
 
-                {user?.role === "Admin" && (
-                  <NavLink
-                    to="/admin"
-                    onClick={closeMobileNavigation}
-                    className={({ isActive }) =>
-                      navLinkClass(isActive, true)
-                    }
-                  >
-                    <Shield
-                      aria-hidden="true"
-                      size={20}
-                      strokeWidth={1.8}
-                    />
-                    <span>Admin</span>
-                  </NavLink>
-                )}
               </div>
             </nav>
           )}

@@ -15,7 +15,9 @@ import {
   getMyAlbums,
   getFilePreviewUrl,
   getFiles,
+  getAdminFiles,
 } from "../api/apiClient";
+import AdminContentPanel from "../components/AdminContentPanel";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import { useAuth } from "../context/AuthContext";
 import useAlbumCoverPreviews from "../hooks/useAlbumCoverPreviews";
@@ -64,6 +66,8 @@ export default function Dashboard() {
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [files, setFiles] = useState<FileResponse[]>([]);
   const [fileCategoryCounts, setFileCategoryCounts] = useState<Record<string, number>>({});
+  const [contentScope, setContentScope] = useState<"mine" | "all">("mine");
+  const [contentVersion, setContentVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,28 +112,28 @@ export default function Dashboard() {
         setLoading(true);
         setError(null);
 
-        // Load dashboard data concurrently; category requests return total counts
-        // without needing to download each category's complete file list.
         const [albumResult, fileResult, ...categoryResults] = await Promise.all([
           getMyAlbums(instance, account, 1, 4),
           getFiles(instance, account, 1, 4),
-          ...dashboardFileCategories.map(({ label }) =>
-            getFiles(instance, account, 1, 1, undefined, label),
-          ),
+          ...(contentScope === "all" && user?.role === "Admin"
+            ? dashboardFileCategories.map(({ label }) =>
+                getAdminFiles(instance, account, 1, 1, undefined, label),
+              )
+            : dashboardFileCategories.map(({ label }) =>
+                getFiles(instance, account, 1, 1, undefined, label),
+              )),
         ]);
 
         if (!active) return;
 
         setAlbums(albumResult.items);
         setFiles(fileResult.items);
-        setFileCategoryCounts(
-          Object.fromEntries(
-            dashboardFileCategories.map(({ label }, index) => [
-              label,
-              categoryResults[index].totalItems,
-            ]),
-          ),
-        );
+        setFileCategoryCounts(Object.fromEntries(
+          dashboardFileCategories.map(({ label }, index) => [
+            label,
+            (categoryResults[index] as { totalItems: number }).totalItems,
+          ]),
+        ));
       } catch (caughtError) {
         if (active) {
           setError(
@@ -151,7 +155,7 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, [account?.homeAccountId, instance]);
+  }, [account?.homeAccountId, contentScope, contentVersion, instance, user?.role]);
 
   // Show skeletons only on the first load; subsequent refreshes keep the page layout visible.
   if (loading && !hasLoaded) {
@@ -231,6 +235,17 @@ export default function Dashboard() {
 
       {error && <ErrorBanner message={error} />}
 
+      <section className="surface flex flex-wrap items-center gap-2 rounded-[15px] p-2" role="group" aria-label="Dashboard content scope">
+        <button type="button" aria-pressed={contentScope === "mine"} onClick={() => setContentScope("mine")} className={`min-h-10 rounded-[10px] px-4 text-sm font-semibold transition-colors ${contentScope === "mine" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
+          My Content
+        </button>
+        {user?.role === "Admin" && (
+          <button type="button" aria-pressed={contentScope === "all"} onClick={() => setContentScope("all")} className={`min-h-10 rounded-[10px] px-4 text-sm font-semibold transition-colors ${contentScope === "all" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
+            All Content
+          </button>
+        )}
+      </section>
+
       <section aria-label="File counts by type" className="grid grid-cols-5 gap-3 max-[960px]:grid-cols-3 max-[760px]:grid-cols-2 max-[520px]:gap-2">
         {dashboardFileCategories.map(({ label, icon: CategoryIcon }) => (
           <div key={label} className={`${dashboardStatCardClass} min-h-[68px] gap-2.5 rounded-[15px] px-3 py-2 max-[760px]:min-h-[64px] max-[760px]:px-2.5`}>
@@ -243,6 +258,9 @@ export default function Dashboard() {
         ))}
       </section>
 
+      {contentScope === "all" && user?.role === "Admin" ? (
+        <AdminContentPanel onContentChanged={() => setContentVersion((version) => version + 1)} />
+      ) : (
       <section className="grid grid-cols-2 gap-5 max-[960px]:grid-cols-1 max-[760px]:gap-4">
         <section className={dashboardPanelClass}>
           <div className={dashboardPanelHeaderClass}>
@@ -439,6 +457,7 @@ export default function Dashboard() {
           </div>
         </section>
       </section>
+      )}
     </div>
   );
 }
