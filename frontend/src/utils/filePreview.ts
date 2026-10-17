@@ -184,7 +184,3 @@ export async function readFilePreview(url: string, extension: string): Promise<P
   throw new Error("This file type does not have a readable preview.");
 }
 
-export function getPreviewExtension(fileName: string): string {
-  return getFileExtension(fileName);
-}
-

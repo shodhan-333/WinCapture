@@ -29,6 +29,9 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
+      reportsDirectory: path.resolve(frontendRoot, "../Tests/frontend.Tests/TestResults"),
+      // Backend coverage XML can coexist in this shared TestResults directory.
+      clean: false,
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/**/*.d.ts", "src/types/**", "src/index.css"],
     },

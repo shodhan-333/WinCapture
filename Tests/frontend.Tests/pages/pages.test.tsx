@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import Dashboard from "../../../frontend/src/pages/Dashboard";
 import AlbumsPage from "../../../frontend/src/pages/AlbumsPage";
 import FilesPage from "../../../frontend/src/pages/FilesPage";
-import AdminPage from "../../../frontend/src/pages/AdminPage";
 import AlbumDetailPage from "../../../frontend/src/pages/AlbumDetailPage";
 import Layout from "../../../frontend/src/components/Layout";
 import type { AlbumResponse } from "../../../frontend/src/types/album";
@@ -213,6 +212,34 @@ describe("page workflows", () => {
     await waitFor(() => expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "Videos"));
   });
 
+  it("does not let an older file search replace newer results", async () => {
+    let resolveOlder: ((result: ReturnType<typeof paged<FileResponse>>) => void) | undefined;
+    state.api.getFiles.mockImplementation((_instance, _account, _page, _size, search) => {
+      if (search === "older") {
+        return new Promise((resolve) => { resolveOlder = resolve; });
+      }
+      return Promise.resolve(paged([search === "newer" ? { ...file, originalFileName: "newer.pdf" } : file]));
+    });
+
+    renderPage(<FilesPage />);
+    expect(await screen.findByText("coast.pdf")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search files by name, type, or ID" }), {
+      target: { value: "older" },
+    });
+    await waitFor(() => expect(resolveOlder).toBeDefined());
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search files by name, type, or ID" }), {
+      target: { value: "newer" },
+    });
+    expect(await screen.findByText("newer.pdf")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveOlder?.(paged([{ ...file, originalFileName: "older.pdf" }]));
+    });
+
+    expect(screen.getByText("newer.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("older.pdf")).not.toBeInTheDocument();
+  });
+
   it("uploads multiple personal files and refreshes the files page", async () => {
     state.api.getFiles.mockResolvedValue(paged());
     renderPage(<FilesPage />);
@@ -285,14 +312,14 @@ describe("page workflows", () => {
     expect(state.api.getAlbum).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps admin personal scope by default and loads broader data only after selection", async () => {
+  it("keeps admin dashboard in personal scope until all content is selected", async () => {
     state.user = { ...state.user, role: "Admin" };
     state.api.getMyAdminFiles.mockResolvedValue(paged([adminFile]));
-    renderPage(<AdminPage />);
+    renderPage(<Dashboard />);
 
-    expect(await screen.findByText("System overview")).toBeInTheDocument();
-    expect(state.api.getMyAdminAlbums).toHaveBeenCalled();
-    expect(state.api.getMyAdminFiles).toHaveBeenCalled();
+    expect(await screen.findByText("Welcome back,")).toBeInTheDocument();
+    expect(state.api.getMyAlbums).toHaveBeenCalled();
+    expect(state.api.getFiles).toHaveBeenCalled();
     expect(state.api.getAdminAlbums).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "My Content" })).toBeInTheDocument();
 

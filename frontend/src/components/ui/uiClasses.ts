@@ -10,11 +10,5 @@ export const brandMarkClass =
 export const brandMarkLetterClass =
   "relative z-[1] rotate-[7deg] text-[15px] leading-none font-extrabold";
 
-export const brandMarkSmallClass =
-  "h-[27px] w-[27px] rounded-[9px]";
-
-export const brandMarkSmallLetterClass =
-  "text-[12px]";
-
 export const appShellClass =
   "app-shell relative isolate flex min-h-screen overflow-x-clip";

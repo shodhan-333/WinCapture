@@ -4,7 +4,6 @@ import {
   FileText,
   FolderOpen,
   Images,
-  Search,
   Settings2,
   Trash2,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import ErrorBanner from "./ui/ErrorBanner";
 import FilePreviewModal from "./files/FilePreviewModal";
 import PreviewThumbnail from "./files/PreviewThumbnail";
 import Pagination from "./ui/Pagination";
+import SearchField from "./ui/SearchField";
 import { useAuth } from "../context/AuthContext";
 import type { AlbumResponse } from "../types/album";
 import type { AdminFileResponse, FileResponse } from "../types/file";
@@ -271,7 +271,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
 
   if (loading && !hasLoaded) {
     return (
-      <div className="app-page">
+      <div className="min-w-0 space-y-3">
         <section className="skeleton-panel relative flex min-h-[174px] items-center justify-between overflow-hidden rounded-[20px] px-[30px] py-[28px] after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(120deg,transparent_35%,rgba(255,255,255,0.22)_52%,transparent_67%)] after:content-[''] max-[760px]:[min-height:auto] max-[760px]:px-5 max-[760px]:py-[22px]">
           <div className="skeleton-content">
             <span className="skeleton-line skeleton-line-sm" />
@@ -297,7 +297,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
   }
 
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="min-w-0 space-y-3">
       {error && (
         <ErrorBanner
           message={error}
@@ -311,7 +311,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
         />
       )}
 
-      <section className="surface flex flex-wrap items-center gap-3 rounded-[14px] p-[12px] max-[760px]:items-stretch">
+      <section className="surface flex flex-wrap items-center gap-2.5 rounded-[14px] p-[10px] max-[760px]:items-stretch">
         <div
           className="inline-flex rounded-[11px] border border-white/60 bg-[rgba(255,255,255,0.38)] p-[3px] shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)] backdrop-blur-md"
           role="group"
@@ -346,18 +346,14 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
           </button>
         </div>
 
-        <label className="ml-auto flex min-h-[38px] min-w-[min(260px,100%)] flex-1 items-center gap-2 rounded-[11px] border border-white/70 bg-[rgba(255,255,255,0.48)] px-[11px] text-[#71889c] shadow-[0_2px_8px_rgba(26,56,84,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-[12px] focus-within:border-[#8ec4f5] focus-within:bg-[rgba(255,255,255,0.68)] max-[760px]:ml-0 max-[760px]:basis-full">
-          <Search aria-hidden="true" size={16} />
-
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => changeSearch(event.target.value)}
-            placeholder={`Search ${contentType}...`}
-            aria-label={`Search ${contentType}`}
-            className="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
-          />
-        </label>
+        <SearchField
+          value={searchQuery}
+          onChange={changeSearch}
+          placeholder={`Search ${contentType}...`}
+          ariaLabel={`Search ${contentType}`}
+          className="ml-auto flex min-h-[38px] min-w-[min(260px,100%)] flex-1 items-center gap-2 rounded-[11px] border border-white/70 bg-[rgba(255,255,255,0.48)] px-[11px] text-[#71889c] shadow-[0_2px_8px_rgba(26,56,84,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] backdrop-blur-[12px] focus-within:border-[#8ec4f5] focus-within:bg-[rgba(255,255,255,0.68)] max-[760px]:ml-0 max-[760px]:basis-full"
+          inputClassName="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
+        />
       </section>
 
       <section className="surface min-w-0 overflow-hidden rounded-[17px]">

@@ -94,6 +94,7 @@ export default function AlbumDetailPage() {
   const { albumId } = useParams();
 
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
+  const loadRequestVersion = useRef(0);
   // Stores the file selected for replacement while the hidden file picker is open.
   const replaceTargetIdRef = useRef<number | null>(null);
 
@@ -188,6 +189,7 @@ export default function AlbumDetailPage() {
 
   // Loads album details, the selected file page, and sharing settings for managers.
   const loadAlbumData = useCallback(async () => {
+    const requestVersion = ++loadRequestVersion.current;
     if (!account || !Number.isFinite(numericAlbumId)) {
       return;
     }
@@ -201,6 +203,7 @@ export default function AlbumDetailPage() {
         account,
         numericAlbumId,
       );
+      if (requestVersion !== loadRequestVersion.current) return;
 
       setAlbum(albumResult);
       setAlbumNameDraft(albumResult.albumName);
@@ -217,6 +220,7 @@ export default function AlbumDetailPage() {
         PAGE_SIZE,
         categoryFilter,
       );
+      if (requestVersion !== loadRequestVersion.current) return;
 
       setFiles(fileResult.items);
       retain(fileResult.items.filter((file) => file.canManage).map((file) => file.id));
@@ -226,14 +230,15 @@ export default function AlbumDetailPage() {
 
       if (nextCanManageAlbum) {
         try {
-          setMembers(
-            await getAlbumMembers(
-              instance,
-              account,
-              numericAlbumId,
-            ),
+          const albumMembers = await getAlbumMembers(
+            instance,
+            account,
+            numericAlbumId,
           );
+          if (requestVersion !== loadRequestVersion.current) return;
+          setMembers(albumMembers);
         } catch {
+          if (requestVersion !== loadRequestVersion.current) return;
           setMembers([]);
           setError(
             "Album opened, but sharing settings could not be loaded.",
@@ -243,14 +248,17 @@ export default function AlbumDetailPage() {
         setMembers([]);
       }
     } catch (caughtError) {
+      if (requestVersion !== loadRequestVersion.current) return;
       setError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to load album details.",
       );
     } finally {
-      setLoading(false);
-      setHasLoaded(true);
+      if (requestVersion === loadRequestVersion.current) {
+        setLoading(false);
+        setHasLoaded(true);
+      }
     }
   }, [
     accountKey,
@@ -285,6 +293,9 @@ export default function AlbumDetailPage() {
     }
 
     void loadAlbumData();
+    return () => {
+      loadRequestVersion.current += 1;
+    };
   }, [loadAlbumData, numericAlbumId]);
 
   const handleFavoriteSuccess = useCallback(

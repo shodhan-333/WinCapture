@@ -65,17 +65,42 @@ describe("API client security and error handling", () => {
       });
   });
 
-  it("does not call the API when interactive authentication is required", async () => {
+  it("starts the configured redirect flow when interactive authentication is required", async () => {
     const client = {
       acquireTokenSilent: vi.fn().mockRejectedValue(
         new InteractionRequiredAuthError("interaction_required", "Sign-in required"),
       ),
+      acquireTokenRedirect: vi.fn().mockResolvedValue(undefined),
     } as unknown as IPublicClientApplication;
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(callApi(client, account, "/api/files"))
       .rejects.toMatchObject({ name: "ApiError", status: 401 });
+    expect(client.acquireTokenRedirect).toHaveBeenCalledWith(expect.objectContaining({
+      account,
+      scopes: expect.any(Array),
+      redirectStartPage: window.location.href,
+    }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shares one interactive redirect across parallel API requests", async () => {
+    const client = {
+      acquireTokenSilent: vi.fn().mockRejectedValue(
+        new InteractionRequiredAuthError("interaction_required", "Consent required"),
+      ),
+      acquireTokenRedirect: vi.fn().mockResolvedValue(undefined),
+    } as unknown as IPublicClientApplication;
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await Promise.all([
+      expect(callApi(client, account, "/api/files")).rejects.toMatchObject({ status: 401 }),
+      expect(callApi(client, account, "/api/albums")).rejects.toMatchObject({ status: 401 }),
+    ]);
+
+    expect(client.acquireTokenRedirect).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

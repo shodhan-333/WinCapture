@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Archive, FileText, FileWarning, Headphones, LoaderCircle, Play, Presentation, Table2 } from "lucide-react";
 import type * as PDFJs from "pdfjs-dist";
-import { getPreviewExtension, readFilePreview, type PreviewContent } from "../../utils/filePreview";
+import { getFileCategory, getFileExtension } from "../../constants/fileSupport";
+import { readFilePreview, type PreviewContent } from "../../utils/filePreview";
 import type { FileResponse } from "../../types/file";
 
 function PdfThumbnail({ src }: { src: string }) {
@@ -40,20 +41,24 @@ function PreviewFallback({ icon, label }: { icon: React.ReactNode; label: string
 }
 
 export default function PreviewThumbnail({ file, src }: { file: FileResponse; src?: string }) {
-  const extension = getPreviewExtension(file.originalFileName);
+  const extension = getFileExtension(file.originalFileName);
+  const fileCategory = getFileCategory(file.originalFileName);
+  const hasRichPreview =
+    (fileCategory === "Documents" && extension !== ".pdf") ||
+    fileCategory === "Archives";
   const [content, setContent] = useState<PreviewContent | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
     setContent(null); setFailed(false);
-    if (!src || ![".txt", ".csv", ".docx", ".xlsx", ".pptx", ".zip"].includes(extension)) return () => { active = false; };
+    if (!src || !hasRichPreview) return () => { active = false; };
     void readFilePreview(src, extension).then((value) => { if (active) setContent(value); }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [src, extension]);
+  }, [src, extension, hasRichPreview]);
 
   if (extension === ".pdf" && src) return <PdfThumbnail src={src} />;
-  if (extension === ".mp4" || extension === ".mov" || extension === ".webm") return failed ? <PreviewFallback icon={<FileWarning size={31} />} label="Video thumbnail unavailable" /> : src ? <video src={src} muted playsInline preload="auto" aria-label={`Video frame preview of ${file.originalFileName}`} className="h-full w-full bg-[#172b3d] object-cover" onError={() => setFailed(true)} /> : <PreviewFallback icon={<Play size={31} />} label="Video" />;
-  if ([".mp3", ".wav", ".m4a"].includes(extension)) return <PreviewFallback icon={<Headphones size={35} />} label="Audio preview" />;
+  if (fileCategory === "Videos") return failed ? <PreviewFallback icon={<FileWarning size={31} />} label="Video thumbnail unavailable" /> : src ? <video src={src} muted playsInline preload="auto" aria-label={`Video frame preview of ${file.originalFileName}`} className="h-full w-full bg-[#172b3d] object-cover" onError={() => setFailed(true)} /> : <PreviewFallback icon={<Play size={31} />} label="Video" />;
+  if (fileCategory === "Audio") return <PreviewFallback icon={<Headphones size={35} />} label="Audio preview" />;
   if (failed) return <PreviewFallback icon={<FileWarning size={31} />} label="Preview unavailable" />;
   if (!src) return <PreviewFallback icon={<FileText size={31} />} label={`${file.contentType.split("/").pop()?.toLocaleUpperCase() ?? "File"} preview`} />;
   if (!content) return <PreviewFallback icon={<LoaderCircle className="animate-spin" size={28} />} label="Loading preview…" />;

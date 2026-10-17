@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { FileWarning, Headphones, LoaderCircle, X } from "lucide-react";
 import type { FileResponse } from "../../types/file";
-import { getPreviewExtension, readFilePreview, type PreviewContent } from "../../utils/filePreview";
+import { getFileCategory, getFileExtension } from "../../constants/fileSupport";
+import { readFilePreview, type PreviewContent } from "../../utils/filePreview";
 import PreviewThumbnail from "./PreviewThumbnail";
 
 function ContentTable({ rows }: { rows: string[][] }) {
@@ -24,10 +25,11 @@ function ArchiveListing({ entries }: { entries: Extract<PreviewContent, { kind: 
 }
 
 export default function FilePreviewModal({ file, src, onClose }: { file: FileResponse; src?: string; onClose: () => void }) {
-  const extension = getPreviewExtension(file.originalFileName);
-  const isImage = [".jpg", ".jpeg", ".png", ".webp"].includes(extension);
-  const isVideo = [".mp4", ".mov", ".webm"].includes(extension);
-  const isAudio = [".mp3", ".wav", ".m4a"].includes(extension);
+  const extension = getFileExtension(file.originalFileName);
+  const fileCategory = getFileCategory(file.originalFileName);
+  const isImage = fileCategory === "Images";
+  const isVideo = fileCategory === "Videos";
+  const isAudio = fileCategory === "Audio";
   const isPdf = extension === ".pdf";
   const [content, setContent] = useState<PreviewContent | null>(null);
   const [error, setError] = useState<string | null>(null);

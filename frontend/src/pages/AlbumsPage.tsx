@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   FolderOpen,
   Images,
   ArrowUpRight,
-  Search,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
@@ -12,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { createAlbum, getAlbums, getMyAlbums, getSharedAlbums } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import Pagination from "../components/ui/Pagination";
+import SearchField from "../components/ui/SearchField";
 import {
   pageHeaderClass,
   pageHeaderSkeletonClass,
@@ -47,6 +47,7 @@ export default function AlbumsPage() {
   );
   const [creating, setCreating] = useState(false);
   const [albumName, setAlbumName] = useState("");
+  const loadRequestVersion = useRef(0);
   const coverUrls = useAlbumCoverPreviews(
     albums,
     instance,
@@ -60,7 +61,9 @@ export default function AlbumsPage() {
     requestedFilter: AlbumFilter = albumFilter,
     requestedSearch: string = searchQuery,
   ) => {
+    const requestVersion = ++loadRequestVersion.current;
     if (!account) {
+      setLoading(false);
       return;
     }
 
@@ -89,9 +92,11 @@ export default function AlbumsPage() {
           // pages and filter out albums owned by the current user until the
           // shared-albums endpoint is available in the deployed backend.
           const firstPage = await getAlbums(instance, account, 1, 100, requestedSearch);
+          if (requestVersion !== loadRequestVersion.current) return;
           const accessibleAlbums = [...firstPage.items];
           for (let pageNumber = 2; pageNumber <= firstPage.pageCount; pageNumber += 1) {
             const nextPage = await getAlbums(instance, account, pageNumber, 100, requestedSearch);
+            if (requestVersion !== loadRequestVersion.current) return;
             accessibleAlbums.push(...nextPage.items);
           }
 
@@ -115,11 +120,13 @@ export default function AlbumsPage() {
           requestedSearch,
         );
       }
+      if (requestVersion !== loadRequestVersion.current) return;
       setAlbums(page.items);
       setCurrentPage(page.page);
       setPageCount(page.pageCount);
       setTotalItems(page.totalItems);
     } catch (caughtError) {
+      if (requestVersion !== loadRequestVersion.current) return;
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -133,6 +140,9 @@ export default function AlbumsPage() {
 
   useEffect(() => {
     void loadAlbums(currentPage, albumFilter, searchQuery);
+    return () => {
+      loadRequestVersion.current += 1;
+    };
   }, [accountKey, instance, currentPage, albumFilter, searchQuery]);
 
   useEffect(() => {
@@ -309,17 +319,15 @@ export default function AlbumsPage() {
           ))}
         </div>
 
-        <label className="glass-toolbar flex min-h-[39px] w-[min(300px,100%)] items-center gap-2 rounded-[11px] px-[11px] text-[#8195a5] focus-within:border-[#87a9c2] focus-within:shadow-[0_0_0_3px_rgba(84,132,169,0.1)] max-[760px]:w-full">
-          <Search aria-hidden="true" size={15} />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search albums"
-            aria-label="Search albums"
-            className="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-[#284963] outline-none placeholder:text-[#8b9eae]"
-          />
-        </label>
+        <SearchField
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder="Search albums"
+          ariaLabel="Search albums"
+          className="glass-toolbar flex min-h-[39px] w-[min(300px,100%)] items-center gap-2 rounded-[11px] px-[11px] text-[#8195a5] focus-within:border-[#87a9c2] focus-within:shadow-[0_0_0_3px_rgba(84,132,169,0.1)] max-[760px]:w-full"
+          inputClassName="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-[#284963] outline-none placeholder:text-[#8b9eae]"
+          iconSize={15}
+        />
       </section>
 
       <section className="min-w-0">

@@ -26,6 +26,26 @@ public sealed class ApiSecurityIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task Cors_AllowsConfiguredTrustedOriginAndRejectsUnlistedOrigin()
+    {
+        using var client = CreateHttpsClient();
+
+        using var allowedRequest = new HttpRequestMessage(HttpMethod.Options, "/api/auth/me");
+        allowedRequest.Headers.Add("Origin", "https://frontend.example.test");
+        allowedRequest.Headers.Add("Access-Control-Request-Method", "GET");
+        var allowedResponse = await client.SendAsync(allowedRequest);
+
+        using var unlistedRequest = new HttpRequestMessage(HttpMethod.Options, "/api/auth/me");
+        unlistedRequest.Headers.Add("Origin", "https://unlisted.example.test");
+        unlistedRequest.Headers.Add("Access-Control-Request-Method", "GET");
+        var unlistedResponse = await client.SendAsync(unlistedRequest);
+
+        Assert.Equal("https://frontend.example.test", allowedResponse.Headers
+            .GetValues("Access-Control-Allow-Origin").Single());
+        Assert.False(unlistedResponse.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
     public async Task AdminEndpoint_RejectsAuthenticatedUserRole()
     {
         await _factory.EnsureDatabaseCreatedAsync();

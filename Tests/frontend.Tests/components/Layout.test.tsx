@@ -30,7 +30,7 @@ describe("Layout navigation", () => {
     auth.logout.mockClear();
   });
 
-  it("shows admin navigation only for users with the Admin role", () => {
+  it("keeps the separate Admin navigation item removed for all roles", () => {
     auth.user = { ...auth.user, role: "User" };
     const { rerender } = renderLayout("/dashboard");
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
@@ -42,7 +42,7 @@ describe("Layout navigation", () => {
         <Routes><Route element={<Layout />}><Route path="*" element={<p>Page content</p>} /></Route></Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();
   });
 
   it("opens Sign out from the profile menu", () => {

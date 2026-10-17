@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowRight,
@@ -6,7 +6,7 @@ import {
   Film,
   FolderOpen,
   Images,
-  Music2,
+  Music,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
@@ -44,7 +44,7 @@ const dashboardIconClass =
   "grid h-[38px] w-[38px] flex-none place-items-center overflow-hidden rounded-[12px] border border-white/80 bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_12px_rgba(26,54,80,0.05)] backdrop-blur-[16px] max-[520px]:h-[34px] max-[520px]:w-[34px] max-[520px]:rounded-[11px]";
 
 const dashboardStatCardClass =
-  "surface group relative flex min-h-[76px] cursor-pointer items-center gap-3 overflow-hidden rounded-[16px] px-4 py-2 text-left transition-[transform,border-color,box-shadow,background] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3787d4] max-[760px]:min-h-[70px] max-[760px]:gap-2.5 max-[760px]:px-3 max-[760px]:py-2 max-[520px]:min-h-[66px]";
+  "surface group relative flex min-h-[78px] cursor-pointer items-center gap-2.5 overflow-hidden rounded-[16px] px-3 py-2 text-left transition-[transform,border-color,box-shadow,background] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3787d4] max-[760px]:min-h-[74px] max-[760px]:gap-2 max-[760px]:px-2.5 max-[760px]:py-2";
 
 const dashboardViewAllClass =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/75 bg-white/45 px-3 py-1.5 text-[12px] font-semibold text-[#156ecb] shadow-sm backdrop-blur-md transition-colors hover:bg-white/75 hover:text-[#0b5fbf] max-[520px]:px-2.5 max-[520px]:text-[11px]";
@@ -53,7 +53,7 @@ const dashboardFileCategories = [
   { label: "Images", icon: Images },
   { label: "Documents", icon: FileText },
   { label: "Videos", icon: Film },
-  { label: "Audio", icon: Music2 },
+  { label: "Audio", icon: Music },
   { label: "Archives", icon: Archive },
 ] as const;
 
@@ -71,6 +71,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const recentDataKey = useRef<string | null>(null);
+  const categoryCountsCache = useRef(new Map<string, {
+    version: number;
+    counts: Record<string, number>;
+  }>());
 
   const recentAlbums = albums;
   const recentFiles = files;
@@ -99,7 +104,6 @@ export default function Dashboard() {
   );
 
   useEffect(() => {
-    // Prevent state updates if the component unmounts or this request becomes stale.
     let active = true;
 
     async function load() {
@@ -108,32 +112,62 @@ export default function Dashboard() {
         return;
       }
 
+      const requestedRecentKey = `${accountKey}:${contentVersion}`;
+      const requestedCountsKey = `${accountKey}:${contentScope}`;
+      const cachedCounts = categoryCountsCache.current.get(requestedCountsKey);
+      const countsAreCurrent = cachedCounts?.version === contentVersion;
+      const shouldLoadRecent = recentDataKey.current !== requestedRecentKey;
+      const shouldLoadCounts = !countsAreCurrent;
+
+      if (!shouldLoadRecent && !shouldLoadCounts) {
+        setFileCategoryCounts(cachedCounts.counts);
+        setLoading(false);
+        setHasLoaded(true);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
+        setFileCategoryCounts(countsAreCurrent ? cachedCounts.counts : {});
 
-        const [albumResult, fileResult, ...categoryResults] = await Promise.all([
-          getMyAlbums(instance, account, 1, 4),
-          getFiles(instance, account, 1, 4),
-          ...(contentScope === "all" && user?.role === "Admin"
-            ? dashboardFileCategories.map(({ label }) =>
-                getAdminFiles(instance, account, 1, 1, undefined, label),
-              )
-            : dashboardFileCategories.map(({ label }) =>
-                getFiles(instance, account, 1, 1, undefined, label),
-              )),
+        const [recentResults, categoryResults] = await Promise.all([
+          shouldLoadRecent
+            ? Promise.all([
+                getMyAlbums(instance, account, 1, 4),
+                getFiles(instance, account, 1, 4),
+              ] as const)
+            : Promise.resolve(null),
+          shouldLoadCounts
+            ? Promise.all(dashboardFileCategories.map(({ label }) =>
+                contentScope === "all" && user?.role === "Admin"
+                  ? getAdminFiles(instance, account, 1, 1, undefined, label)
+                  : getFiles(instance, account, 1, 1, undefined, label),
+              ))
+            : Promise.resolve([]),
         ]);
 
         if (!active) return;
 
-        setAlbums(albumResult.items);
-        setFiles(fileResult.items);
-        setFileCategoryCounts(Object.fromEntries(
-          dashboardFileCategories.map(({ label }, index) => [
-            label,
-            (categoryResults[index] as { totalItems: number }).totalItems,
-          ]),
-        ));
+        if (recentResults) {
+          const [albumResult, fileResult] = recentResults;
+          setAlbums(albumResult.items);
+          setFiles(fileResult.items);
+          recentDataKey.current = requestedRecentKey;
+        }
+        if (shouldLoadCounts) {
+          const counts = Object.fromEntries(
+            dashboardFileCategories.map(({ label }, index) => [
+              label,
+              categoryResults[index].totalItems,
+            ]),
+          );
+          categoryCountsCache.current.set(requestedCountsKey, {
+            version: contentVersion,
+            counts,
+          });
+          setFileCategoryCounts(counts);
+        }
       } catch (caughtError) {
         if (active) {
           setError(
@@ -155,12 +189,12 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, [account?.homeAccountId, contentScope, contentVersion, instance, user?.role]);
+  }, [accountKey, contentScope, contentVersion, instance, user?.role]);
 
   // Show skeletons only on the first load; subsequent refreshes keep the page layout visible.
   if (loading && !hasLoaded) {
     return (
-      <div className="app-page">
+      <div className="app-page !gap-3">
         <section className="skeleton-panel flex min-h-[218px] items-center justify-between p-[30px] max-[960px]:flex-col max-[960px]:items-start max-[760px]:rounded-[17px] max-[760px]:px-5 max-[760px]:py-[23px]">
           <div className="skeleton-content">
             <span className="skeleton-line skeleton-line-sm" />
@@ -196,7 +230,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="app-page">
+    <div className="app-page !gap-3">
       <section className="surface relative flex min-h-[138px] items-center justify-between gap-4 overflow-hidden rounded-[20px] px-6 py-4 max-[960px]:flex-col max-[960px]:items-start max-[760px]:rounded-[17px] max-[760px]:px-4 max-[760px]:py-4">
         <div className="relative z-[1] flex max-w-[740px] flex-col justify-center">
           <h1 className="m-0 text-[clamp(28px,2.7vw,35px)] font-bold leading-[1.04] tracking-[-0.045em] text-[#173a55] max-[760px]:text-[27px]">
@@ -235,22 +269,22 @@ export default function Dashboard() {
 
       {error && <ErrorBanner message={error} />}
 
-      <section className="surface flex flex-wrap items-center gap-2 rounded-[15px] p-2" role="group" aria-label="Dashboard content scope">
-        <button type="button" aria-pressed={contentScope === "mine"} onClick={() => setContentScope("mine")} className={`min-h-10 rounded-[10px] px-4 text-sm font-semibold transition-colors ${contentScope === "mine" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
-          My Content
-        </button>
-        {user?.role === "Admin" && (
-          <button type="button" aria-pressed={contentScope === "all"} onClick={() => setContentScope("all")} className={`min-h-10 rounded-[10px] px-4 text-sm font-semibold transition-colors ${contentScope === "all" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
+      {user?.role === "Admin" && (
+        <section className="surface flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-[15px] p-1.5" role="group" aria-label="Dashboard content scope">
+          <button type="button" aria-pressed={contentScope === "mine"} onClick={() => setContentScope("mine")} className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "mine" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
+            My Content
+          </button>
+          <button type="button" aria-pressed={contentScope === "all"} onClick={() => setContentScope("all")} className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "all" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
             All Content
           </button>
-        )}
-      </section>
+        </section>
+      )}
 
-      <section aria-label="File counts by type" className="grid grid-cols-5 gap-3 max-[960px]:grid-cols-3 max-[760px]:grid-cols-2 max-[520px]:gap-2">
+      <section aria-label="File counts by type" className="grid grid-cols-5 gap-2.5 max-[960px]:grid-cols-3 max-[760px]:grid-cols-2 max-[520px]:gap-2">
         {dashboardFileCategories.map(({ label, icon: CategoryIcon }) => (
-          <div key={label} className={`${dashboardStatCardClass} min-h-[68px] gap-2.5 rounded-[15px] px-3 py-2 max-[760px]:min-h-[64px] max-[760px]:px-2.5`}>
-            <CategoryIcon aria-hidden="true" className="flex-none text-[#267fe2]" size={18} strokeWidth={1.8} />
-            <span className="grid min-w-0 gap-0.5">
+          <div key={label} className={`${dashboardStatCardClass} rounded-[15px]`}>
+            <CategoryIcon aria-hidden="true" className="flex-none text-[#267fe2]" size={19} strokeWidth={1.8} />
+            <span className="grid min-w-0 gap-0">
               <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#71889c] max-[520px]:text-[9px]">{label}</span>
               <strong className="text-[19px] font-bold leading-none tracking-[-0.04em] text-[#143653]">{fileCategoryCounts[label] ?? 0}</strong>
             </span>

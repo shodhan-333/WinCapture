@@ -12,7 +12,6 @@ import {
   Search,
   Star,
   Upload,
-  X,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 
@@ -29,6 +28,7 @@ import {
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import Pagination from "../components/ui/Pagination";
+import SearchField from "../components/ui/SearchField";
 import {
   pageHeaderClass,
   pageHeaderSkeletonClass,
@@ -76,6 +76,7 @@ export default function FilesPage() {
 
   // Keep the replacement target while the native file picker is open.
   const replaceTargetIdRef = useRef<number | null>(null);
+  const loadRequestVersion = useRef(0);
 
   const [files, setFiles] = useState<FileResponse[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -128,7 +129,9 @@ export default function FilesPage() {
     requestedPage: number = currentPage,
     requestedCategory: FileCategoryFilter = categoryFilter,
   ) => {
+    const requestVersion = ++loadRequestVersion.current;
     if (!account) {
+      setLoading(false);
       return;
     }
 
@@ -156,12 +159,14 @@ export default function FilesPage() {
               requestedCategory,
             );
 
+      if (requestVersion !== loadRequestVersion.current) return;
       setFiles(nextPage.items);
       retain(nextPage.items.filter((file) => nextView === "favorites" || file.canManage).map((file) => file.id));
       setTotalItems(nextPage.totalItems);
       setPageCount(nextPage.pageCount);
       setCurrentPage(nextPage.page);
     } catch (caughtError) {
+      if (requestVersion !== loadRequestVersion.current) return;
       // Clear old results so they are not displayed under a different view
       // when the new request fails, such as showing All files under Favorites.
       setFiles([]);
@@ -174,13 +179,18 @@ export default function FilesPage() {
           : "Unable to load files.",
       );
     } finally {
-      setLoading(false);
-      setHasLoaded(true);
+      if (requestVersion === loadRequestVersion.current) {
+        setLoading(false);
+        setHasLoaded(true);
+      }
     }
   };
 
   useEffect(() => {
     void loadFiles(view, currentPage);
+    return () => {
+      loadRequestVersion.current += 1;
+    };
   }, [accountKey, instance, view, currentPage, searchQuery, categoryFilter]);
 
   useEffect(() => {
@@ -454,38 +464,26 @@ export default function FilesPage() {
             </button>
           </div>
 
-          <label className={searchFieldClass}>
-            <Search aria-hidden="true" size={17} strokeWidth={1.8} />
-            <span className="sr-only">Search files</span>
-
-            <input
-              type="search"
-              className="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
-              value={searchQuery}
-              onChange={(event) => {
-                cancelSelection();
-                setSearchQuery(event.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search files..."
-              aria-label="Search files by name, type, or ID"
-            />
-
-            {searchQuery && (
-              <button
-                type="button"
-                className="grid h-[25px] w-[25px] flex-none cursor-pointer place-items-center rounded-[7px] border-0 bg-transparent text-[#8296a6] hover:bg-[#edf4f9] hover:text-[#527087]"
-                aria-label="Clear file search"
-                onClick={() => {
-                  cancelSelection();
-                  setSearchQuery("");
-                  setCurrentPage(1);
-                }}
-              >
-                <X aria-hidden="true" size={15} strokeWidth={1.8} />
-              </button>
-            )}
-          </label>
+          <SearchField
+            value={searchQuery}
+            onChange={(value) => {
+              cancelSelection();
+              setSearchQuery(value);
+              setCurrentPage(1);
+            }}
+            placeholder="Search files..."
+            ariaLabel="Search files by name, type, or ID"
+            className={searchFieldClass}
+            inputClassName="w-full min-w-0 border-0 bg-transparent text-[10px] text-[#24445d] outline-none placeholder:text-[#98aab7]"
+            iconSize={17}
+            iconStrokeWidth={1.8}
+            clearLabel="Clear file search"
+            onClear={() => {
+              cancelSelection();
+              setSearchQuery("");
+              setCurrentPage(1);
+            }}
+          />
 
           <button
             type="button"

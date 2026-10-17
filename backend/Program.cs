@@ -12,6 +12,37 @@ using WinCapture.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configuredCorsOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+var corsOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+foreach (var configuredOrigin in configuredCorsOrigins)
+{
+    if (!Uri.TryCreate(configuredOrigin, UriKind.Absolute, out var origin)
+        || (origin.Scheme != Uri.UriSchemeHttp && origin.Scheme != Uri.UriSchemeHttps)
+        || !string.IsNullOrEmpty(origin.UserInfo)
+        || origin.AbsolutePath != "/"
+        || !string.IsNullOrEmpty(origin.Query)
+        || !string.IsNullOrEmpty(origin.Fragment)
+        || configuredOrigin.Contains('*'))
+    {
+        throw new InvalidOperationException(
+            $"Cors:AllowedOrigins contains an invalid origin: '{configuredOrigin}'. Configure explicit HTTP or HTTPS origins without paths or wildcards.");
+    }
+
+    corsOrigins.Add(origin.GetLeftPart(UriPartial.Authority));
+}
+
+if (builder.Environment.IsDevelopment())
+{
+    corsOrigins.Add("https://localhost:5173");
+}
+else if (builder.Environment.IsProduction() && corsOrigins.Count == 0)
+{
+    throw new InvalidOperationException(
+        "Configure at least one trusted frontend origin in Cors:AllowedOrigins for non-development environments.");
+}
+
 builder.Services.AddDbContext<WinCaptureDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("WinCaptureDatabase")));
 
@@ -51,9 +82,9 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DevelopmentCors", policy =>
+    options.AddPolicy("FrontendCors", policy =>
     {
-        policy.WithOrigins("https://localhost:5173").AllowAnyHeader().AllowAnyMethod();
+        policy.WithOrigins(corsOrigins.ToArray()).AllowAnyHeader().AllowAnyMethod();
     });
 });
 
@@ -150,7 +181,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("DevelopmentCors");
+app.UseCors("FrontendCors");
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();

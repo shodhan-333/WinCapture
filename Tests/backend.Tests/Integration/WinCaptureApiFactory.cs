@@ -32,6 +32,7 @@ public sealed class WinCaptureApiFactory : WebApplicationFactory<Program>
     {
         Environment.SetEnvironmentVariable("Storage__ConnectionString", "UseDevelopmentStorage=true");
         Environment.SetEnvironmentVariable("Storage__ContainerName", "wincapture-tests");
+        Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "https://frontend.example.test");
     }
 
     public WinCaptureApiFactory()
@@ -101,7 +102,8 @@ public sealed class WinCaptureApiFactory : WebApplicationFactory<Program>
                 ["AzureAd:Domain"] = "example.test",
                 ["AzureAd:Audience"] = "api://00000000-0000-0000-0000-000000000002",
                 ["Storage:ConnectionString"] = "UseDevelopmentStorage=true",
-                ["Storage:ContainerName"] = "wincapture-tests"
+                ["Storage:ContainerName"] = "wincapture-tests",
+                ["Cors:AllowedOrigins:0"] = "https://frontend.example.test"
             });
         });
 

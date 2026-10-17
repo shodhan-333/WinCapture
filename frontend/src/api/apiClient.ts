@@ -17,6 +17,31 @@ import type {
 } from "../types/album";
 import type { AdminFileResponse, FileResponse } from "../types/file";
 
+// Several dashboard requests can discover the same expired/missing consent at once.
+// Share one redirect per MSAL instance so those requests cannot start competing flows.
+const interactiveTokenRequests = new WeakMap<IPublicClientApplication, Promise<void>>();
+
+function beginInteractiveTokenAcquisition(
+  instance: IPublicClientApplication,
+  account: AccountInfo,
+): Promise<void> {
+  const existingRequest = interactiveTokenRequests.get(instance);
+  if (existingRequest) return existingRequest;
+
+  const request = instance.acquireTokenRedirect({
+    account,
+    scopes: [apiScope],
+    redirectStartPage: window.location.href,
+  });
+  interactiveTokenRequests.set(instance, request);
+  void request.catch(() => {
+    if (interactiveTokenRequests.get(instance) === request) {
+      interactiveTokenRequests.delete(instance);
+    }
+  });
+  return request;
+}
+
 // Acquire an access token intended specifically for the WinCapture API.
 async function acquireAccessToken(
   instance: IPublicClientApplication,
@@ -42,10 +67,23 @@ async function acquireAccessToken(
       throw error;
     }
 
-    // Interactive sign-in is handled by the authentication layer, not this API client.
     if (error instanceof InteractionRequiredAuthError) {
+      try {
+        await beginInteractiveTokenAcquisition(instance, account);
+      } catch (interactionError) {
+        throw new ApiError(
+          interactionError instanceof Error
+            ? `Microsoft sign-in could not be completed: ${interactionError.message}`
+            : "Microsoft sign-in could not be completed. Please try signing in again.",
+          401,
+        );
+      }
+
+      // Redirect should leave the page. If MSAL resolves without navigation, do not
+      // repeat automatically; let the established auth retry UI start a fresh attempt.
+      interactiveTokenRequests.delete(instance);
       throw new ApiError(
-        "Microsoft sign-in is required again before a WinCapture API access token can be acquired.",
+        "Microsoft sign-in or consent is required. Complete the sign-in prompt and retry.",
         401,
       );
     }
