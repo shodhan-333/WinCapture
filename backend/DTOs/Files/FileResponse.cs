@@ -9,4 +9,5 @@ public sealed record FileResponse(
     string Url,
     string DownloadUrl,
     bool IsFavorite = false,
-    bool CanManage = false);
+    bool CanManage = false,
+    bool CanDownload = true);

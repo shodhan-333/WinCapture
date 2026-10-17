@@ -75,7 +75,7 @@ const permissionToggleClass =
   "inline-flex h-6 min-w-[46px] cursor-pointer items-center justify-center gap-[4px] rounded-full border border-[rgba(255,255,255,0.65)] bg-[rgba(255,255,255,0.45)] px-[7px] text-[9px] font-bold text-[#648096] shadow-[inset_0_1px_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
 
 const memberPermissionClass =
-  "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] text-[11px] font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4] disabled:cursor-not-allowed disabled:opacity-[0.68]";
+  "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] !text-[11px] !font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4] disabled:cursor-not-allowed disabled:opacity-[0.68]";
 
 export default function AlbumDetailPage() {
   const { instance } = useMsal();
@@ -106,6 +106,7 @@ export default function AlbumDetailPage() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [memberAccessError, setMemberAccessError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -566,12 +567,12 @@ export default function AlbumDetailPage() {
 
   const handleAddMember = async () => {
     if (!account || !Number.isFinite(numericAlbumId) || !memberEmail.trim()) {
-      setError("An email address is required to share the album.");
+      setMemberAccessError("An email address is required to share the album.");
       return;
     }
 
     try {
-      setError(null);
+      setMemberAccessError(null);
 
       await addAlbumMember(instance, account, numericAlbumId, {
         email: memberEmail.trim(),
@@ -585,7 +586,7 @@ export default function AlbumDetailPage() {
 
       setMembers(await getAlbumMembers(instance, account, numericAlbumId));
     } catch (caughtError) {
-      setError(
+      setMemberAccessError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to share album.",
@@ -603,7 +604,7 @@ export default function AlbumDetailPage() {
     }
 
     try {
-      setError(null);
+      setMemberAccessError(null);
 
       await updateAlbumMember(instance, account, numericAlbumId, userId, {
         canView: nextView,
@@ -623,7 +624,7 @@ export default function AlbumDetailPage() {
         ),
       );
     } catch (caughtError) {
-      setError(
+      setMemberAccessError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to update member access.",
@@ -637,7 +638,7 @@ export default function AlbumDetailPage() {
     }
 
     try {
-      setError(null);
+      setMemberAccessError(null);
 
       await removeAlbumMember(instance, account, numericAlbumId, userId);
 
@@ -645,7 +646,7 @@ export default function AlbumDetailPage() {
         currentMembers.filter((member) => member.userId !== userId),
       );
     } catch (caughtError) {
-      setError(
+      setMemberAccessError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to revoke access.",
@@ -1153,6 +1154,12 @@ export default function AlbumDetailPage() {
             </div>
 
             <div className={`${sharePanelClass} min-h-[300px]`}>
+              {memberAccessError && (
+                <div className="mb-3">
+                  <ErrorBanner message={memberAccessError} />
+                </div>
+              )}
+
               <div className="mb-[15px] flex items-center justify-between gap-[14px]">
                 <div>
                   <p className="dashboard-panel-kicker">Current members</p>
@@ -1239,7 +1246,7 @@ export default function AlbumDetailPage() {
                           }
                           className={`${memberPermissionClass} ${
                             member.canView
-                              ? "primary-action !min-h-[36px] !rounded-[8px] !px-[11px] !text-[11px]"
+                              ? "primary-action"
                               : "border-[#d4dde5] bg-[#f2f5f8] text-[#647789] hover:bg-[#eaf0f4]"
                           }`}
                         >
@@ -1267,7 +1274,7 @@ export default function AlbumDetailPage() {
                           }
                           className={`${memberPermissionClass} ${
                             member.canDownload
-                              ? "primary-action !min-h-[36px] !rounded-[8px] !px-[11px] !text-[11px]"
+                              ? "primary-action"
                               : "border-[#d4dde5] bg-[#f2f5f8] text-[#647789] hover:bg-[#eaf0f4]"
                           } ${
                             !member.canView
@@ -1292,7 +1299,7 @@ export default function AlbumDetailPage() {
                           aria-label={`Revoke access for ${member.email}`}
                           title="Revoke access"
                           onClick={() => void handleRemoveMember(member.userId)}
-                          className="danger-gradient-action inline-flex min-h-[30px] cursor-pointer items-center justify-center gap-1 rounded-[7px] px-[9px] text-[9px] font-[650] transition-[transform,box-shadow] duration-[160ms] max-[520px]:w-7 max-[520px]:px-0"
+                          className="danger-gradient-action inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] px-[11px] !text-[11px] !font-semibold transition-[transform,box-shadow] duration-[160ms] max-[520px]:w-7 max-[520px]:px-0"
                         >
                           <Trash2
                             aria-hidden="true"

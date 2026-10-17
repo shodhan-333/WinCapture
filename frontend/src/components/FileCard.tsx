@@ -289,6 +289,7 @@ export default function FileCard({
             <FileActionMenu
               fileName={file.originalFileName}
               canManage={effectiveCanManage}
+              canDownload={effectiveCanManage || file.canDownload}
               onDetails={onDetails}
               onReplace={onReplace}
               onDownload={onDownload}

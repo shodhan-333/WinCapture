@@ -238,6 +238,7 @@ export default function Dashboard() {
                     : `/api/albums/${file.albumId}/files/${file.id}/download`,
                   isFavorite: false,
                   canManage: true,
+                  canDownload: true,
                 })),
               }))
             : Promise.all([
@@ -628,7 +629,7 @@ export default function Dashboard() {
                         <button
                           type="button"
                           onClick={() => navigate(`/albums/${album.id}`)}
-                          className="inline-flex min-h-[30px] items-center gap-1 rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#2b72bd]"
+                          className="secondary-action compact-action inline-flex !min-h-[30px] !cursor-pointer items-center gap-1 !rounded-[8px] !px-2 text-[9px] font-semibold !text-[#2b72bd] hover:!border-[rgba(117,181,232,0.62)] hover:!bg-[linear-gradient(135deg,rgba(226,243,255,0.92),rgba(203,229,250,0.88))] hover:!text-[#1f659f]"
                           aria-label={`Manage album ${album.albumName}`}
                         >
                           <Settings2 aria-hidden="true" size={13} />
@@ -637,8 +638,9 @@ export default function Dashboard() {
                         <button
                           type="button"
                           onClick={() => void handleDeleteAlbum(album)}
-                          className="grid h-[30px] w-[30px] place-items-center rounded-[8px] border border-[rgba(240,160,160,0.45)] bg-[rgba(255,245,245,0.55)] text-[#b04040]"
+                          className="secondary-action grid h-[30px] w-[30px] !cursor-pointer place-items-center !rounded-[8px] !p-0 !text-[#6b8295] hover:!border-[rgba(240,160,160,0.6)] hover:!bg-[rgba(255,235,235,0.85)] hover:!text-[#b4232d]"
                           aria-label={`Delete album ${album.albumName}`}
+                          title="Delete album"
                         >
                           <Trash2 aria-hidden="true" size={13} />
                         </button>
@@ -803,7 +805,7 @@ export default function Dashboard() {
                         <button
                           type="button"
                           onClick={() => navigate("/files")}
-                          className="inline-flex min-h-[30px] items-center gap-1 rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#2b72bd]"
+                          className="secondary-action compact-action inline-flex !min-h-[30px] !cursor-pointer items-center gap-1 !rounded-[8px] !px-2 text-[9px] font-semibold !text-[#2b72bd] hover:!border-[rgba(117,181,232,0.62)] hover:!bg-[linear-gradient(135deg,rgba(226,243,255,0.92),rgba(203,229,250,0.88))] hover:!text-[#1f659f]"
                           aria-label={`Manage file ${file.originalFileName}`}
                         >
                           <Settings2 aria-hidden="true" size={13} />
@@ -812,8 +814,9 @@ export default function Dashboard() {
                         <button
                           type="button"
                           onClick={() => void handleDeleteFile(file)}
-                          className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[8px] border border-[rgba(240,160,160,0.45)] bg-[rgba(255,245,245,0.55)] text-[#b04040]"
+                          className="secondary-action grid h-[30px] w-[30px] flex-none !cursor-pointer place-items-center !rounded-[8px] !p-0 !text-[#6b8295] hover:!border-[rgba(240,160,160,0.6)] hover:!bg-[rgba(255,235,235,0.85)] hover:!text-[#b4232d]"
                           aria-label={`Delete file ${file.originalFileName}`}
+                          title="Delete file"
                         >
                           <Trash2 aria-hidden="true" size={13} />
                         </button>

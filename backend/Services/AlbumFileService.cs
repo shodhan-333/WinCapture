@@ -113,13 +113,15 @@ public sealed class AlbumFileService(
         var favoriteIdSet = favoriteIds.ToHashSet();
 
         var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
+        var canDownload = await albumService.CanDownloadAsync(albumId, currentUser, role);
 
         return albumFiles
             .Select(file => ToResponse(
                 file,
                 albumId,
                 favoriteIdSet.Contains(file.Id),
-                canManage))
+                canManage,
+                canDownload))
             .ToList();
     }
 
@@ -134,8 +136,9 @@ public sealed class AlbumFileService(
         var ids = page.Items.Select(file => file.Id).ToArray();
         var favoriteIds = (await files.GetFavoriteFileIdsByUserIdAsync(currentUser.Id, ids)).ToHashSet();
         var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
+        var canDownload = await albumService.CanDownloadAsync(albumId, currentUser, role);
         var responses = page.Items
-            .Select(file => ToResponse(file, albumId, favoriteIds.Contains(file.Id), canManage))
+            .Select(file => ToResponse(file, albumId, favoriteIds.Contains(file.Id), canManage, canDownload))
             .ToList();
 
         return new PagedResponse<FileResponse>(
@@ -165,8 +168,9 @@ public sealed class AlbumFileService(
 
         var isFavorite = await files.GetFavoriteAsync(currentUser.Id, fileId) is not null;
         var canManage = role == UserRole.Admin || album.OwnerId == currentUser.Id;
+        var canDownload = await albumService.CanDownloadAsync(albumId, currentUser, role);
 
-        return ToResponse(file, albumId, isFavorite, canManage);
+        return ToResponse(file, albumId, isFavorite, canManage, canDownload);
     }
 
     // Checks album access and returns the stored file content for preview.
@@ -288,7 +292,8 @@ public sealed class AlbumFileService(
         FileMetadata file,
         long albumId,
         bool isFavorite,
-        bool canManage) =>
+        bool canManage,
+        bool canDownload = true) =>
         new(
             file.Id,
             file.OriginalFileName,
@@ -298,5 +303,6 @@ public sealed class AlbumFileService(
             $"/api/albums/{albumId}/files/{file.Id}",
             $"/api/albums/{albumId}/files/{file.Id}/download",
             isFavorite,
-            canManage);
+            canManage,
+            canDownload);
 }

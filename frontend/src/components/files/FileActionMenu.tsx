@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 interface FileActionMenuProps {
   fileName: string;
   canManage: boolean;
+  canDownload: boolean;
   onReplace: () => void;
   onDetails: () => void;
   onDownload: () => void;
@@ -28,6 +29,7 @@ const VIEWPORT_MARGIN = 8;
 export default function FileActionMenu({
   fileName,
   canManage,
+  canDownload,
   onReplace,
   onDetails,
   onDownload,
@@ -192,16 +194,19 @@ export default function FileActionMenu({
               </button>
             )}
 
-            <button
-              type="button"
-              className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#4d667c] transition-all duration-[160ms] ease-out hover:bg-white/60 hover:text-[#15599c] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
-              role="menuitem"
-              onClick={() => runAction(onDownload)}
-            >
-              <Download aria-hidden="true" size={16} strokeWidth={1.8} />
+            {canDownload && (
+              <button
+                type="button"
+                title="Download file"
+                className="flex min-h-[34px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-[9px] text-left text-[10px] font-medium text-[#4d667c] transition-all duration-[160ms] ease-out hover:bg-white/60 hover:text-[#15599c] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5a9bd4]"
+                role="menuitem"
+                onClick={() => runAction(onDownload)}
+              >
+                <Download aria-hidden="true" size={16} strokeWidth={1.8} />
 
-              <span>Download</span>
-            </button>
+                <span>Download</span>
+              </button>
+            )}
 
             {canManage && (
               <button

@@ -383,6 +383,7 @@ export async function getAlbumFiles(
       undefined,
       category,
     ),
+    { cache: "no-store" },
   );
 
   return (await response.json()) as PagedResponse<FileResponse>;
