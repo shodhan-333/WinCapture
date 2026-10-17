@@ -1,0 +1,50 @@
+<div class="app-shell">
+  <header class="topbar flex min-h-[62px] items-center justify-between px-[42px] max-[760px]:px-[17px]">
+    <a class="brand" routerLink="/albums" aria-label="WinCapture Albums">
+      <span class="brand-mark">W</span>
+      <span>WinCapture</span>
+      <span class="app-label">Angular Albums</span>
+    </a>
+
+    <div class="account-actions">
+      @if (auth.user(); as user) {
+        <span class="account-name">{{ user.name || user.email }}</span>
+        <button type="button" class="quiet-button" (click)="auth.signOut()">Sign out</button>
+      }
+    </div>
+  </header>
+
+  @if (isRedirectRoute) {
+    <router-outlet />
+  } @else if (!auth.configurationReady) {
+    <main class="auth-gate-wrap">
+      <section class="auth-gate surface">
+        <span class="auth-gate-icon">!</span>
+        <h1>Finish sign-in setup</h1>
+        <p>Set the Entra client ID, tenant ID, and WinCapture API scope in <code>src/environments/environment.ts</code>.</p>
+      </section>
+    </main>
+  } @else if (auth.user()) {
+    <router-outlet />
+  } @else if (auth.loading()) {
+    <main class="auth-gate-wrap">
+      <section class="auth-gate surface" role="status">
+        <span class="auth-spinner" aria-hidden="true"></span>
+        <h1>Checking your WinCapture session</h1>
+        <p>Connecting to Microsoft Entra ID and the WinCapture API…</p>
+      </section>
+    </main>
+  } @else {
+    <main class="auth-gate-wrap">
+      <section class="auth-gate surface">
+        <span class="auth-gate-icon">W</span>
+        <h1>Sign in to WinCapture</h1>
+        <p>Use your Microsoft work account to view your albums and shared collections.</p>
+        @if (auth.error(); as message) {
+          <div class="auth-error" role="alert">{{ message }}</div>
+        }
+        <button type="button" class="primary-action" (click)="auth.signIn()">Continue with Microsoft</button>
+      </section>
+    </main>
+  }
+</div>

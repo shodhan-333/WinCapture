@@ -1,0 +1,31 @@
+{
+  "name": "wincapture-angular-albums",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "ng serve --host localhost --port 4200",
+    "build": "ng build"
+  },
+  "dependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "@azure/msal-angular": "^5.1.1",
+    "@azure/msal-browser": "^5.23.0",
+    "rxjs": "~7.8.2",
+    "tslib": "^2.8.1",
+    "zone.js": "~0.15.1"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.0",
+    "@angular/cli": "^21.2.0",
+    "@angular/compiler-cli": "^21.2.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.3"
+  }
+}
