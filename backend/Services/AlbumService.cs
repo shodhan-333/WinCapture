@@ -333,7 +333,7 @@ public sealed class AlbumService(
             albumId,
             currentUser.Id);
 
-        return access is not null && access.CanDownload;
+        return access is not null && access.CanView && access.CanDownload;
     }
 
     // Checks whether the user can view or manage the album based on ownership, role, and access permissions.

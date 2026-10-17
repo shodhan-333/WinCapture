@@ -151,7 +151,7 @@ public sealed class FileService(
             {
                 var access = await albums.GetAccessAsync(file.AlbumId.Value, userId);
 
-                if (access?.CanDownload != true)
+                if (access is null || !access.CanView || !access.CanDownload)
                 {
                     throw new ForbiddenException("You are not allowed to download this file.");
                 }
