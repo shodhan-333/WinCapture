@@ -3,9 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FileResponse } from "../types/file";
 import { isImagePreviewableFile } from "../constants/fileSupport";
 
-export type FilePreviewLoader = (
-  file: FileResponse,
-) => Promise<string>;
+export type FilePreviewLoader = (file: FileResponse) => Promise<string>;
 
 interface UseFilePreviewsResult {
   previewUrls: Record<number, string>;
@@ -17,8 +15,7 @@ export default function useFilePreviews(
   loadPreview: FilePreviewLoader,
   includeAllFiles = false,
 ): UseFilePreviewsResult {
-  const [previewUrls, setPreviewUrls] =
-    useState<Record<number, string>>({});
+  const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const cache = useRef(new Map<number, { signature: string; url: string }>());
   const pending = useRef(new Map<string, Promise<string>>());
@@ -43,10 +40,16 @@ export default function useFilePreviews(
         cache.current.delete(id);
       }
     });
-    setPreviewUrls(Object.fromEntries(imageFiles.flatMap(file => {
-      const entry = cache.current.get(file.id);
-      return entry?.signature === signatureFor(file) ? [[file.id, entry.url]] : [];
-    })));
+    setPreviewUrls(
+      Object.fromEntries(
+        imageFiles.flatMap((file) => {
+          const entry = cache.current.get(file.id);
+          return entry?.signature === signatureFor(file)
+            ? [[file.id, entry.url]]
+            : [];
+        }),
+      ),
+    );
     setLoading(imageFiles.length > 0);
 
     if (imageFiles.length === 0) {
@@ -67,7 +70,8 @@ export default function useFilePreviews(
               pending.current.set(pendingKey, request);
             }
             const cached = cache.current.get(file.id);
-            const url = cached?.signature === signature ? cached.url : await request;
+            const url =
+              cached?.signature === signature ? cached.url : await request;
             const isCurrent =
               active && currentSignatures.current.get(file.id) === signature;
             if (!isCurrent) {
@@ -79,7 +83,11 @@ export default function useFilePreviews(
             }
 
             const previous = cache.current.get(file.id);
-            if (previous && previous.url !== url && previous.signature !== signature) {
+            if (
+              previous &&
+              previous.url !== url &&
+              previous.signature !== signature
+            ) {
               URL.revokeObjectURL(previous.url);
             }
             cache.current.set(file.id, { signature, url });
@@ -100,8 +108,7 @@ export default function useFilePreviews(
       setPreviewUrls(
         Object.fromEntries(
           results.filter(
-            (entry): entry is readonly [number, string] =>
-              entry !== null,
+            (entry): entry is readonly [number, string] => entry !== null,
           ),
         ),
       );
@@ -115,11 +122,14 @@ export default function useFilePreviews(
     };
   }, [files, includeAllFiles, loadPreview]);
 
-  useEffect(() => () => {
-    currentSignatures.current.clear();
-    cache.current.forEach((entry) => URL.revokeObjectURL(entry.url));
-    cache.current.clear();
-  }, []);
+  useEffect(
+    () => () => {
+      currentSignatures.current.clear();
+      cache.current.forEach((entry) => URL.revokeObjectURL(entry.url));
+      cache.current.clear();
+    },
+    [],
+  );
 
   return {
     previewUrls,

@@ -50,9 +50,7 @@ export default function FileCardGrid({
     <div className="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
       {files.map((file) => {
         const effectiveCanManage =
-          typeof canManage === "function"
-            ? canManage(file)
-            : canManage;
+          typeof canManage === "function" ? canManage(file) : canManage;
 
         return (
           <FileCard
@@ -61,19 +59,19 @@ export default function FileCardGrid({
             previewUrl={previewUrls[file.id]}
             loadPreview={loadPreview}
             canManage={effectiveCanManage}
-            favoritePending={favoritePendingIds.has(
-              file.id,
-            )}
-            onFavoriteToggle={() =>
-              onFavoriteToggle(file)
-            }
+            favoritePending={favoritePendingIds.has(file.id)}
+            onFavoriteToggle={() => onFavoriteToggle(file)}
             onReplace={() => onReplace(file)}
             onDetails={() => onDetails(file)}
             onPreview={(selectedFile, url) => onPreview(selectedFile, url)}
             onDownload={() => onDownload(file)}
             onDelete={() => onDelete(file)}
             selected={selectedIds?.has(file.id)}
-            onSelectionToggle={selectionMode && (selectionEligible?.(file) ?? true) ? () => onSelectionToggle?.(file) : undefined}
+            onSelectionToggle={
+              selectionMode && (selectionEligible?.(file) ?? true)
+                ? () => onSelectionToggle?.(file)
+                : undefined
+            }
             selectionDisabled={selectionDisabled}
           />
         );

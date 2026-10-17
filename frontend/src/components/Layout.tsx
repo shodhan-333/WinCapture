@@ -1,11 +1,4 @@
-import {
-  FolderOpen,
-  House,
-  Images,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { FolderOpen, House, Images, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -60,7 +53,10 @@ export default function Layout() {
     if (!profileMenuOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && !profileMenuRef.current?.contains(event.target)) {
+      if (
+        event.target instanceof Node &&
+        !profileMenuRef.current?.contains(event.target)
+      ) {
         setProfileMenuOpen(false);
       }
     };
@@ -111,34 +107,21 @@ export default function Layout() {
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    className={({ isActive }) =>
-                      navLinkClass(isActive)
-                    }
+                    className={({ isActive }) => navLinkClass(isActive)}
                   >
-                    <Icon
-                      aria-hidden="true"
-                      size={21}
-                      strokeWidth={1.8}
-                    />
+                    <Icon aria-hidden="true" size={21} strokeWidth={1.8} />
                     <span>{item.label}</span>
                   </NavLink>
                 );
               })}
-
             </nav>
 
             {/* Mobile navigation toggle */}
             <button
               type="button"
               className="hidden h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-xl border border-[rgba(255,255,255,0.65)] bg-white/45 text-[#3b5973] backdrop-blur-md transition-colors hover:bg-white/70 hover:text-[#126dd7] max-[1000px]:inline-flex"
-              onClick={() =>
-                setMobileOpen((current) => !current)
-              }
-              aria-label={
-                mobileOpen
-                  ? "Close navigation"
-                  : "Open navigation"
-              }
+              onClick={() => setMobileOpen((current) => !current)}
+              aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
               aria-expanded={mobileOpen}
               aria-controls="mobile-primary-navigation"
             >
@@ -150,7 +133,10 @@ export default function Layout() {
             </button>
 
             {/* Account controls */}
-            <div ref={profileMenuRef} className="relative ml-auto flex flex-none items-center border-l border-[rgba(189,211,229,0.45)] pl-5 max-[1200px]:pl-3 max-[760px]:border-l-0 max-[760px]:pl-0">
+            <div
+              ref={profileMenuRef}
+              className="relative ml-auto flex flex-none items-center border-l border-[rgba(189,211,229,0.45)] pl-5 max-[1200px]:pl-3 max-[760px]:border-l-0 max-[760px]:pl-0"
+            >
               <button
                 ref={profileTriggerRef}
                 type="button"
@@ -183,7 +169,11 @@ export default function Layout() {
               </button>
 
               {profileMenuOpen && (
-                <div role="menu" aria-label="Profile options" className="glass-popover absolute right-0 top-full z-[60] mt-2 min-w-[150px] rounded-xl p-1.5">
+                <div
+                  role="menu"
+                  aria-label="Profile options"
+                  className="glass-popover absolute right-0 top-full z-[60] mt-2 min-w-[150px] rounded-xl p-1.5"
+                >
                   <button
                     type="button"
                     role="menuitem"
@@ -217,20 +207,13 @@ export default function Layout() {
                       key={item.to}
                       to={item.to}
                       onClick={closeMobileNavigation}
-                      className={({ isActive }) =>
-                        navLinkClass(isActive, true)
-                      }
+                      className={({ isActive }) => navLinkClass(isActive, true)}
                     >
-                      <Icon
-                        aria-hidden="true"
-                        size={20}
-                        strokeWidth={1.8}
-                      />
+                      <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
                       <span>{item.label}</span>
                     </NavLink>
                   );
                 })}
-
               </div>
             </nav>
           )}

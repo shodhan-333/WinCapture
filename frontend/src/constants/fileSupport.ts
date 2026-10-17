@@ -33,10 +33,7 @@ export function getFileCategory(fileName: string): FileCategory | undefined {
   const extension = getFileExtension(fileName);
 
   return (
-    Object.entries(FILE_EXTENSIONS) as [
-      FileCategory,
-      readonly string[],
-    ][]
+    Object.entries(FILE_EXTENSIONS) as [FileCategory, readonly string[]][]
   ).find(([, extensions]) => extensions.includes(extension))?.[0];
 }
 
@@ -61,5 +58,7 @@ export function isPreviewableFile(fileName: string): boolean {
 }
 
 export function isImagePreviewableFile(fileName: string): boolean {
-  return FILE_EXTENSIONS.Images.includes(getFileExtension(fileName) as (typeof FILE_EXTENSIONS.Images)[number]);
+  return FILE_EXTENSIONS.Images.includes(
+    getFileExtension(fileName) as (typeof FILE_EXTENSIONS.Images)[number],
+  );
 }

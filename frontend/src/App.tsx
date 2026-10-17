@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useRef,
-} from "react";
-import {
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "./context/AuthContext";
 import {
@@ -20,15 +13,8 @@ import AlbumDetailPage from "./pages/AlbumDetailPage";
 import FilesPage from "./pages/FilesPage";
 
 function AuthGate() {
-  const {
-    account,
-    user,
-    loading,
-    login,
-    logout,
-    error,
-    refreshUser,
-  } = useAuth();
+  const { account, user, loading, login, logout, error, refreshUser } =
+    useAuth();
   const redirectStarted = useRef(false);
 
   useEffect(() => {
@@ -74,8 +60,7 @@ function AuthGate() {
               </h1>
 
               <p className="mt-[5px] text-[10px] leading-[1.55] text-[#8195a6]">
-                Preparing your secure
-                WinCapture workspace.
+                Preparing your secure WinCapture workspace.
               </p>
             </div>
           </div>
@@ -99,11 +84,27 @@ function AuthGate() {
         <div className="pointer-events-none absolute bottom-[-150px] left-[-100px] z-[-1] h-[280px] w-[280px] rounded-full bg-[rgba(103,181,247,0.13)] blur-[1px]" />
 
         <section className="surface relative w-[min(460px,100%)] rounded-[22px] p-7 shadow-[0_24px_60px_rgba(44,93,135,0.11),inset_0_1px_rgba(255,255,255,0.86)]">
-          <h1 className="text-lg font-semibold text-[#183a57]">Unable to connect to WinCapture</h1>
-          <p role="alert" className="mt-3 text-sm text-[#60798e]">{error}</p>
+          <h1 className="text-lg font-semibold text-[#183a57]">
+            Unable to connect to WinCapture
+          </h1>
+          <p role="alert" className="mt-3 text-sm text-[#60798e]">
+            {error}
+          </p>
           <div className="mt-5 flex gap-3">
-            <button className="primary-action" type="button" onClick={() => void (account ? refreshUser() : login())}>Retry</button>
-            <button className="secondary-action" type="button" onClick={() => void logout()}>Sign out</button>
+            <button
+              className="primary-action"
+              type="button"
+              onClick={() => void (account ? refreshUser() : login())}
+            >
+              Retry
+            </button>
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={() => void logout()}
+            >
+              Sign out
+            </button>
           </div>
         </section>
       </main>
@@ -142,8 +143,7 @@ function AuthGate() {
               </h1>
 
               <p className="mt-[5px] text-[10px] leading-[1.55] text-[#8195a6]">
-                Taking you to secure
-                Microsoft sign-in.
+                Taking you to secure Microsoft sign-in.
               </p>
             </div>
           </div>
@@ -164,10 +164,7 @@ function AuthGate() {
 }
 
 export default function App() {
-  const {
-    user,
-    loading,
-  } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading && !user) {
     return <AuthGate />;
@@ -180,50 +177,19 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route
-          path="/"
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
-        />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        <Route
-          path="/dashboard"
-          element={<Dashboard />}
-        />
+        <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route
-          path="/albums"
-          element={<AlbumsPage />}
-        />
+        <Route path="/albums" element={<AlbumsPage />} />
 
-        <Route
-          path="/albums/:albumId"
-          element={
-            <AlbumDetailPage />
-          }
-        />
+        <Route path="/albums/:albumId" element={<AlbumDetailPage />} />
 
-        <Route
-          path="/files"
-          element={<FilesPage />}
-        />
-
+        <Route path="/files" element={<FilesPage />} />
       </Route>
 
       {/* Send unknown paths back to the main dashboard. */}
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/dashboard"
-            replace
-          />
-        }
-      />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

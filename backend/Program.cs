@@ -150,11 +150,12 @@ builder.Services.AddOpenApi(options =>
             }
         };
 
-        foreach (var operation in document.Paths.Values.SelectMany(path => path.Operations))
+        foreach (var operation in document.Paths.Values
+            .SelectMany(path => path.Operations?.Values ?? Enumerable.Empty<OpenApiOperation>()))
         {
-            operation.Value.Security ??= new List<OpenApiSecurityRequirement>();
+            operation.Security ??= new List<OpenApiSecurityRequirement>();
 
-            operation.Value.Security.Add(new OpenApiSecurityRequirement
+            operation.Security.Add(new OpenApiSecurityRequirement
             {
                 [new OpenApiSecuritySchemeReference("oauth2", document)] = []
             });

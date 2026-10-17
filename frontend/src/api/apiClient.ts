@@ -19,7 +19,10 @@ import type { AdminFileResponse, FileResponse } from "../types/file";
 
 // Several dashboard requests can discover the same expired/missing consent at once.
 // Share one redirect per MSAL instance so those requests cannot start competing flows.
-const interactiveTokenRequests = new WeakMap<IPublicClientApplication, Promise<void>>();
+const interactiveTokenRequests = new WeakMap<
+  IPublicClientApplication,
+  Promise<void>
+>();
 
 function beginInteractiveTokenAcquisition(
   instance: IPublicClientApplication,
@@ -380,6 +383,7 @@ export async function getAlbumFiles(
       undefined,
       category,
     ),
+    { cache: "no-store" },
   );
 
   return (await response.json()) as PagedResponse<FileResponse>;
@@ -487,9 +491,14 @@ export async function deleteAlbumFile(
   albumId: number,
   fileId: number,
 ): Promise<{ storageCleanupComplete: boolean }> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`, {
-    method: "DELETE",
-  });
+  const response = await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}`,
+    {
+      method: "DELETE",
+    },
+  );
   if (response.status === 204) return { storageCleanupComplete: true };
   return (await response.json()) as { storageCleanupComplete: boolean };
 }
@@ -500,9 +509,14 @@ export async function removeAlbumFileAssociation(
   albumId: number,
   fileId: number,
 ): Promise<void> {
-  await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}/association`, {
-    method: "DELETE",
-  });
+  await callApi(
+    instance,
+    account,
+    `/api/albums/${albumId}/files/${fileId}/association`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 // Personal Files

@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
+import type {
+  AccountInfo,
+  IPublicClientApplication,
+} from "@azure/msal-browser";
 
 import { getAlbumFiles, getFilePreviewUrl } from "../api/apiClient";
 import type { AlbumResponse } from "../types/album";
@@ -40,7 +43,14 @@ export default function useAlbumCoverPreviews(
       const entries = await Promise.all(
         albums.map(async (album) => {
           try {
-            const page = await getAlbumFiles(instance, account, album.id, 1, 100, "Images");
+            const page = await getAlbumFiles(
+              instance,
+              account,
+              album.id,
+              1,
+              100,
+              "Images",
+            );
             const image = page.items[0];
             if (!image) return null;
 
@@ -63,7 +73,9 @@ export default function useAlbumCoverPreviews(
       if (!active) return;
       setCoverUrls(
         Object.fromEntries(
-          entries.filter((entry): entry is readonly [number, string] => entry !== null),
+          entries.filter(
+            (entry): entry is readonly [number, string] => entry !== null,
+          ),
         ),
       );
     };

@@ -8,6 +8,7 @@ export interface FileResponse {
   downloadUrl: string;
   isFavorite: boolean;
   canManage: boolean;
+  canDownload: boolean;
 }
 
 export interface AdminFileResponse {
@@ -21,4 +22,3 @@ export interface AdminFileResponse {
   albumId: number | null;
   albumName: string | null;
 }
-

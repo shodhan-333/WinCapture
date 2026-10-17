@@ -4,19 +4,13 @@ import type {
   IPublicClientApplication,
 } from "@azure/msal-browser";
 
-import {
-  addFavorite,
-  removeFavorite,
-} from "../api/apiClient";
+import { addFavorite, removeFavorite } from "../api/apiClient";
 import type { FileResponse } from "../types/file";
 
 interface UseFileFavoritesOptions {
   instance: IPublicClientApplication;
   account: AccountInfo | null;
-  onSuccess: (
-    file: FileResponse,
-    nextFavorite: boolean,
-  ) => void;
+  onSuccess: (file: FileResponse, nextFavorite: boolean) => void;
   onError: (message: string) => void;
 }
 
@@ -26,25 +20,21 @@ export default function useFileFavorites({
   onSuccess,
   onError,
 }: UseFileFavoritesOptions) {
-  const [pendingIds, setPendingIds] =
-    useState<Set<number>>(new Set());
+  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
 
-  const setPending = useCallback(
-    (fileId: number, pending: boolean) => {
-      setPendingIds((previous) => {
-        const next = new Set(previous);
+  const setPending = useCallback((fileId: number, pending: boolean) => {
+    setPendingIds((previous) => {
+      const next = new Set(previous);
 
-        if (pending) {
-          next.add(fileId);
-        } else {
-          next.delete(fileId);
-        }
+      if (pending) {
+        next.add(fileId);
+      } else {
+        next.delete(fileId);
+      }
 
-        return next;
-      });
-    },
-    [],
-  );
+      return next;
+    });
+  }, []);
 
   const toggleFavorite = useCallback(
     async (file: FileResponse) => {
@@ -58,17 +48,9 @@ export default function useFileFavorites({
 
       try {
         if (nextFavorite) {
-          await addFavorite(
-            instance,
-            account,
-            file.id,
-          );
+          await addFavorite(instance, account, file.id);
         } else {
-          await removeFavorite(
-            instance,
-            account,
-            file.id,
-          );
+          await removeFavorite(instance, account, file.id);
         }
 
         onSuccess(file, nextFavorite);
@@ -82,14 +64,7 @@ export default function useFileFavorites({
         setPending(file.id, false);
       }
     },
-    [
-      account,
-      instance,
-      onError,
-      onSuccess,
-      pendingIds,
-      setPending,
-    ],
+    [account, instance, onError, onSuccess, pendingIds, setPending],
   );
 
   return {

@@ -7,5 +7,3 @@ export interface CurrentUser {
   role: UserRole;
   authenticationType: string;
 }
-
-

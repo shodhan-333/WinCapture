@@ -1,12 +1,9 @@
 export function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function formatFileSize(bytes: number): string {
@@ -24,9 +21,7 @@ export function formatFileSize(bytes: number): string {
 export function formatFileType(contentType: string): string {
   const [type, subtype] = contentType.split("/");
 
-  return subtype
-    ? subtype.toUpperCase()
-    : type.toUpperCase();
+  return subtype ? subtype.toUpperCase() : type.toUpperCase();
 }
 
 export function getInitials(name?: string): string {
@@ -42,5 +37,3 @@ export function getInitials(name?: string): string {
 
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
-
-
