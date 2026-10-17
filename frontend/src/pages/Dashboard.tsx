@@ -65,17 +65,24 @@ export default function Dashboard() {
 
   const [albums, setAlbums] = useState<AlbumResponse[]>([]);
   const [files, setFiles] = useState<FileResponse[]>([]);
-  const [fileCategoryCounts, setFileCategoryCounts] = useState<Record<string, number>>({});
+  const [fileCategoryCounts, setFileCategoryCounts] = useState<
+    Record<string, number>
+  >({});
   const [contentScope, setContentScope] = useState<"mine" | "all">("mine");
   const [contentVersion, setContentVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recentDataKey = useRef<string | null>(null);
-  const categoryCountsCache = useRef(new Map<string, {
-    version: number;
-    counts: Record<string, number>;
-  }>());
+  const categoryCountsCache = useRef(
+    new Map<
+      string,
+      {
+        version: number;
+        counts: Record<string, number>;
+      }
+    >(),
+  );
 
   const recentAlbums = albums;
   const recentFiles = files;
@@ -139,11 +146,13 @@ export default function Dashboard() {
               ] as const)
             : Promise.resolve(null),
           shouldLoadCounts
-            ? Promise.all(dashboardFileCategories.map(({ label }) =>
-                contentScope === "all" && user?.role === "Admin"
-                  ? getAdminFiles(instance, account, 1, 1, undefined, label)
-                  : getFiles(instance, account, 1, 1, undefined, label),
-              ))
+            ? Promise.all(
+                dashboardFileCategories.map(({ label }) =>
+                  contentScope === "all" && user?.role === "Admin"
+                    ? getAdminFiles(instance, account, 1, 1, undefined, label)
+                    : getFiles(instance, account, 1, 1, undefined, label),
+                ),
+              )
             : Promise.resolve([]),
         ]);
 
@@ -235,9 +244,7 @@ export default function Dashboard() {
         <div className="relative z-[1] flex max-w-[740px] flex-col justify-center">
           <h1 className="m-0 text-[clamp(28px,2.7vw,35px)] font-bold leading-[1.04] tracking-[-0.045em] text-[#173a55] max-[760px]:text-[27px]">
             Welcome back,{" "}
-            <span className="text-[#397eaf]">
-              {user?.name ?? "User"}
-            </span>
+            <span className="text-[#397eaf]">{user?.name ?? "User"}</span>
           </h1>
 
           <p className="mb-0 mt-2 max-w-[620px] text-[12px] leading-[1.55] text-[#687f91] max-[760px]:mt-2 max-[760px]:text-[11px]">
@@ -270,227 +277,262 @@ export default function Dashboard() {
       {error && <ErrorBanner message={error} />}
 
       {user?.role === "Admin" && (
-        <section className="surface flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-[15px] p-1.5" role="group" aria-label="Dashboard content scope">
-          <button type="button" aria-pressed={contentScope === "mine"} onClick={() => setContentScope("mine")} className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "mine" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
+        <section
+          className="surface flex w-fit max-w-full flex-wrap items-center gap-1.5 rounded-[15px] p-1.5"
+          role="group"
+          aria-label="Dashboard content scope"
+        >
+          <button
+            type="button"
+            aria-pressed={contentScope === "mine"}
+            onClick={() => setContentScope("mine")}
+            className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "mine" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}
+          >
             My Content
           </button>
-          <button type="button" aria-pressed={contentScope === "all"} onClick={() => setContentScope("all")} className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "all" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}>
+          <button
+            type="button"
+            aria-pressed={contentScope === "all"}
+            onClick={() => setContentScope("all")}
+            className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "all" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}
+          >
             All Content
           </button>
         </section>
       )}
 
-      <section aria-label="File counts by type" className="grid grid-cols-5 gap-2.5 max-[960px]:grid-cols-3 max-[760px]:grid-cols-2 max-[520px]:gap-2">
+      <section
+        aria-label="File counts by type"
+        className="grid grid-cols-5 gap-2.5 max-[960px]:grid-cols-3 max-[760px]:grid-cols-2 max-[520px]:gap-2"
+      >
         {dashboardFileCategories.map(({ label, icon: CategoryIcon }) => (
-          <div key={label} className={`${dashboardStatCardClass} rounded-[15px]`}>
-            <CategoryIcon aria-hidden="true" className="flex-none text-[#267fe2]" size={19} strokeWidth={1.8} />
+          <div
+            key={label}
+            className={`${dashboardStatCardClass} rounded-[15px]`}
+          >
+            <CategoryIcon
+              aria-hidden="true"
+              className="flex-none text-[#267fe2]"
+              size={19}
+              strokeWidth={1.8}
+            />
             <span className="grid min-w-0 gap-0">
-              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#71889c] max-[520px]:text-[9px]">{label}</span>
-              <strong className="text-[19px] font-bold leading-none tracking-[-0.04em] text-[#143653]">{fileCategoryCounts[label] ?? 0}</strong>
+              <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#71889c] max-[520px]:text-[9px]">
+                {label}
+              </span>
+              <strong className="text-[19px] font-bold leading-none tracking-[-0.04em] text-[#143653]">
+                {fileCategoryCounts[label] ?? 0}
+              </strong>
             </span>
           </div>
         ))}
       </section>
 
       {contentScope === "all" && user?.role === "Admin" ? (
-        <AdminContentPanel onContentChanged={() => setContentVersion((version) => version + 1)} />
+        <AdminContentPanel
+          onContentChanged={() => setContentVersion((version) => version + 1)}
+        />
       ) : (
-      <section className="grid grid-cols-2 gap-5 max-[960px]:grid-cols-1 max-[760px]:gap-4">
-        <section className={dashboardPanelClass}>
-          <div className={dashboardPanelHeaderClass}>
-            <div>
-              <p className="dashboard-panel-kicker">Collections</p>
-              <h2 className="mb-0 mt-1 text-[18px] font-semibold tracking-[-0.025em] text-[#153756] max-[520px]:text-[16px]">
-                Recent albums
-              </h2>
+        <section className="grid grid-cols-2 gap-5 max-[960px]:grid-cols-1 max-[760px]:gap-4">
+          <section className={dashboardPanelClass}>
+            <div className={dashboardPanelHeaderClass}>
+              <div>
+                <p className="dashboard-panel-kicker">Collections</p>
+                <h2 className="mb-0 mt-1 text-[18px] font-semibold tracking-[-0.025em] text-[#153756] max-[520px]:text-[16px]">
+                  Recent albums
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/albums")}
+                className={dashboardViewAllClass}
+              >
+                View all
+                <ArrowRight aria-hidden="true" size={14} strokeWidth={1.8} />
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate("/albums")}
-              className={dashboardViewAllClass}
-            >
-              View all
-              <ArrowRight aria-hidden="true" size={14} strokeWidth={1.8} />
-            </button>
-          </div>
-
-          <div className="flex flex-col">
-            {albums.length === 0 ? (
-              <div className="flex min-h-[220px] items-center justify-center gap-4 bg-white/20 p-7 backdrop-blur-md max-[520px]:flex-wrap max-[520px]:p-5">
-                <span className="grid h-[54px] w-[54px] flex-none place-items-center rounded-[18px] border border-white/80 bg-white/50 text-[#32678d] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_16px_rgba(26,54,80,0.05)] backdrop-blur-md">
-                  <Images aria-hidden="true" size={21} strokeWidth={1.6} />
-                </span>
-
-                <div className="min-w-0">
-                  <strong className="block text-[14px] font-semibold tracking-[-0.01em] text-[#334f68]">
-                    No albums yet
-                  </strong>
-                  <p className="mb-0 mt-1.5 max-w-[300px] text-[12px] leading-[1.6] text-[#8498a8]">
-                    Create your first album to start organizing your files.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/albums")}
-                  className="secondary-action compact-action"
-                >
-                  Open albums
-                </button>
-              </div>
-            ) : (
-              recentAlbums.map((album) => (
-                <button
-                  key={album.id}
-                  type="button"
-                  onClick={() => navigate(`/albums/${album.id}`)}
-                  className={dashboardListRowClass}
-                >
-                  <span className={`${dashboardIconClass} relative bg-[#e8f2ff] text-[#287bd7]`}>
-                    {albumCoverUrls[album.id] ? (
-                      <img
-                        src={albumCoverUrls[album.id]}
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover/row:scale-105"
-                      />
-                    ) : (
-                      <Images
-                        aria-hidden="true"
-                        size={18}
-                        strokeWidth={1.7}
-                      />
-                    )}
+            <div className="flex flex-col">
+              {albums.length === 0 ? (
+                <div className="flex min-h-[220px] items-center justify-center gap-4 bg-white/20 p-7 backdrop-blur-md max-[520px]:flex-wrap max-[520px]:p-5">
+                  <span className="grid h-[54px] w-[54px] flex-none place-items-center rounded-[18px] border border-white/80 bg-white/50 text-[#32678d] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_16px_rgba(26,54,80,0.05)] backdrop-blur-md">
+                    <Images aria-hidden="true" size={21} strokeWidth={1.6} />
                   </span>
 
-                  <span className="grid min-w-0 flex-1 gap-1">
-                    <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold tracking-[-0.01em] text-[#26445f] max-[520px]:text-[12px]">
-                      {album.albumName}
+                  <div className="min-w-0">
+                    <strong className="block text-[14px] font-semibold tracking-[-0.01em] text-[#334f68]">
+                      No albums yet
                     </strong>
-                    <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#7c91a2] max-[520px]:text-[10px]">
-                      Owner: {album.ownerName}
-                    </small>
-                  </span>
+                    <p className="mb-0 mt-1.5 max-w-[300px] text-[12px] leading-[1.6] text-[#8498a8]">
+                      Create your first album to start organizing your files.
+                    </p>
+                  </div>
 
-                  <span className="flex-none text-[11px] text-[#8299aa] max-[760px]:hidden">
-                    {formatDate(album.createdAt)}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/albums")}
+                    className="secondary-action compact-action"
+                  >
+                    Open albums
+                  </button>
+                </div>
+              ) : (
+                recentAlbums.map((album) => (
+                  <button
+                    key={album.id}
+                    type="button"
+                    onClick={() => navigate(`/albums/${album.id}`)}
+                    className={dashboardListRowClass}
+                  >
+                    <span
+                      className={`${dashboardIconClass} relative bg-[#e8f2ff] text-[#287bd7]`}
+                    >
+                      {albumCoverUrls[album.id] ? (
+                        <img
+                          src={albumCoverUrls[album.id]}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover/row:scale-105"
+                        />
+                      ) : (
+                        <Images
+                          aria-hidden="true"
+                          size={18}
+                          strokeWidth={1.7}
+                        />
+                      )}
+                    </span>
 
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="flex-none text-[#9cafbd]"
-                    size={15}
-                    strokeWidth={1.8}
-                  />
-                </button>
-              ))
-            )}
-          </div>
-        </section>
+                    <span className="grid min-w-0 flex-1 gap-1">
+                      <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold tracking-[-0.01em] text-[#26445f] max-[520px]:text-[12px]">
+                        {album.albumName}
+                      </strong>
+                      <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#7c91a2] max-[520px]:text-[10px]">
+                        Owner: {album.ownerName}
+                      </small>
+                    </span>
 
-        <section className={dashboardPanelClass}>
-          <div className={dashboardPanelHeaderClass}>
-            <div>
-              <h2 className="mb-0 mt-1 text-[18px] font-semibold tracking-[-0.025em] text-[#153756] max-[520px]:text-[16px]">
-                Recent files
-              </h2>
+                    <span className="flex-none text-[11px] text-[#8299aa] max-[760px]:hidden">
+                      {formatDate(album.createdAt)}
+                    </span>
+
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="flex-none text-[#9cafbd]"
+                      size={15}
+                      strokeWidth={1.8}
+                    />
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className={dashboardPanelClass}>
+            <div className={dashboardPanelHeaderClass}>
+              <div>
+                <h2 className="mb-0 mt-1 text-[18px] font-semibold tracking-[-0.025em] text-[#153756] max-[520px]:text-[16px]">
+                  Recent files
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("/files")}
+                className={dashboardViewAllClass}
+              >
+                View all
+                <ArrowRight aria-hidden="true" size={14} strokeWidth={1.8} />
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate("/files")}
-              className={dashboardViewAllClass}
-            >
-              View all
-              <ArrowRight aria-hidden="true" size={14} strokeWidth={1.8} />
-            </button>
-          </div>
-
-          <div className="flex flex-col">
-            {files.length === 0 ? (
-              <div className="flex min-h-[220px] items-center justify-center gap-4 bg-white/20 p-7 backdrop-blur-md max-[520px]:flex-wrap max-[520px]:p-5">
-                <span className="grid h-[54px] w-[54px] flex-none place-items-center rounded-[18px] border border-white/80 bg-white/50 text-[#32678d] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_16px_rgba(26,54,80,0.05)] backdrop-blur-md">
-                  <FolderOpen
-                    aria-hidden="true"
-                    size={21}
-                    strokeWidth={1.6}
-                  />
-                </span>
-
-                <div className="min-w-0">
-                  <strong className="block text-[14px] font-semibold tracking-[-0.01em] text-[#334f68]">
-                    No files uploaded yet
-                  </strong>
-                  <p className="mb-0 mt-1.5 max-w-[300px] text-[12px] leading-[1.6] text-[#8498a8]">
-                    Upload a file to see it appear in your library.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("/files")}
-                  className="secondary-action compact-action"
-                >
-                  Open files
-                </button>
-              </div>
-            ) : (
-              recentFiles.map((file) => (
-                <button
-                  key={file.id}
-                  type="button"
-                  onClick={() => navigate("/files")}
-                  className={dashboardListRowClass}
-                >
-                  <span className={`${dashboardIconClass} relative bg-[#edf2f5] text-[#607d92]`}>
-                    {recentFilePreviewUrls[file.id] ? (
-                      <img
-                        src={recentFilePreviewUrls[file.id]}
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover/row:scale-105"
-                      />
-                    ) : file.contentType.startsWith("image/") ? (
-                      <span className="text-[8px] font-extrabold tracking-[0.04em]">
-                        IMG
-                      </span>
-                    ) : (
-                      <FolderOpen
-                        aria-hidden="true"
-                        size={18}
-                        strokeWidth={1.7}
-                      />
-                    )}
+            <div className="flex flex-col">
+              {files.length === 0 ? (
+                <div className="flex min-h-[220px] items-center justify-center gap-4 bg-white/20 p-7 backdrop-blur-md max-[520px]:flex-wrap max-[520px]:p-5">
+                  <span className="grid h-[54px] w-[54px] flex-none place-items-center rounded-[18px] border border-white/80 bg-white/50 text-[#32678d] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_16px_rgba(26,54,80,0.05)] backdrop-blur-md">
+                    <FolderOpen
+                      aria-hidden="true"
+                      size={21}
+                      strokeWidth={1.6}
+                    />
                   </span>
 
-                  <span className="grid min-w-0 flex-1 gap-1">
-                    <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold tracking-[-0.01em] text-[#26445f] max-[520px]:text-[12px]">
-                      {file.originalFileName}
+                  <div className="min-w-0">
+                    <strong className="block text-[14px] font-semibold tracking-[-0.01em] text-[#334f68]">
+                      No files uploaded yet
                     </strong>
-                    <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#7c91a2] max-[520px]:text-[10px]">
-                      {formatFileType(file.contentType)}
-                      <span aria-hidden="true">{" \u00B7 "}</span>
-                      {formatFileSize(file.fileSize)}
-                    </small>
-                  </span>
+                    <p className="mb-0 mt-1.5 max-w-[300px] text-[12px] leading-[1.6] text-[#8498a8]">
+                      Upload a file to see it appear in your library.
+                    </p>
+                  </div>
 
-                  <span className="flex-none text-[11px] text-[#8299aa] max-[760px]:hidden">
-                    {new Date(file.uploadedAt).toLocaleDateString()}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/files")}
+                    className="secondary-action compact-action"
+                  >
+                    Open files
+                  </button>
+                </div>
+              ) : (
+                recentFiles.map((file) => (
+                  <button
+                    key={file.id}
+                    type="button"
+                    onClick={() => navigate("/files")}
+                    className={dashboardListRowClass}
+                  >
+                    <span
+                      className={`${dashboardIconClass} relative bg-[#edf2f5] text-[#607d92]`}
+                    >
+                      {recentFilePreviewUrls[file.id] ? (
+                        <img
+                          src={recentFilePreviewUrls[file.id]}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover/row:scale-105"
+                        />
+                      ) : file.contentType.startsWith("image/") ? (
+                        <span className="text-[8px] font-extrabold tracking-[0.04em]">
+                          IMG
+                        </span>
+                      ) : (
+                        <FolderOpen
+                          aria-hidden="true"
+                          size={18}
+                          strokeWidth={1.7}
+                        />
+                      )}
+                    </span>
 
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="flex-none text-[#9cafbd]"
-                    size={15}
-                    strokeWidth={1.8}
-                  />
-                </button>
-              ))
-            )}
-          </div>
+                    <span className="grid min-w-0 flex-1 gap-1">
+                      <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold tracking-[-0.01em] text-[#26445f] max-[520px]:text-[12px]">
+                        {file.originalFileName}
+                      </strong>
+                      <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#7c91a2] max-[520px]:text-[10px]">
+                        {formatFileType(file.contentType)}
+                        <span aria-hidden="true">{" \u00B7 "}</span>
+                        {formatFileSize(file.fileSize)}
+                      </small>
+                    </span>
+
+                    <span className="flex-none text-[11px] text-[#8299aa] max-[760px]:hidden">
+                      {new Date(file.uploadedAt).toLocaleDateString()}
+                    </span>
+
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="flex-none text-[#9cafbd]"
+                      size={15}
+                      strokeWidth={1.8}
+                    />
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
         </section>
-      </section>
       )}
     </div>
   );

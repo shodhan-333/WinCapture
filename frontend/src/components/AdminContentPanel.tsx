@@ -35,12 +35,17 @@ type ContentType = "albums" | "files";
 const PAGE_SIZE = 10;
 
 const scopeButtonClass = (active: boolean) =>
-  `min-h-[34px] cursor-pointer rounded-[9px] border px-[11px] text-[9px] font-semibold transition-[color,background,box-shadow,border-color] duration-150 ${active
-    ? "border-white/80 bg-white/75 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]"
-    : "border-transparent bg-transparent text-[#617c91] hover:bg-white/30 hover:text-[#284f70]"
+  `min-h-[34px] cursor-pointer rounded-[9px] border px-[11px] text-[9px] font-semibold transition-[color,background,box-shadow,border-color] duration-150 ${
+    active
+      ? "border-white/80 bg-white/75 text-[#145a99] shadow-[0_3px_12px_rgba(20,54,84,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)]"
+      : "border-transparent bg-transparent text-[#617c91] hover:bg-white/30 hover:text-[#284f70]"
   }`;
 
-export default function AdminContentPanel({ onContentChanged }: { onContentChanged: () => void }) {
+export default function AdminContentPanel({
+  onContentChanged,
+}: {
+  onContentChanged: () => void;
+}) {
   const navigate = useNavigate();
   const { instance } = useMsal();
   const { account, user } = useAuth();
@@ -66,21 +71,44 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
   const [error, setError] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
   const [previewSource, setPreviewSource] = useState<string | undefined>();
-  const adminFileResponses = useMemo<FileResponse[]>(() => files.map((file) => ({
-    ...file,
-    url: "",
-    downloadUrl: file.albumId === null
-      ? `/api/files/${file.id}/download`
-      : `/api/albums/${file.albumId}/files/${file.id}/download`,
-    isFavorite: false,
-    canManage: true,
-  })), [files]);
-  const loadAdminPreview = useCallback(async (file: FileResponse) => {
-    if (!account) throw new Error("An authenticated account is required.");
-    return getFilePreviewUrlByPath(instance, account, file.downloadUrl, file.contentType);
-  }, [accountKey, instance]);
-  const { previewUrls } = useFilePreviews(adminFileResponses, loadAdminPreview, true);
-  const albumCoverUrls = useAlbumCoverPreviews(albums, instance, account, user?.userId, true);
+  const adminFileResponses = useMemo<FileResponse[]>(
+    () =>
+      files.map((file) => ({
+        ...file,
+        url: "",
+        downloadUrl:
+          file.albumId === null
+            ? `/api/files/${file.id}/download`
+            : `/api/albums/${file.albumId}/files/${file.id}/download`,
+        isFavorite: false,
+        canManage: true,
+      })),
+    [files],
+  );
+  const loadAdminPreview = useCallback(
+    async (file: FileResponse) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return getFilePreviewUrlByPath(
+        instance,
+        account,
+        file.downloadUrl,
+        file.contentType,
+      );
+    },
+    [accountKey, instance],
+  );
+  const { previewUrls } = useFilePreviews(
+    adminFileResponses,
+    loadAdminPreview,
+    true,
+  );
+  const albumCoverUrls = useAlbumCoverPreviews(
+    albums,
+    instance,
+    account,
+    user?.userId,
+    true,
+  );
 
   useEffect(() => {
     let active = true;
@@ -132,9 +160,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
           Array.isArray(albumResult) ? 1 : (albumResult?.page ?? 1),
         );
 
-        setFilesPage(
-          Array.isArray(fileResult) ? 1 : (fileResult?.page ?? 1),
-        );
+        setFilesPage(Array.isArray(fileResult) ? 1 : (fileResult?.page ?? 1));
 
         setAlbumsPageCount(
           Array.isArray(albumResult) ? 1 : (albumResult?.pageCount ?? 1),
@@ -166,13 +192,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
     return () => {
       active = false;
     };
-  }, [
-    accountKey,
-    instance,
-    albumsPage,
-    filesPage,
-    searchQuery,
-  ]);
+  }, [accountKey, instance, albumsPage, filesPage, searchQuery]);
 
   const changeContentType = (nextType: ContentType) => {
     setContentType(nextType);
@@ -201,9 +221,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
 
       await deleteAlbum(instance, account, album.id);
 
-      setAlbums((current) =>
-        current.filter((item) => item.id !== album.id),
-      );
+      setAlbums((current) => current.filter((item) => item.id !== album.id));
       onContentChanged();
     } catch (caughtError) {
       // Keep the album listed when deletion fails so the administrator can retry.
@@ -230,9 +248,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
 
       await deleteFile(instance, account, file.id);
 
-      setFiles((current) =>
-        current.filter((item) => item.id !== file.id),
-      );
+      setFiles((current) => current.filter((item) => item.id !== file.id));
       onContentChanged();
     } catch (caughtError) {
       // Keep the file listed when deletion fails so the administrator can retry.
@@ -248,10 +264,16 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
     if (!account) return;
     try {
       setError(null);
-      const path = file.albumId === null
-        ? `/api/files/${file.id}/download`
-        : `/api/albums/${file.albumId}/files/${file.id}/download`;
-      const source = await getFilePreviewUrlByPath(instance, account, path, file.contentType);
+      const path =
+        file.albumId === null
+          ? `/api/files/${file.id}/download`
+          : `/api/albums/${file.albumId}/files/${file.id}/download`;
+      const source = await getFilePreviewUrlByPath(
+        instance,
+        account,
+        path,
+        file.contentType,
+      );
       setPreviewSource(source);
       setPreviewFile({
         id: file.id,
@@ -265,7 +287,11 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
         canManage: true,
       });
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to preview this file.");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to preview this file.",
+      );
     }
   };
 
@@ -301,13 +327,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
       {error && (
         <ErrorBanner
           message={error}
-          icon={
-            <AlertCircle
-              aria-hidden="true"
-              size={17}
-              strokeWidth={1.8}
-            />
-          }
+          icon={<AlertCircle aria-hidden="true" size={17} strokeWidth={1.8} />}
         />
       )}
 
@@ -359,9 +379,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
       <section className="surface min-w-0 overflow-hidden rounded-[17px]">
         <header className="flex min-h-[70px] items-center justify-between gap-3 border-b border-[rgba(255,255,255,0.5)] px-[18px]">
           <div>
-            <p className="dashboard-panel-kicker">
-              All Content
-            </p>
+            <p className="dashboard-panel-kicker">All Content</p>
 
             <h2 className="mt-1 mb-0 text-[16px] leading-[1.25] font-[650] tracking-[-0.025em] text-[#163855]">
               {contentType === "albums" ? "Albums" : "Files"}
@@ -377,11 +395,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
           totalAlbums === 0 ? (
             <div className="flex min-h-[220px] items-center justify-center gap-[11px] p-[22px]">
               <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[13px] border border-white/70 bg-[rgba(235,245,255,0.65)] text-[#2a7bd4] shadow-[0_4px_12px_rgba(42,123,212,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
-                <Images
-                  aria-hidden="true"
-                  size={23}
-                  strokeWidth={1.5}
-                />
+                <Images aria-hidden="true" size={23} strokeWidth={1.5} />
               </span>
 
               <div>
@@ -406,7 +420,15 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
                   className="flex min-h-[72px] items-center gap-[10px] border-b border-[rgba(255,255,255,0.45)] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(255,255,255,0.45)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]"
                 >
                   <span className="grid h-[46px] w-[58px] flex-none place-items-center overflow-hidden rounded-[10px] border border-white/70 bg-[rgba(235,244,255,0.7)] text-[#2879d1] shadow-[0_2px_8px_rgba(40,120,210,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
-                    {albumCoverUrls[album.id] ? <img src={albumCoverUrls[album.id]} alt="" className="h-full w-full object-cover" /> : <Images aria-hidden="true" size={19} strokeWidth={1.7} />}
+                    {albumCoverUrls[album.id] ? (
+                      <img
+                        src={albumCoverUrls[album.id]}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Images aria-hidden="true" size={19} strokeWidth={1.7} />
+                    )}
                   </span>
 
                   <div className="grid min-w-0 flex-1 gap-1">
@@ -423,9 +445,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
                   </div>
 
                   <div className="grid flex-none gap-0.5 text-right max-[520px]:hidden">
-                    <small className="text-[7px] text-[#a0aeb9]">
-                      Created
-                    </small>
+                    <small className="text-[7px] text-[#a0aeb9]">Created</small>
 
                     <strong className="text-[8px] font-semibold text-[#73899b]">
                       {formatDate(album.createdAt)}
@@ -464,11 +484,7 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
         ) : totalFiles === 0 ? (
           <div className="flex min-h-[220px] items-center justify-center gap-[11px] p-[22px]">
             <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-[13px] border border-white/70 bg-[rgba(240,238,255,0.65)] text-[#6e65ce] shadow-[0_4px_12px_rgba(110,101,206,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
-              <FileText
-                aria-hidden="true"
-                size={23}
-                strokeWidth={1.5}
-              />
+              <FileText aria-hidden="true" size={23} strokeWidth={1.5} />
             </span>
 
             <div>
@@ -492,8 +508,18 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
                 key={file.id}
                 className="flex min-h-[72px] items-center gap-[10px] border-b border-[rgba(255,255,255,0.45)] px-[15px] py-[10px] transition-[background,padding] duration-[170ms] hover:bg-[rgba(255,255,255,0.45)] hover:pl-[18px] last:border-b-0 max-[520px]:gap-[7px] max-[520px]:px-[11px]"
               >
-                <button type="button" onClick={() => void handlePreviewFile(file)} aria-label={`Preview ${file.originalFileName}`} className="h-[58px] w-[58px] flex-none overflow-hidden rounded-[12px] border border-white/70 bg-[rgba(240,238,255,0.7)] text-[#6862d0] shadow-[0_2px_8px_rgba(100,90,210,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]">
-                  <PreviewThumbnail file={adminFileResponses.find((item) => item.id === file.id)!} src={previewUrls[file.id]} />
+                <button
+                  type="button"
+                  onClick={() => void handlePreviewFile(file)}
+                  aria-label={`Preview ${file.originalFileName}`}
+                  className="h-[58px] w-[58px] flex-none overflow-hidden rounded-[12px] border border-white/70 bg-[rgba(240,238,255,0.7)] text-[#6862d0] shadow-[0_2px_8px_rgba(100,90,210,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]"
+                >
+                  <PreviewThumbnail
+                    file={
+                      adminFileResponses.find((item) => item.id === file.id)!
+                    }
+                    src={previewUrls[file.id]}
+                  />
                 </button>
 
                 <div className="grid min-w-0 flex-1 gap-1">
@@ -520,7 +546,9 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
                   <strong className="text-[8px] font-semibold text-[#73899b]">
                     {formatFileSize(file.fileSize)}
                   </strong>
-                    <small className="text-[7px] text-[#879aa9]">{formatDate(file.uploadedAt)}</small>
+                  <small className="text-[7px] text-[#879aa9]">
+                    {formatDate(file.uploadedAt)}
+                  </small>
                 </div>
 
                 <span className="flex-none text-[8px] text-[#9baab6] max-[520px]:hidden">
@@ -528,22 +556,25 @@ export default function AdminContentPanel({ onContentChanged }: { onContentChang
                 </span>
 
                 <div className="flex flex-none items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => navigate("/files")}
-                  className="inline-flex min-h-[30px] items-center gap-1 rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#2b72bd]"
-                  aria-label="Manage files"
-                  title="Open files page"
-                ><Settings2 aria-hidden="true" size={13} />Manage</button>
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteFile(file)}
-                  className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[8px] border border-[rgba(240,160,160,0.45)] bg-[rgba(255,245,245,0.55)] text-[#b04040] shadow-[0_2px_6px_rgba(180,40,40,0.05),inset_0_1px_rgba(255,255,255,0.8)] backdrop-blur-md transition-all hover:bg-[rgba(255,235,235,0.8)] hover:text-[#9e2c2c]"
-                  aria-label={`Delete file ${file.originalFileName}`}
-                  title="Delete file"
-                >
-                  <Trash2 aria-hidden="true" size={13} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/files")}
+                    className="inline-flex min-h-[30px] items-center gap-1 rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.55)] px-2 text-[9px] font-semibold text-[#2b72bd]"
+                    aria-label="Manage files"
+                    title="Open files page"
+                  >
+                    <Settings2 aria-hidden="true" size={13} />
+                    Manage
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteFile(file)}
+                    className="grid h-[30px] w-[30px] flex-none place-items-center rounded-[8px] border border-[rgba(240,160,160,0.45)] bg-[rgba(255,245,245,0.55)] text-[#b04040] shadow-[0_2px_6px_rgba(180,40,40,0.05),inset_0_1px_rgba(255,255,255,0.8)] backdrop-blur-md transition-all hover:bg-[rgba(255,235,235,0.8)] hover:text-[#9e2c2c]"
+                    aria-label={`Delete file ${file.originalFileName}`}
+                    title="Delete file"
+                  >
+                    <Trash2 aria-hidden="true" size={13} />
+                  </button>
                 </div>
               </div>
             ))}

@@ -21,4 +21,3 @@ export interface AdminFileResponse {
   albumId: number | null;
   albumName: string | null;
 }
-

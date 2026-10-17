@@ -6,7 +6,8 @@ export const msalTenantId = import.meta.env.VITE_MSAL_TENANT_ID?.trim() ?? "";
 export const msalRedirectUri =
   import.meta.env.VITE_MSAL_REDIRECT_URI?.trim() || "https://localhost:5173/";
 export const msalPostLogoutRedirectUri =
-  import.meta.env.VITE_MSAL_POST_LOGOUT_REDIRECT_URI?.trim() || "https://localhost:5173/";
+  import.meta.env.VITE_MSAL_POST_LOGOUT_REDIRECT_URI?.trim() ||
+  "https://localhost:5173/";
 export const apiScope = import.meta.env.VITE_MSAL_API_SCOPE?.trim() ?? "";
 
 export function validateEnvironment(): string[] {
@@ -51,5 +52,3 @@ export const loginRequest: RedirectRequest = {
   scopes: [apiScope],
   redirectStartPage: "/",
 };
-
-

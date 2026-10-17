@@ -132,7 +132,7 @@ export default function MultiFileUploadDialog({
         <header className="flex items-start justify-between gap-4 border-b border-white/55 px-5 py-4">
           <div>
             <h2 id="multi-upload-title" className="m-0 text-[17px] font-[700] text-[#183b59]">{title}</h2>
-            <p className="mb-0 mt-1 text-[11px] leading-relaxed text-[#71879a]">{description}</p>
+            <p className="mb-0 mt-1 text-[11px] leading-relaxed text-[#38566f]">{description}</p>
           </div>
           <button type="button" onClick={onClose} disabled={isUploading} aria-label="Close upload dialog" className="grid h-8 w-8 flex-none place-items-center rounded-full border border-white/70 bg-white/55 text-[#58738a] disabled:opacity-50"><X size={16} /></button>
         </header>
@@ -162,7 +162,7 @@ export default function MultiFileUploadDialog({
             >
               <span className="mx-auto grid h-11 w-11 place-items-center rounded-[14px] border border-white/80 bg-white/65 text-[#2879d1]"><FilePlus2 size={21} /></span>
               <p className="mb-0 mt-3 text-[12px] font-semibold text-[#38566f]">Drop files here, or choose files</p>
-              <p className="mb-3 mt-1 text-[10px] text-[#8296a6]">Supported formats only · up to 10 MB per file</p>
+              <p className="mb-3 mt-1 text-[11px] text-[#38566f]">up to 10 MB per file</p>
               <button type="button" onClick={() => inputRef.current?.click()} disabled={isUploading} className="secondary-action min-h-[32px] px-3 text-[10px] disabled:opacity-50">Choose files</button>
             </div>
           )}

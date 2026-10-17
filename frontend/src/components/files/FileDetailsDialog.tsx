@@ -56,15 +56,24 @@ export default function FileDetailsDialog({
 
         <dl className="mt-5 grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-3 border-t border-[rgba(255,255,255,0.45)] pt-4 text-[11px]">
           <dt className="text-[#5a778e]">File ID</dt>
-          <dd className="m-0 break-all font-semibold text-[#163855]">{file.id}</dd>
+          <dd className="m-0 break-all font-semibold text-[#163855]">
+            {file.id}
+          </dd>
           <dt className="text-[#5a778e]">Type</dt>
           <dd className="m-0 break-all font-semibold text-[#163855]">
-            {formatFileType(file.contentType)} <span className="font-medium text-[#658299]">({file.contentType})</span>
+            {formatFileType(file.contentType)}{" "}
+            <span className="font-medium text-[#658299]">
+              ({file.contentType})
+            </span>
           </dd>
           <dt className="text-[#5a778e]">Size</dt>
-          <dd className="m-0 font-semibold text-[#163855]">{formatFileSize(file.fileSize)}</dd>
+          <dd className="m-0 font-semibold text-[#163855]">
+            {formatFileSize(file.fileSize)}
+          </dd>
           <dt className="text-[#5a778e]">Added</dt>
-          <dd className="m-0 font-semibold text-[#163855]">{formatDate(file.uploadedAt)}</dd>
+          <dd className="m-0 font-semibold text-[#163855]">
+            {formatDate(file.uploadedAt)}
+          </dd>
         </dl>
       </section>
     </div>
