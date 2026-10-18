@@ -5,28 +5,61 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import Dashboard from "../../../frontend/src/pages/Dashboard";
-import AlbumsPage from "../../../frontend/src/pages/AlbumsPage";
-import FilesPage from "../../../frontend/src/pages/FilesPage";
-import AlbumDetailPage from "../../../frontend/src/pages/AlbumDetailPage";
-import Layout from "../../../frontend/src/components/Layout";
-import type { AlbumResponse } from "../../../frontend/src/types/album";
-import { ApiError } from "../../../frontend/src/types/api";
-import type { FileResponse, AdminFileResponse } from "../../../frontend/src/types/file";
+import { Dashboard } from "../../../frontend/src/features/dashboard/pages/Dashboard";
+import { AlbumsPage } from "../../../frontend/src/features/albums/pages/AlbumsPage";
+import { FilesPage } from "../../../frontend/src/features/files/pages/FilesPage";
+import { AlbumDetailPage } from "../../../frontend/src/features/albums/pages/AlbumDetailPage";
+import { Layout } from "../../../frontend/src/app/components/Layout";
+import type { AlbumResponse } from "../../../frontend/src/features/albums/types/album";
+import { ApiError } from "../../../frontend/src/shared/types/api";
+import type {
+  FileResponse,
+  AdminFileResponse,
+} from "../../../frontend/src/features/files/types/file";
 
 const state = vi.hoisted(() => ({
   api: {
-    getMyAlbums: vi.fn(), getFiles: vi.fn(), getFilePreviewUrl: vi.fn(),
-    getAlbums: vi.fn(), getSharedAlbums: vi.fn(), createAlbum: vi.fn(), getFavorites: vi.fn(),
-    getMyAdminAlbums: vi.fn(), getMyAdminFiles: vi.fn(), getAdminAlbums: vi.fn(), getAdminFiles: vi.fn(),
-    deleteAlbum: vi.fn(), deleteFile: vi.fn(), getAlbum: vi.fn(), getAlbumFiles: vi.fn(), getAlbumMembers: vi.fn(),
-    getFile: vi.fn(), uploadFile: vi.fn(), replaceFile: vi.fn(), downloadFileByPath: vi.fn(),
-    updateAlbum: vi.fn(), addAlbumMember: vi.fn(), updateAlbumMember: vi.fn(), removeAlbumMember: vi.fn(),
-    downloadAlbumFile: vi.fn(), deleteAlbumFile: vi.fn(), uploadAlbumFile: vi.fn(), replaceAlbumFile: vi.fn(),
-    addFavorite: vi.fn(), removeFavorite: vi.fn(), removeAlbumFileAssociation: vi.fn(),
-    getAlbumFile: vi.fn(), getFilePreviewUrlByPath: vi.fn(),
+    getMyAlbums: vi.fn(),
+    getFiles: vi.fn(),
+    getFilePreviewUrl: vi.fn(),
+    getAlbums: vi.fn(),
+    getSharedAlbums: vi.fn(),
+    createAlbum: vi.fn(),
+    getFavorites: vi.fn(),
+    getMyAdminAlbums: vi.fn(),
+    getMyAdminFiles: vi.fn(),
+    getAdminAlbums: vi.fn(),
+    getAdminFiles: vi.fn(),
+    deleteAlbum: vi.fn(),
+    deleteFile: vi.fn(),
+    getAlbum: vi.fn(),
+    getAlbumFiles: vi.fn(),
+    getAlbumMembers: vi.fn(),
+    getFile: vi.fn(),
+    uploadFile: vi.fn(),
+    replaceFile: vi.fn(),
+    downloadFileByPath: vi.fn(),
+    updateAlbum: vi.fn(),
+    addAlbumMember: vi.fn(),
+    updateAlbumMember: vi.fn(),
+    removeAlbumMember: vi.fn(),
+    downloadAlbumFile: vi.fn(),
+    deleteAlbumFile: vi.fn(),
+    uploadAlbumFile: vi.fn(),
+    replaceAlbumFile: vi.fn(),
+    addFavorite: vi.fn(),
+    removeFavorite: vi.fn(),
+    removeAlbumFileAssociation: vi.fn(),
+    getAlbumFile: vi.fn(),
+    getFilePreviewUrlByPath: vi.fn(),
   },
-  user: { userId: 7, name: "Maya Chen", email: "maya@example.test", role: "User", authenticationType: "Microsoft Entra ID" },
+  user: {
+    userId: 7,
+    name: "Maya Chen",
+    email: "maya@example.test",
+    role: "User",
+    authenticationType: "Microsoft Entra ID",
+  },
   logout: vi.fn(),
   account: { homeAccountId: "home-1" },
   instance: {},
@@ -38,12 +71,20 @@ const state = vi.hoisted(() => ({
 vi.mock("@azure/msal-react", () => ({
   useMsal: () => ({ instance: state.instance as IPublicClientApplication }),
 }));
-vi.mock("../../../frontend/src/context/AuthContext", () => ({
-  useAuth: () => ({ account: state.account as AccountInfo, user: state.user, logout: state.logout }),
+vi.mock("../../../frontend/src/features/auth/AuthContext", () => ({
+  useAuth: () => ({
+    account: state.account as AccountInfo,
+    user: state.user,
+    logout: state.logout,
+  }),
 }));
-vi.mock("../../../frontend/src/api/apiClient", () => state.api);
-vi.mock("../../../frontend/src/hooks/useFilePreviews", () => ({
-  default: (files: unknown[]) => {
+vi.mock("../../../frontend/src/features/albums/api/albumsApi", () => state.api);
+vi.mock("../../../frontend/src/features/files/api/filesApi", () => state.api);
+vi.mock("../../../frontend/src/shared/api/previews", () => ({
+  getFilePreviewUrlByPath: state.api.getFilePreviewUrlByPath,
+}));
+vi.mock("../../../frontend/src/features/files/hooks/useFilePreviews", () => ({
+  useFilePreviews: function MockUseFilePreviews(files: unknown[]) {
     const [, setRevision] = useState(0);
     useEffect(() => {
       if (state.trackPreviewEffects) {
@@ -54,7 +95,9 @@ vi.mock("../../../frontend/src/hooks/useFilePreviews", () => ({
     return { previewUrls: {}, loading: state.previewLoading };
   },
 }));
-vi.mock("../../../frontend/src/hooks/useAlbumCoverPreviews", () => ({ default: () => ({}) }));
+vi.mock("../../../frontend/src/features/albums/hooks/useAlbumCoverPreviews", () => ({
+  useAlbumCoverPreviews: () => ({}),
+}));
 
 const album: AlbumResponse = {
   id: 7,
@@ -86,7 +129,6 @@ const adminFile: AdminFileResponse = {
   albumId: null,
   albumName: null,
 };
-const instance = {} as IPublicClientApplication;
 const account = state.account as AccountInfo;
 const paged = <T,>(items: T[] = []) => ({
   items,
@@ -117,7 +159,13 @@ describe("page workflows", () => {
     state.previewLoading = false;
     state.trackPreviewEffects = false;
     state.previewEffectCalls = 0;
-    state.user = { userId: 7, name: "Maya Chen", email: "maya@example.test", role: "User", authenticationType: "Microsoft Entra ID" };
+    state.user = {
+      userId: 7,
+      name: "Maya Chen",
+      email: "maya@example.test",
+      role: "User",
+      authenticationType: "Microsoft Entra ID",
+    };
     state.account = account;
     state.logout.mockReset().mockResolvedValue(undefined);
     for (const mock of Object.values(state.api)) mock.mockReset().mockResolvedValue([]);
@@ -148,40 +196,70 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "New album" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Album name is required.");
 
-    fireEvent.change(screen.getByLabelText("New album name"), { target: { value: "  Coastal trip  " } });
+    fireEvent.change(screen.getByLabelText("New album name"), {
+      target: { value: "  Coastal trip  " },
+    });
     fireEvent.click(screen.getByRole("button", { name: "New album" }));
-    await waitFor(() => expect(state.api.createAlbum).toHaveBeenCalledWith(expect.anything(), account, { albumName: "Coastal trip" }));
+    await waitFor(() =>
+      expect(state.api.createAlbum).toHaveBeenCalledWith(expect.anything(), account, {
+        albumName: "Coastal trip",
+      }),
+    );
     await waitFor(() => expect(screen.getByTestId("current-path")).toHaveTextContent("/albums/7"));
   });
 
   it("filters albums by ownership and searches the selected result set", async () => {
-    state.api.getSharedAlbums.mockResolvedValue(paged([{
-      ...album,
-      id: 8,
-      albumName: "Shared coast",
-      ownerId: 9,
-      ownerName: "Alex Owner",
-    }]));
+    state.api.getSharedAlbums.mockResolvedValue(
+      paged([
+        {
+          ...album,
+          id: 8,
+          albumName: "Shared coast",
+          ownerId: 9,
+          ownerName: "Alex Owner",
+        },
+      ]),
+    );
     renderPage(<AlbumsPage />);
 
     await screen.findByRole("heading", { name: "No albums available" });
     fireEvent.click(screen.getByRole("button", { name: "Shared with me" }));
-    await waitFor(() => expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, ""));
+    await waitFor(() =>
+      expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, ""),
+    );
     expect(await screen.findByText("Shared coast")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search albums" }), {
       target: { value: "coast" },
     });
-    await waitFor(() => expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"));
+    await waitFor(() =>
+      expect(state.api.getSharedAlbums).toHaveBeenCalledWith(
+        expect.anything(),
+        account,
+        1,
+        9,
+        "coast",
+      ),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "My albums" }));
-    await waitFor(() => expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"));
+    await waitFor(() =>
+      expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"),
+    );
     fireEvent.click(screen.getByRole("button", { name: "All" }));
-    await waitFor(() => expect(state.api.getAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"));
+    await waitFor(() =>
+      expect(state.api.getAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"),
+    );
   });
 
   it("falls back to accessible albums when the deployed API lacks the shared-albums route", async () => {
-    const sharedAlbum = { ...album, id: 8, albumName: "Shared coast", ownerId: 9, ownerName: "Alex Owner" };
+    const sharedAlbum = {
+      ...album,
+      id: 8,
+      albumName: "Shared coast",
+      ownerId: 9,
+      ownerName: "Alex Owner",
+    };
     state.api.getSharedAlbums.mockRejectedValue(new ApiError("Not found", 404));
     state.api.getAlbums.mockResolvedValue(paged([album, sharedAlbum]));
 
@@ -196,42 +274,79 @@ describe("page workflows", () => {
 
   it("loads files, searches the current list, and requests favorites on view change", async () => {
     state.api.getFiles.mockImplementation((_instance, _account, _page, _size, search) =>
-      Promise.resolve(search === "missing" ? paged() : paged([file])));
+      Promise.resolve(search === "missing" ? paged() : paged([file])),
+    );
     state.api.getFavorites.mockImplementation((_instance, _account, _page, _size, search) =>
-      Promise.resolve(search === "missing" ? paged() : paged([{ ...file, isFavorite: true }])));
+      Promise.resolve(search === "missing" ? paged() : paged([{ ...file, isFavorite: true }])),
+    );
     renderPage(<FilesPage />);
 
     expect(await screen.findByRole("heading", { name: "Files" })).toBeInTheDocument();
     expect(screen.getByText("coast.pdf")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("textbox", { name: "Search files by name, type, or ID" }), {
-      target: { value: "missing" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: "Search files by name, type, or ID",
+      }),
+      {
+        target: { value: "missing" },
+      },
+    );
     expect(await screen.findByText("No files match your search")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
     expect(await screen.findByRole("heading", { name: "Favorites" })).toBeInTheDocument();
-    expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "All");
+    expect(state.api.getFavorites).toHaveBeenCalledWith(
+      expect.anything(),
+      account,
+      1,
+      12,
+      "missing",
+      "All",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Videos" }));
-    await waitFor(() => expect(state.api.getFavorites).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "missing", "Videos"));
+    await waitFor(() =>
+      expect(state.api.getFavorites).toHaveBeenCalledWith(
+        expect.anything(),
+        account,
+        1,
+        12,
+        "missing",
+        "Videos",
+      ),
+    );
   });
 
   it("does not let an older file search replace newer results", async () => {
     let resolveOlder: ((result: ReturnType<typeof paged<FileResponse>>) => void) | undefined;
     state.api.getFiles.mockImplementation((_instance, _account, _page, _size, search) => {
       if (search === "older") {
-        return new Promise((resolve) => { resolveOlder = resolve; });
+        return new Promise((resolve) => {
+          resolveOlder = resolve;
+        });
       }
-      return Promise.resolve(paged([search === "newer" ? { ...file, originalFileName: "newer.pdf" } : file]));
+      return Promise.resolve(
+        paged([search === "newer" ? { ...file, originalFileName: "newer.pdf" } : file]),
+      );
     });
 
     renderPage(<FilesPage />);
     expect(await screen.findByText("coast.pdf")).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("textbox", { name: "Search files by name, type, or ID" }), {
-      target: { value: "older" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: "Search files by name, type, or ID",
+      }),
+      {
+        target: { value: "older" },
+      },
+    );
     await waitFor(() => expect(resolveOlder).toBeDefined());
-    fireEvent.change(screen.getByRole("textbox", { name: "Search files by name, type, or ID" }), {
-      target: { value: "newer" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", {
+        name: "Search files by name, type, or ID",
+      }),
+      {
+        target: { value: "newer" },
+      },
+    );
     expect(await screen.findByText("newer.pdf")).toBeInTheDocument();
 
     await act(async () => {
@@ -250,7 +365,9 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upload files" }));
     const first = new File(["first"], "first.pdf", { type: "application/pdf" });
     const second = new File(["second"], "second.png", { type: "image/png" });
-    fireEvent.change(screen.getByLabelText("Choose files to upload"), { target: { files: [first, second] } });
+    fireEvent.change(screen.getByLabelText("Choose files to upload"), {
+      target: { files: [first, second] },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Upload 2 files" }));
 
     await screen.findAllByText("Uploads finished: 2 successful, 0 failed.");
@@ -307,7 +424,9 @@ describe("page workflows", () => {
     state.account = { ...account };
     rendered.rerender(
       <MemoryRouter initialEntries={["/albums/7"]}>
-        <Routes><Route path="/albums/:albumId" element={<AlbumDetailPage />} /></Routes>
+        <Routes>
+          <Route path="/albums/:albumId" element={<AlbumDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
 
@@ -332,8 +451,16 @@ describe("page workflows", () => {
 
   it("searches and deletes admin-scoped albums and files with confirmation", async () => {
     state.user = { ...state.user, role: "Admin" };
-    state.api.getAdminAlbums.mockResolvedValue({ ...paged([album]), totalItems: 11, pageCount: 2 });
-    state.api.getAdminFiles.mockResolvedValue({ ...paged([adminFile]), totalItems: 11, pageCount: 2 });
+    state.api.getAdminAlbums.mockResolvedValue({
+      ...paged([album]),
+      totalItems: 11,
+      pageCount: 2,
+    });
+    state.api.getAdminFiles.mockResolvedValue({
+      ...paged([adminFile]),
+      totalItems: 11,
+      pageCount: 2,
+    });
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     state.api.deleteAlbum.mockResolvedValue(undefined);
     state.api.deleteFile.mockResolvedValue(undefined);
@@ -344,15 +471,39 @@ describe("page workflows", () => {
     await screen.findByRole("button", { name: "Manage album Coastal trip" });
     await screen.findByRole("button", { name: "Manage file admin.pdf" });
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search all albums" }), { target: { value: " coast " } });
-    await waitFor(() => expect(state.api.getAdminAlbums).toHaveBeenLastCalledWith(expect.anything(), account, 1, 10, "coast"));
-    fireEvent.change(screen.getByRole("textbox", { name: "Search all files" }), { target: { value: " report " } });
-    await waitFor(() => expect(state.api.getAdminFiles).toHaveBeenLastCalledWith(expect.anything(), account, 1, 10, "report"));
+    fireEvent.change(screen.getByRole("textbox", { name: "Search all albums" }), {
+      target: { value: " coast " },
+    });
+    await waitFor(() =>
+      expect(state.api.getAdminAlbums).toHaveBeenLastCalledWith(
+        expect.anything(),
+        account,
+        1,
+        10,
+        "coast",
+      ),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Search all files" }), {
+      target: { value: " report " },
+    });
+    await waitFor(() =>
+      expect(state.api.getAdminFiles).toHaveBeenLastCalledWith(
+        expect.anything(),
+        account,
+        1,
+        10,
+        "report",
+      ),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Delete album Coastal trip" }));
-    await waitFor(() => expect(state.api.deleteAlbum).toHaveBeenCalledWith(expect.anything(), account, album.id));
+    await waitFor(() =>
+      expect(state.api.deleteAlbum).toHaveBeenCalledWith(expect.anything(), account, album.id),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Delete file admin.pdf" }));
-    await waitFor(() => expect(state.api.deleteFile).toHaveBeenCalledWith(expect.anything(), account, adminFile.id));
+    await waitFor(() =>
+      expect(state.api.deleteFile).toHaveBeenCalledWith(expect.anything(), account, adminFile.id),
+    );
     expect(confirm).toHaveBeenCalledTimes(2);
   });
 
@@ -384,7 +535,14 @@ describe("page workflows", () => {
 
     expect(await screen.findByRole("heading", { name: "Coastal trip" })).toBeInTheDocument();
     expect(state.api.getAlbum).toHaveBeenCalledWith(expect.anything(), account, 7);
-    expect(state.api.getAlbumFiles).toHaveBeenCalledWith(expect.anything(), account, 7, 1, 12, "All");
+    expect(state.api.getAlbumFiles).toHaveBeenCalledWith(
+      expect.anything(),
+      account,
+      7,
+      1,
+      12,
+      "All",
+    );
     expect(state.api.getAlbumMembers).toHaveBeenCalledWith(expect.anything(), account, 7);
   });
 
@@ -393,8 +551,12 @@ describe("page workflows", () => {
     await screen.findByRole("heading", { name: "Coastal trip" });
 
     fireEvent.click(screen.getByRole("button", { name: "Add files" }));
-    const upload = new File(["album file"], "album.pdf", { type: "application/pdf" });
-    fireEvent.change(screen.getByLabelText("Choose files to upload"), { target: { files: [upload] } });
+    const upload = new File(["album file"], "album.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(screen.getByLabelText("Choose files to upload"), {
+      target: { files: [upload] },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Upload 1 file" }));
 
     await screen.findAllByText("Uploads finished: 1 successful, 0 failed.");
@@ -425,8 +587,12 @@ describe("page workflows", () => {
     expect(screen.getByRole("alertdialog")).toHaveTextContent("Permanently delete 1 file?");
     expect(screen.getByRole("alertdialog")).toHaveTextContent("stored content");
     fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
-    await waitFor(() => expect(state.api.deleteFile).toHaveBeenCalledWith(expect.anything(), account, file.id));
-    await waitFor(() => expect(screen.queryByRole("checkbox", { name: "Select coast.pdf" })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(state.api.deleteFile).toHaveBeenCalledWith(expect.anything(), account, file.id),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("checkbox", { name: "Select coast.pdf" })).not.toBeInTheDocument(),
+    );
   });
 
   it("removes selected favorites without deleting their files", async () => {
@@ -439,8 +605,14 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove from Favorites" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent("underlying files will remain");
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove from Favorites" }));
-    await waitFor(() => expect(state.api.removeFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Remove from Favorites",
+      }),
+    );
+    await waitFor(() =>
+      expect(state.api.removeFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id),
+    );
     expect(state.api.deleteFile).not.toHaveBeenCalled();
   });
 
@@ -453,12 +625,16 @@ describe("page workflows", () => {
 
     await screen.findByText("coast.pdf");
     fireEvent.click(screen.getByTitle("Add to favorites"));
-    await waitFor(() => expect(state.api.addFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id));
+    await waitFor(() =>
+      expect(state.api.addFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
     await screen.findByText("coast.pdf");
     fireEvent.click(screen.getByTitle("Remove from favorites"));
 
-    await waitFor(() => expect(state.api.removeFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id));
+    await waitFor(() =>
+      expect(state.api.removeFavorite).toHaveBeenCalledWith(expect.anything(), account, file.id),
+    );
     await waitFor(() => expect(state.api.getFavorites).toHaveBeenCalledTimes(2));
   });
 
@@ -472,23 +648,44 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove from album" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent("file and its stored content remain");
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove from album" }));
-    await waitFor(() => expect(state.api.removeAlbumFileAssociation).toHaveBeenCalledWith(expect.anything(), account, 7, file.id));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Remove from album",
+      }),
+    );
+    await waitFor(() =>
+      expect(state.api.removeAlbumFileAssociation).toHaveBeenCalledWith(
+        expect.anything(),
+        account,
+        7,
+        file.id,
+      ),
+    );
     expect(state.api.deleteAlbumFile).not.toHaveBeenCalled();
   });
 
   it("keeps failed files selected after a partial delete", async () => {
     const secondFile = { ...file, id: 22, originalFileName: "second.pdf" };
     state.api.getFiles.mockResolvedValue(paged([file, secondFile]));
-    state.api.deleteFile.mockImplementation((_instance, _account, id) => id === file.id ? Promise.reject(new Error("Unavailable")) : Promise.resolve(undefined));
+    state.api.deleteFile.mockImplementation((_instance, _account, id) =>
+      id === file.id ? Promise.reject(new Error("Unavailable")) : Promise.resolve(undefined),
+    );
     renderPage(<FilesPage />);
     await screen.findByText("coast.pdf");
     fireEvent.click(screen.getByRole("button", { name: "Select files" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select second.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }));
-    await waitFor(() => expect(screen.getByText(/1 completed; 1 failed.*selected for review or retry\./)).toBeInTheDocument());
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(/1 completed; 1 failed.*selected for review or retry\./),
+      ).toBeInTheDocument(),
+    );
     expect(screen.getByRole("checkbox", { name: "Select coast.pdf" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Select second.pdf" })).not.toBeChecked();
     expect(screen.getByText("1 selected")).toBeInTheDocument();
@@ -508,10 +705,16 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select second.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    );
 
     expect(await screen.findByText(/1 completed; 1 failed \(coast\.pdf\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Storage cleanup needs reconciliation for: second\.pdf/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Storage cleanup needs reconciliation for: second\.pdf/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Select coast.pdf" })).toBeChecked();
   });
 
@@ -536,17 +739,24 @@ describe("page workflows", () => {
   });
 
   it("edits an album name and handles rejected deletion without navigating", async () => {
-    state.api.updateAlbum.mockResolvedValue({ ...album, albumName: "Renamed coast" });
+    state.api.updateAlbum.mockResolvedValue({
+      ...album,
+      albumName: "Renamed coast",
+    });
     state.api.deleteAlbum.mockRejectedValue(new Error("Permission denied"));
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage(<AlbumDetailPage />, "/albums/7");
 
     await screen.findByRole("heading", { name: "Coastal trip" });
     fireEvent.click(screen.getByRole("button", { name: "Edit album name" }));
-    fireEvent.change(screen.getByLabelText("Album name"), { target: { value: "  Renamed coast  " } });
+    fireEvent.change(screen.getByLabelText("Album name"), {
+      target: { value: "  Renamed coast  " },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("heading", { name: "Renamed coast" })).toBeInTheDocument();
-    expect(state.api.updateAlbum).toHaveBeenCalledWith(expect.anything(), account, 7, { albumName: "Renamed coast" });
+    expect(state.api.updateAlbum).toHaveBeenCalledWith(expect.anything(), account, 7, {
+      albumName: "Renamed coast",
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Delete album" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
@@ -570,36 +780,66 @@ describe("page workflows", () => {
     await screen.findByRole("heading", { name: "Coastal trip" });
     fireEvent.click(screen.getByText("Share access"));
 
-    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: " new@example.test " } });
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: " new@example.test " },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Share album" }));
-    await waitFor(() => expect(state.api.addAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, {
-      email: "new@example.test", canView: true, canDownload: true,
-    }));
+    await waitFor(() =>
+      expect(state.api.addAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, {
+        email: "new@example.test",
+        canView: true,
+        canDownload: true,
+      }),
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "View allowed for alex@example.test" }));
-    await waitFor(() => expect(state.api.updateAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, 44, {
-      canView: false, canDownload: false,
-    }));
-    fireEvent.click(screen.getByRole("button", { name: "Revoke access for alex@example.test" }));
-    await waitFor(() => expect(state.api.removeAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, 44));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "View allowed for alex@example.test",
+      }),
+    );
+    await waitFor(() =>
+      expect(state.api.updateAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, 44, {
+        canView: false,
+        canDownload: false,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Revoke access for alex@example.test",
+      }),
+    );
+    await waitFor(() =>
+      expect(state.api.removeAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, 44),
+    );
     expect(screen.queryByText("Alex Member")).not.toBeInTheDocument();
   });
 
   it("keeps download disabled when a member has no view access and grants view independently", async () => {
-    state.api.getAlbumMembers.mockResolvedValue([{
-      userId: 55, name: "Sam Viewer", email: "sam@example.test", canView: false,
-      canDownload: false, grantedAt: "2025-02-01T00:00:00Z",
-    }]);
+    state.api.getAlbumMembers.mockResolvedValue([
+      {
+        userId: 55,
+        name: "Sam Viewer",
+        email: "sam@example.test",
+        canView: false,
+        canDownload: false,
+        grantedAt: "2025-02-01T00:00:00Z",
+      },
+    ]);
     state.api.updateAlbumMember.mockResolvedValue(undefined);
     renderPage(<AlbumDetailPage />, "/albums/7");
     await screen.findByRole("heading", { name: "Coastal trip" });
     fireEvent.click(screen.getByText("Share access"));
 
-    expect(screen.getByRole("button", { name: "Download off for sam@example.test" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Download off for sam@example.test" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "View off for sam@example.test" }));
-    await waitFor(() => expect(state.api.updateAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, 55, {
-      canView: true, canDownload: false,
-    }));
+    await waitFor(() =>
+      expect(state.api.updateAlbumMember).toHaveBeenCalledWith(expect.anything(), account, 7, 55, {
+        canView: true,
+        canDownload: false,
+      }),
+    );
   });
 
   it("replaces a personal file and reports delete failures while keeping the file listed", async () => {
@@ -611,9 +851,20 @@ describe("page workflows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for coast.pdf" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Replace" }));
-    const replacement = new File(["replacement"], "new.pdf", { type: "application/pdf" });
-    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [replacement] } });
-    await waitFor(() => expect(state.api.replaceFile).toHaveBeenCalledWith(expect.anything(), account, file.id, replacement));
+    const replacement = new File(["replacement"], "new.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [replacement] },
+    });
+    await waitFor(() =>
+      expect(state.api.replaceFile).toHaveBeenCalledWith(
+        expect.anything(),
+        account,
+        file.id,
+        replacement,
+      ),
+    );
     expect(await screen.findByText("new.pdf replaced successfully.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for coast.pdf" }));
@@ -628,9 +879,25 @@ describe("page workflows", () => {
     renderPage(<FilesPage />, "/files?scope=all");
 
     expect(await screen.findByText("admin.pdf")).toBeInTheDocument();
-    expect(state.api.getAdminFiles).toHaveBeenCalledWith(expect.anything(), account, 1, 12, "", "All");
+    expect(state.api.getAdminFiles).toHaveBeenCalledWith(
+      expect.anything(),
+      account,
+      1,
+      12,
+      "",
+      "All",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Videos" }));
-    await waitFor(() => expect(state.api.getAdminFiles).toHaveBeenLastCalledWith(expect.anything(), account, 1, 12, "", "Videos"));
+    await waitFor(() =>
+      expect(state.api.getAdminFiles).toHaveBeenLastCalledWith(
+        expect.anything(),
+        account,
+        1,
+        12,
+        "",
+        "Videos",
+      ),
+    );
   });
 
   it("opens a file preview, loads details, and reports download failures", async () => {
@@ -643,7 +910,12 @@ describe("page workflows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open preview of coast.pdf" }));
     expect(await screen.findByRole("dialog", { name: "Preview coast.pdf" })).toBeInTheDocument();
-    expect(state.api.getFilePreviewUrlByPath).toHaveBeenCalledWith(expect.anything(), account, file.downloadUrl, file.contentType);
+    expect(state.api.getFilePreviewUrlByPath).toHaveBeenCalledWith(
+      expect.anything(),
+      account,
+      file.downloadUrl,
+      file.contentType,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Close file preview" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for coast.pdf" }));
@@ -661,7 +933,9 @@ describe("page workflows", () => {
     renderPage(<AlbumDetailPage />, "/albums/7");
 
     expect(await screen.findByText("coast.pdf")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Album opened, but sharing settings could not be loaded.");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Album opened, but sharing settings could not be loaded.",
+    );
     expect(screen.getByRole("heading", { name: "Coastal trip" })).toBeInTheDocument();
   });
 
@@ -673,9 +947,13 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByText("Share access"));
 
     fireEvent.click(screen.getByRole("button", { name: "Share album" }));
-    expect(await screen.findByText("An email address is required to share the album.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("An email address is required to share the album."),
+    ).toBeInTheDocument();
     expect(state.api.addAlbumMember).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "missing@example.test" } });
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "missing@example.test" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Share album" }));
     expect(await screen.findByText("User not found")).toBeInTheDocument();
 
@@ -687,15 +965,23 @@ describe("page workflows", () => {
 
   it("reports storage cleanup warnings after deleting album files", async () => {
     state.api.getAlbumFiles.mockResolvedValue(paged([file]));
-    state.api.deleteAlbumFile.mockResolvedValue({ storageCleanupComplete: false });
+    state.api.deleteAlbumFile.mockResolvedValue({
+      storageCleanupComplete: false,
+    });
     renderPage(<AlbumDetailPage />, "/albums/7");
     await screen.findByText("coast.pdf");
     fireEvent.click(screen.getByRole("button", { name: "Select files" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    );
 
-    expect(await screen.findByText(/Storage cleanup needs reconciliation for: coast\.pdf/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Storage cleanup needs reconciliation for: coast\.pdf/),
+    ).toBeInTheDocument();
     expect(state.api.deleteAlbumFile).toHaveBeenCalledWith(expect.anything(), account, 7, file.id);
   });
 
@@ -713,10 +999,16 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select coast.pdf" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select second.pdf" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
-    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete permanently" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete permanently",
+      }),
+    );
 
     expect(await screen.findByText(/1 completed; 1 failed \(coast\.pdf\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Storage cleanup needs reconciliation for: second\.pdf/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Storage cleanup needs reconciliation for: second\.pdf/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Select coast.pdf" })).toBeChecked();
   });
 
@@ -726,28 +1018,46 @@ describe("page workflows", () => {
     await screen.findByText("coast.pdf");
     fireEvent.click(screen.getByRole("button", { name: "Actions for coast.pdf" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Replace" }));
-    const unsupported = new File(["bad"], "unsafe.exe", { type: "application/octet-stream" });
-    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [unsupported] } });
+    const unsupported = new File(["bad"], "unsafe.exe", {
+      type: "application/octet-stream",
+    });
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [unsupported] },
+    });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Unsupported file format.");
     expect(state.api.replaceAlbumFile).not.toHaveBeenCalled();
   });
 
   it("keeps album members listed when permission updates or revocation fail", async () => {
-    state.api.getAlbumMembers.mockResolvedValue([{
-      userId: 44, name: "Alex Member", email: "alex@example.test", canView: true,
-      canDownload: true, grantedAt: "2025-02-01T00:00:00Z",
-    }]);
+    state.api.getAlbumMembers.mockResolvedValue([
+      {
+        userId: 44,
+        name: "Alex Member",
+        email: "alex@example.test",
+        canView: true,
+        canDownload: true,
+        grantedAt: "2025-02-01T00:00:00Z",
+      },
+    ]);
     state.api.updateAlbumMember.mockRejectedValue(new Error("Permission update failed"));
     state.api.removeAlbumMember.mockRejectedValue("revoke failed");
     renderPage(<AlbumDetailPage />, "/albums/7");
     await screen.findByRole("heading", { name: "Coastal trip" });
     fireEvent.click(screen.getByText("Share access"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Download allowed for alex@example.test" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Download allowed for alex@example.test",
+      }),
+    );
     expect(await screen.findByText("Permission update failed")).toBeInTheDocument();
     expect(screen.getByText("Alex Member")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Revoke access for alex@example.test" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Revoke access for alex@example.test",
+      }),
+    );
     expect(await screen.findByText("Unable to revoke access.")).toBeInTheDocument();
     expect(screen.getByText("Alex Member")).toBeInTheDocument();
   });
@@ -775,11 +1085,17 @@ describe("page workflows", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
     expect(screen.getByRole("navigation", { name: "Mobile navigation" })).toBeInTheDocument();
-    fireEvent.click(within(screen.getByRole("navigation", { name: "Mobile navigation" })).getByRole("link", { name: "Dashboard" }));
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Mobile navigation" })).getByRole("link", {
+        name: "Dashboard",
+      }),
+    );
     expect(await screen.findByText("Welcome back,")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Mobile navigation" })).not.toBeInTheDocument();
 
-    const profile = screen.getByRole("button", { name: "Profile menu for Maya Chen" });
+    const profile = screen.getByRole("button", {
+      name: "Profile menu for Maya Chen",
+    });
     fireEvent.click(profile);
     expect(screen.getByRole("menu", { name: "Profile options" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });

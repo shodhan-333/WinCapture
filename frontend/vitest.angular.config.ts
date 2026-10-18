@@ -19,7 +19,10 @@ export default defineConfig({
       },
       {
         find: "@angular/compiler",
-        replacement: path.resolve(angularRoot, "node_modules/@angular/compiler/fesm2022/compiler.mjs"),
+        replacement: path.resolve(
+          angularRoot,
+          "node_modules/@angular/compiler/fesm2022/compiler.mjs",
+        ),
       },
       {
         find: /^(@angular\/[^/]+|@azure\/[^/]+|rxjs)$/,

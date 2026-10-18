@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import Pagination from "../../../../frontend/src/components/ui/Pagination";
+import { Pagination } from "../../../../frontend/src/shared/components/ui/Pagination";
 
 describe("Pagination", () => {
   it("shows the current page and disables navigation at the boundaries", () => {

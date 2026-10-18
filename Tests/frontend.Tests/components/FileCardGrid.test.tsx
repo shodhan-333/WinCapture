@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import FileCardGrid from "../../../frontend/src/components/files/FileCardGrid";
-import type { FileResponse } from "../../../frontend/src/types/file";
+import { FileCardGrid } from "../../../frontend/src/features/files/components/files/FileCardGrid";
+import type { FileResponse } from "../../../frontend/src/features/files/types/file";
 
 const file = (id: number): FileResponse => ({
   id,
@@ -18,18 +18,20 @@ const file = (id: number): FileResponse => ({
 
 describe("FileCardGrid", () => {
   it("renders the empty state without file cards", () => {
-    render(<FileCardGrid
-      files={[]}
-      previewUrls={{}}
-      favoritePendingIds={new Set()}
-      onFavoriteToggle={vi.fn()}
-      onReplace={vi.fn()}
-      onDetails={vi.fn()}
-      onPreview={vi.fn()}
-      onDownload={vi.fn()}
-      onDelete={vi.fn()}
-      empty={<p>No matching files</p>}
-    />);
+    render(
+      <FileCardGrid
+        files={[]}
+        previewUrls={{}}
+        favoritePendingIds={new Set()}
+        onFavoriteToggle={vi.fn()}
+        onReplace={vi.fn()}
+        onDetails={vi.fn()}
+        onPreview={vi.fn()}
+        onDownload={vi.fn()}
+        onDelete={vi.fn()}
+        empty={<p>No matching files</p>}
+      />,
+    );
 
     expect(screen.getByText("No matching files")).toBeInTheDocument();
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
@@ -39,18 +41,20 @@ describe("FileCardGrid", () => {
     const onDownload = vi.fn();
     const onDelete = vi.fn();
     const files = [file(1), file(2)];
-    render(<FileCardGrid
-      files={files}
-      previewUrls={{}}
-      favoritePendingIds={new Set([1])}
-      canManage={(item) => item.id === 2}
-      onFavoriteToggle={vi.fn()}
-      onReplace={vi.fn()}
-      onDetails={vi.fn()}
-      onPreview={vi.fn()}
-      onDownload={onDownload}
-      onDelete={onDelete}
-    />);
+    render(
+      <FileCardGrid
+        files={files}
+        previewUrls={{}}
+        favoritePendingIds={new Set([1])}
+        canManage={(item) => item.id === 2}
+        onFavoriteToggle={vi.fn()}
+        onReplace={vi.fn()}
+        onDetails={vi.fn()}
+        onPreview={vi.fn()}
+        onDownload={onDownload}
+        onDelete={onDelete}
+      />,
+    );
 
     expect(screen.getByRole("button", { name: "Add file-1.pdf to favorites" })).toBeDisabled();
     fireEvent.click(screen.getAllByRole("button", { name: /Actions for/ })[0]);

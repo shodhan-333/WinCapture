@@ -5,7 +5,7 @@ import {
   formatFileSize,
   formatFileType,
   getInitials,
-} from "../../../frontend/src/utils/formatters";
+} from "../../../frontend/src/shared/utils/formatters";
 
 describe("formatters", () => {
   it("formats file sizes across byte, kilobyte, and megabyte ranges", () => {

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import ErrorBanner from "../../../../frontend/src/components/ui/ErrorBanner";
+import { ErrorBanner } from "../../../../frontend/src/shared/components/ui/ErrorBanner";
 
 describe("ErrorBanner", () => {
   it("exposes the message as an alert and accepts a custom icon", () => {

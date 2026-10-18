@@ -1,20 +1,11 @@
 import { useEffect, useRef } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { AppRoutes } from "@/app/routes/AppRoutes";
 
-import { useAuth } from "./context/AuthContext";
-import { getAngularAlbumsUrl } from "./authConfig";
-import {
-  brandMarkClass,
-  brandMarkLetterClass,
-} from "./components/ui/uiClasses";
-import Layout from "./components/Layout";
-import Dashboard from "./pages/Dashboard";
-import AlbumDetailPage from "./pages/AlbumDetailPage";
-import FilesPage from "./pages/FilesPage";
+import { useAuth } from "@/features/auth";
+import { brandMarkClass, brandMarkLetterClass } from "@/shared/components/ui/uiClasses";
 
 function AuthGate() {
-  const { account, user, loading, login, logout, error, refreshUser } =
-    useAuth();
+  const { account, user, loading, login, logout, error, refreshUser } = useAuth();
   const redirectStarted = useRef(false);
 
   useEffect(() => {
@@ -39,9 +30,7 @@ function AuthGate() {
         <div className="pointer-events-none absolute bottom-[-150px] left-[-100px] z-[-1] h-[280px] w-[280px] rounded-full bg-[rgba(103,181,247,0.13)] blur-[1px]" />
 
         <section className="surface relative w-[min(460px,100%)] rounded-[22px] p-7 shadow-[0_24px_60px_rgba(44,93,135,0.11),inset_0_1px_rgba(255,255,255,0.86)]">
-          <h1 className="text-lg font-semibold text-[#183a57]">
-            Unable to connect to WinCapture
-          </h1>
+          <h1 className="text-lg font-semibold text-[#183a57]">Unable to connect to WinCapture</h1>
           <p role="alert" className="mt-3 text-sm text-[#60798e]">
             {error}
           </p>
@@ -53,11 +42,7 @@ function AuthGate() {
             >
               Retry
             </button>
-            <button
-              className="secondary-action"
-              type="button"
-              onClick={() => void logout()}
-            >
+            <button className="secondary-action" type="button" onClick={() => void logout()}>
               Sign out
             </button>
           </div>
@@ -83,9 +68,7 @@ function AuthGate() {
                 WinCapture
               </strong>
 
-              <small className="text-[9px] font-medium text-[#8498aa]">
-                WinWire
-              </small>
+              <small className="text-[9px] font-medium text-[#8498aa]">WinWire</small>
             </div>
           </div>
 
@@ -118,15 +101,7 @@ function AuthGate() {
   return null;
 }
 
-function AngularAlbumsRedirect() {
-  useEffect(() => {
-    window.location.replace(getAngularAlbumsUrl());
-  }, []);
-
-  return null;
-}
-
-export default function App() {
+export function App() {
   const { user, loading } = useAuth();
 
   if (loading && !user) {
@@ -137,25 +112,5 @@ export default function App() {
     return <AuthGate />;
   }
 
-  return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-        <Route path="/dashboard" element={<Dashboard />} />
-
-        <Route
-          path="/albums"
-          element={<AngularAlbumsRedirect />}
-        />
-
-        <Route path="/albums/:albumId" element={<AlbumDetailPage />} />
-
-        <Route path="/files" element={<FilesPage />} />
-      </Route>
-
-      {/* Send unknown paths back to the main dashboard. */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
-  );
+  return <AppRoutes />;
 }

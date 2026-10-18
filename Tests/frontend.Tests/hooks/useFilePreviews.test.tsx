@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { FileResponse } from "../../../frontend/src/types/file";
-import useFilePreviews from "../../../frontend/src/hooks/useFilePreviews";
+import type { FileResponse } from "../../../frontend/src/features/files/types/file";
+import { useFilePreviews } from "../../../frontend/src/features/files/hooks/useFilePreviews";
 
 const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
   id,
@@ -42,7 +42,9 @@ describe("useFilePreviews", () => {
 
   it("shares in-flight requests for repeated file ids", async () => {
     let resolvePreview!: (url: string) => void;
-    const request = new Promise<string>((resolve) => { resolvePreview = resolve; });
+    const request = new Promise<string>((resolve) => {
+      resolvePreview = resolve;
+    });
     const loadPreview = vi.fn(() => request);
     const file = makeFile(4);
     const { result, rerender } = renderHook(
@@ -59,9 +61,7 @@ describe("useFilePreviews", () => {
 
   it("reuses a cached preview until file metadata changes, then revokes the old URL", async () => {
     const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    const loadPreview = vi.fn()
-      .mockResolvedValueOnce("blob:old")
-      .mockResolvedValueOnce("blob:new");
+    const loadPreview = vi.fn().mockResolvedValueOnce("blob:old").mockResolvedValueOnce("blob:new");
     const file = makeFile(12);
     const { result, rerender, unmount } = renderHook(
       ({ pageFiles }) => useFilePreviews(pageFiles, loadPreview),
@@ -73,7 +73,9 @@ describe("useFilePreviews", () => {
     expect(result.current.previewUrls[12]).toBe("blob:old");
     expect(loadPreview).toHaveBeenCalledOnce();
 
-    rerender({ pageFiles: [{ ...file, uploadedAt: "2025-01-02T00:00:00.000Z" }] });
+    rerender({
+      pageFiles: [{ ...file, uploadedAt: "2025-01-02T00:00:00.000Z" }],
+    });
     await waitFor(() => expect(result.current.previewUrls[12]).toBe("blob:new"));
     expect(revoke).toHaveBeenCalledWith("blob:old");
     unmount();
@@ -82,7 +84,12 @@ describe("useFilePreviews", () => {
 
   it("ignores results after the requesting page is unmounted", async () => {
     let resolvePreview!: (url: string) => void;
-    const loadPreview = vi.fn(() => new Promise<string>((resolve) => { resolvePreview = resolve; }));
+    const loadPreview = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolvePreview = resolve;
+        }),
+    );
     const files = [makeFile(5)];
     const { result, unmount } = renderHook(() => useFilePreviews(files, loadPreview));
 
@@ -94,12 +101,19 @@ describe("useFilePreviews", () => {
   it("does not let an older request replace or revoke a replacement preview", async () => {
     let resolveOld!: (url: string) => void;
     let resolveNew!: (url: string) => void;
-    const loadPreview = vi.fn((file: FileResponse) => new Promise<string>((resolve) => {
-      if (file.fileSize === 100) resolveOld = resolve;
-      else resolveNew = resolve;
-    }));
+    const loadPreview = vi.fn(
+      (file: FileResponse) =>
+        new Promise<string>((resolve) => {
+          if (file.fileSize === 100) resolveOld = resolve;
+          else resolveNew = resolve;
+        }),
+    );
     const oldFile = makeFile(9);
-    const newFile = { ...oldFile, fileSize: 200, uploadedAt: "2025-01-02T00:00:00.000Z" };
+    const newFile = {
+      ...oldFile,
+      fileSize: 200,
+      uploadedAt: "2025-01-02T00:00:00.000Z",
+    };
     const { result, rerender } = renderHook(
       ({ pageFiles }) => useFilePreviews(pageFiles, loadPreview),
       { initialProps: { pageFiles: [oldFile] } },

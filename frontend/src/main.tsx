@@ -1,41 +1,31 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
-
 import { PublicClientApplication } from "@azure/msal-browser";
-import { MsalProvider } from "@azure/msal-react";
 
-import App from "./App";
-import { AuthProvider } from "./context/AuthContext";
-import { appShellClass } from "./components/ui/uiClasses";
-import {
-  msalConfig,
-  validateEnvironment,
-} from "./authConfig";
+import { App } from "./App";
+import { AppProviders } from "@/app/providers/AppProviders";
+import { appShellClass } from "@/shared/components/ui/uiClasses";
+import { msalConfig, validateEnvironment } from "@/config/auth";
 
-import "./index.css";
+import "@/styles/index.css";
 
-const rootElement =
-  document.getElementById("root");
+const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error(
-    "Could not find the root element.",
-  );
+  throw new Error("Could not find the root element.");
 }
 
-const root =
-  ReactDOM.createRoot(
-    rootElement,
-  );
+const root = ReactDOM.createRoot(rootElement);
 
-function showStartupError(
-  error: unknown,
-) {
-  const message =
-    error instanceof Error
+function showStartupError(error: unknown) {
+  const missingConfiguration =
+    error instanceof Error &&
+    /^Missing environment variables: VITE_[A-Z0-9_, ]+$/.test(error.message)
       ? error.message
-      : String(error);
+      : null;
+  const message =
+    missingConfiguration ??
+    "WinCapture could not initialize Microsoft sign-in. Check the app configuration and retry.";
 
   // Show a readable error screen if environment validation or MSAL startup fails.
   root.render(
@@ -44,10 +34,7 @@ function showStartupError(
         <div className="surface w-full overflow-hidden rounded-[24px] p-6 sm:p-8">
           <div className="flex items-start gap-4">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] border border-red-200 bg-red-50 text-red-600 shadow-sm">
-              <span
-                aria-hidden="true"
-                className="text-lg font-bold"
-              >
+              <span aria-hidden="true" className="text-lg font-bold">
                 !
               </span>
             </span>
@@ -62,7 +49,8 @@ function showStartupError(
               </h1>
 
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                WinCapture could not complete itsstartup configuration. Check themessage below and correct the environment configuration before starting the application again.
+                WinCapture could not complete itsstartup configuration. Check themessage below and
+                correct the environment configuration before starting the application again.
               </p>
             </div>
           </div>
@@ -80,38 +68,22 @@ function showStartupError(
 
 async function startApp() {
   try {
-    const missingEnvironment =
-      validateEnvironment();
+    const missingEnvironment = validateEnvironment();
 
-    if (
-      missingEnvironment.length > 0
-    ) {
-      throw new Error(
-        `Missing environment variables: ${missingEnvironment.join(
-          ", ",
-        )}`,
-      );
+    if (missingEnvironment.length > 0) {
+      throw new Error(`Missing environment variables: ${missingEnvironment.join(", ")}`);
     }
 
-    const msalInstance =
-      new PublicClientApplication(
-        msalConfig,
-      );
+    const msalInstance = new PublicClientApplication(msalConfig);
 
     // Initialize MSAL before rendering components that use its context.
     await msalInstance.initialize();
 
     root.render(
       <React.StrictMode>
-        <BrowserRouter>
-          <MsalProvider
-            instance={msalInstance}
-          >
-            <AuthProvider>
-              <App />
-            </AuthProvider>
-          </MsalProvider>
-        </BrowserRouter>
+        <AppProviders msalInstance={msalInstance}>
+          <App />
+        </AppProviders>
       </React.StrictMode>,
     );
   } catch (error) {

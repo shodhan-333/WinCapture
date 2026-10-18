@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import FileCard from "../../../frontend/src/components/FileCard";
-import type { FileResponse } from "../../../frontend/src/types/file";
+import { FileCard } from "../../../frontend/src/features/files/components/FileCard";
+import type { FileResponse } from "../../../frontend/src/features/files/types/file";
 
 const file: FileResponse = {
   id: 2,
@@ -56,8 +56,10 @@ describe("FileCard", () => {
       />,
     );
 
-    const image = screen.getByRole("button", { name: "Open full-screen preview of photo.png" });
-    expect(image).toHaveAttribute("loading", "lazy");
+    const image = screen.getByRole("button", {
+      name: "Open full-screen preview of photo.png",
+    });
+    expect(image.querySelector("img")).toHaveAttribute("loading", "lazy");
     fireEvent.keyDown(image, { key: "Enter" });
     expect(onPreview).toHaveBeenCalledOnce();
   });
@@ -93,7 +95,9 @@ describe("FileCard", () => {
       </>,
     );
 
-    const previewButtons = screen.getAllByRole("button", { name: /^Open preview of / });
+    const previewButtons = screen.getAllByRole("button", {
+      name: /^Open preview of /,
+    });
     expect(previewButtons).toHaveLength(previewFiles.length);
     previewButtons.forEach((button) => expect(button).toBeEmptyDOMElement());
 
@@ -107,7 +111,9 @@ describe("FileCard", () => {
     const observe = vi.fn();
     const disconnect = vi.fn();
     class ObserverMock {
-      constructor(callback: IntersectionObserverCallback) { intersection = callback; }
+      constructor(callback: IntersectionObserverCallback) {
+        intersection = callback;
+      }
       observe = observe;
       disconnect = disconnect;
       unobserve = vi.fn();
@@ -121,7 +127,11 @@ describe("FileCard", () => {
     const onPreview = vi.fn();
     const { unmount } = render(
       <FileCard
-        file={{ ...file, originalFileName: "report.pdf", contentType: "application/pdf" }}
+        file={{
+          ...file,
+          originalFileName: "report.pdf",
+          contentType: "application/pdf",
+        }}
         loadPreview={loadPreview}
         onFavoriteToggle={vi.fn()}
         onReplace={vi.fn()}
@@ -134,13 +144,23 @@ describe("FileCard", () => {
 
     expect(observe).toHaveBeenCalledOnce();
     await act(async () => {
-      intersection?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+      intersection?.(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
     });
     await waitFor(() => expect(loadPreview).toHaveBeenCalledOnce());
-    const previewButton = screen.getByRole("button", { name: "Open preview of report.pdf" });
+    const previewButton = screen.getByRole("button", {
+      name: "Open preview of report.pdf",
+    });
     await waitFor(() => expect(previewButton).toBeEnabled());
     fireEvent.click(previewButton);
-    await waitFor(() => expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ originalFileName: "report.pdf" }), "blob:cached-pdf"));
+    await waitFor(() =>
+      expect(onPreview).toHaveBeenCalledWith(
+        expect.objectContaining({ originalFileName: "report.pdf" }),
+        "blob:cached-pdf",
+      ),
+    );
     expect(loadPreview).toHaveBeenCalledOnce();
     expect(disconnect).toHaveBeenCalled();
 

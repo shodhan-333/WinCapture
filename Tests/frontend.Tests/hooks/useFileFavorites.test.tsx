@@ -2,11 +2,11 @@ import { act, renderHook } from "@testing-library/react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { addFavorite, removeFavorite } from "../../../frontend/src/api/apiClient";
-import type { FileResponse } from "../../../frontend/src/types/file";
-import useFileFavorites from "../../../frontend/src/hooks/useFileFavorites";
+import { addFavorite, removeFavorite } from "../../../frontend/src/features/files/api/filesApi";
+import type { FileResponse } from "../../../frontend/src/features/files/types/file";
+import { useFileFavorites } from "../../../frontend/src/features/files/hooks/useFileFavorites";
 
-vi.mock("../../../frontend/src/api/apiClient", () => ({
+vi.mock("../../../frontend/src/features/files/api/filesApi", () => ({
   addFavorite: vi.fn(),
   removeFavorite: vi.fn(),
 }));
@@ -31,7 +31,9 @@ describe("useFileFavorites", () => {
   it("adds a favorite and reports success while tracking its pending id", async () => {
     const onSuccess = vi.fn();
     const onError = vi.fn();
-    const { result } = renderHook(() => useFileFavorites({ instance, account, onSuccess, onError }));
+    const { result } = renderHook(() =>
+      useFileFavorites({ instance, account, onSuccess, onError }),
+    );
 
     await act(async () => result.current.toggleFavorite(file));
 
@@ -44,12 +46,14 @@ describe("useFileFavorites", () => {
   it("removes a current favorite", async () => {
     const favorite = { ...file, isFavorite: true };
     const onSuccess = vi.fn();
-    const { result } = renderHook(() => useFileFavorites({
-      instance,
-      account,
-      onSuccess,
-      onError: vi.fn(),
-    }));
+    const { result } = renderHook(() =>
+      useFileFavorites({
+        instance,
+        account,
+        onSuccess,
+        onError: vi.fn(),
+      }),
+    );
 
     await act(async () => result.current.toggleFavorite(favorite));
 
@@ -58,12 +62,14 @@ describe("useFileFavorites", () => {
   });
 
   it("does not call the API without an authenticated account", async () => {
-    const { result } = renderHook(() => useFileFavorites({
-      instance,
-      account: null,
-      onSuccess: vi.fn(),
-      onError: vi.fn(),
-    }));
+    const { result } = renderHook(() =>
+      useFileFavorites({
+        instance,
+        account: null,
+        onSuccess: vi.fn(),
+        onError: vi.fn(),
+      }),
+    );
 
     await act(async () => result.current.toggleFavorite(file));
     expect(addFavorite).not.toHaveBeenCalled();
@@ -74,7 +80,9 @@ describe("useFileFavorites", () => {
     vi.mocked(addFavorite).mockRejectedValueOnce(new Error("Access denied"));
     const onSuccess = vi.fn();
     const onError = vi.fn();
-    const { result } = renderHook(() => useFileFavorites({ instance, account, onSuccess, onError }));
+    const { result } = renderHook(() =>
+      useFileFavorites({ instance, account, onSuccess, onError }),
+    );
 
     await act(async () => result.current.toggleFavorite(file));
 

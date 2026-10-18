@@ -1,6 +1,7 @@
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import type * as ReactDOMClient from "react-dom/client";
 
 const startup = vi.hoisted(() => ({
   validate: vi.fn(),
@@ -9,7 +10,7 @@ const startup = vi.hoisted(() => ({
 }));
 
 vi.mock("react-dom/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-dom/client")>();
+  const actual = await importOriginal<typeof ReactDOMClient>();
   return {
     ...actual,
     createRoot: (element: HTMLElement) => {
@@ -23,18 +24,19 @@ vi.mock("react-dom/client", async (importOriginal) => {
 vi.mock("@azure/msal-browser", () => ({
   PublicClientApplication: class {
     initialize = startup.initialize;
-    constructor(_config: unknown) {}
   },
 }));
 vi.mock("@azure/msal-react", () => ({
   MsalProvider: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock("../../frontend/src/authConfig", () => ({
+vi.mock("../../frontend/src/config/auth", () => ({
   msalConfig: { auth: {} },
   validateEnvironment: startup.validate,
 }));
-vi.mock("../../frontend/src/App", () => ({ default: () => <p>Application mounted</p> }));
-vi.mock("../../frontend/src/context/AuthContext", () => ({
+vi.mock("../../frontend/src/App", () => ({
+  App: () => <p>Application mounted</p>,
+}));
+vi.mock("../../frontend/src/features/auth/AuthContext", () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
@@ -65,15 +67,23 @@ describe("React application startup", () => {
     startup.validate.mockReturnValue(["VITE_ENTRA_CLIENT_ID", "VITE_API_URL"]);
     await import("../../frontend/src/main");
 
-    expect(await screen.findByRole("heading", { name: "Could not start the app" })).toBeInTheDocument();
-    expect(screen.getByText("Missing environment variables: VITE_ENTRA_CLIENT_ID, VITE_API_URL")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Could not start the app" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Missing environment variables: VITE_ENTRA_CLIENT_ID, VITE_API_URL"),
+    ).toBeInTheDocument();
     expect(startup.initialize).not.toHaveBeenCalled();
   });
 
-  it("shows initialization errors and supports non-Error startup failures", async () => {
+  it("shows a safe startup message for initialization failures", async () => {
     startup.initialize.mockRejectedValueOnce(new Error("MSAL unavailable"));
     await import("../../frontend/src/main");
-    expect(await screen.findByText("MSAL unavailable")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "WinCapture could not initialize Microsoft sign-in. Check the app configuration and retry.",
+      ),
+    ).toBeInTheDocument();
 
     cleanup();
     startup.roots.forEach((root) => root.unmount());
@@ -82,11 +92,17 @@ describe("React application startup", () => {
     vi.resetModules();
     startup.initialize.mockRejectedValueOnce("unexpected failure");
     await import("../../frontend/src/main");
-    expect(await screen.findByText("unexpected failure")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "WinCapture could not initialize Microsoft sign-in. Check the app configuration and retry.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("reports a missing root element", async () => {
     document.body.innerHTML = "";
-    await expect(import("../../frontend/src/main")).rejects.toThrow("Could not find the root element.");
+    await expect(import("../../frontend/src/main")).rejects.toThrow(
+      "Could not find the root element.",
+    );
   });
 });

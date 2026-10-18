@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import FileDetailsDialog from "../../../../frontend/src/components/files/FileDetailsDialog";
-import type { FileResponse } from "../../../../frontend/src/types/file";
+import { FileDetailsDialog } from "../../../../frontend/src/features/files/components/files/FileDetailsDialog";
+import type { FileResponse } from "../../../../frontend/src/features/files/types/file";
 
 const file: FileResponse = {
   id: 42,
@@ -26,7 +26,7 @@ describe("FileDetailsDialog", () => {
     expect(screen.getByText("image/png", { exact: false })).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!);
+    fireEvent.click(screen.getByRole("button", { name: "Close file details backdrop" }));
     fireEvent.click(screen.getByRole("button", { name: "Close file details" }));
     expect(onClose).toHaveBeenCalledTimes(3);
   });

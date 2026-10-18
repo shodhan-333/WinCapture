@@ -2,14 +2,20 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import Layout from "../../../frontend/src/components/Layout";
+import { Layout } from "../../../frontend/src/app/components/Layout";
 
 const auth = vi.hoisted(() => ({
-  user: { userId: 1, name: "Test User", email: "test@example.com", role: "User", authenticationType: "Entra" },
+  user: {
+    userId: 1,
+    name: "Test User",
+    email: "test@example.com",
+    role: "User",
+    authenticationType: "Entra",
+  },
   logout: vi.fn(),
 }));
 
-vi.mock("../../../frontend/src/context/AuthContext", () => ({
+vi.mock("../../../frontend/src/features/auth/AuthContext", () => ({
   useAuth: () => auth,
 }));
 
@@ -39,7 +45,11 @@ describe("Layout navigation", () => {
     auth.user = { ...auth.user, role: "Admin" };
     rerender(
       <MemoryRouter initialEntries={["/dashboard"]}>
-        <Routes><Route element={<Layout />}><Route path="*" element={<p>Page content</p>} /></Route></Routes>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="*" element={<p>Page content</p>} />
+          </Route>
+        </Routes>
       </MemoryRouter>,
     );
     expect(screen.queryByRole("link", { name: "Admin" })).not.toBeInTheDocument();

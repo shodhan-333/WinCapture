@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { FILE_EXTENSIONS, MAX_FILE_SIZE_BYTES, getFileCategory, validateUploadFile } from "../../../frontend/src/constants/fileSupport";
+import {
+  FILE_EXTENSIONS,
+  MAX_FILE_SIZE_BYTES,
+  getFileCategory,
+  validateUploadFile,
+} from "../../../frontend/src/features/files/constants/fileSupport";
 
 describe("supported file rules", () => {
   it("classifies exactly the backend-supported extensions", () => {

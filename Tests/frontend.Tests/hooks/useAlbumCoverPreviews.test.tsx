@@ -2,12 +2,15 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { describe, expect, it, vi } from "vitest";
 
-import { getAlbumFiles, getFilePreviewUrl } from "../../../frontend/src/api/apiClient";
-import type { AlbumResponse } from "../../../frontend/src/types/album";
-import type { FileResponse } from "../../../frontend/src/types/file";
-import useAlbumCoverPreviews from "../../../frontend/src/hooks/useAlbumCoverPreviews";
+import {
+  getAlbumFiles,
+  getFilePreviewUrl,
+} from "../../../frontend/src/features/albums/api/albumsApi";
+import type { AlbumResponse } from "../../../frontend/src/features/albums/types/album";
+import type { FileResponse } from "../../../frontend/src/features/files/types/file";
+import { useAlbumCoverPreviews } from "../../../frontend/src/features/albums/hooks/useAlbumCoverPreviews";
 
-vi.mock("../../../frontend/src/api/apiClient", () => ({
+vi.mock("../../../frontend/src/features/albums/api/albumsApi", () => ({
   getAlbumFiles: vi.fn(),
   getFilePreviewUrl: vi.fn(),
 }));
@@ -62,8 +65,14 @@ describe("useAlbumCoverPreviews", () => {
     });
     vi.mocked(getFilePreviewUrl).mockResolvedValueOnce("blob:admin-cover");
     const { result, rerender } = renderHook(
-      ({ currentAccount, isAdmin }) => useAlbumCoverPreviews(albums, instance, currentAccount, 99, isAdmin),
-      { initialProps: { currentAccount: null as AccountInfo | null, isAdmin: true } },
+      ({ currentAccount, isAdmin }) =>
+        useAlbumCoverPreviews(albums, instance, currentAccount, 99, isAdmin),
+      {
+        initialProps: {
+          currentAccount: null as AccountInfo | null,
+          isAdmin: true,
+        },
+      },
     );
 
     expect(result.current).toEqual({});
@@ -100,7 +109,11 @@ describe("useAlbumCoverPreviews", () => {
       pageSize: 100,
       pageCount: 1,
     });
-    vi.mocked(getFilePreviewUrl).mockReturnValueOnce(new Promise((resolve) => { resolveUrl = resolve; }));
+    vi.mocked(getFilePreviewUrl).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveUrl = resolve;
+      }),
+    );
     const revoke = vi.spyOn(URL, "revokeObjectURL");
     const { unmount } = renderHook(() => useAlbumCoverPreviews(albums, instance, account));
 

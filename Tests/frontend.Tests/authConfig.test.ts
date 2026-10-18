@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getAngularAlbumsUrl, loginRequest, msalConfig, msalPostLogoutRedirectUri, msalRedirectUri } from "../../frontend/src/authConfig";
+import {
+  loginRequest,
+  msalConfig,
+  msalPostLogoutRedirectUri,
+  msalRedirectUri,
+} from "../../frontend/src/config/auth";
 
 describe("MSAL configuration", () => {
   afterEach(() => {
@@ -21,16 +26,18 @@ describe("MSAL configuration", () => {
     vi.stubEnv("VITE_MSAL_TENANT_ID", "");
     vi.stubEnv("VITE_MSAL_API_SCOPE", "");
     vi.resetModules();
-    const { validateEnvironment: validate } = await import("../../frontend/src/authConfig");
+    const { validateEnvironment: validate } = await import("../../frontend/src/config/auth");
     const missing = validate();
 
     expect(missing).not.toContain("VITE_MSAL_REDIRECT_URI");
-    expect(missing).toEqual(expect.arrayContaining([
-      "VITE_API_BASE_URL",
-      "VITE_MSAL_CLIENT_ID",
-      "VITE_MSAL_TENANT_ID",
-      "VITE_MSAL_API_SCOPE",
-    ]));
+    expect(missing).toEqual(
+      expect.arrayContaining([
+        "VITE_API_BASE_URL",
+        "VITE_MSAL_CLIENT_ID",
+        "VITE_MSAL_TENANT_ID",
+        "VITE_MSAL_API_SCOPE",
+      ]),
+    );
   });
 
   it("trims configured values, applies redirect defaults, and validates complete configuration", async () => {
@@ -42,7 +49,7 @@ describe("MSAL configuration", () => {
     vi.stubEnv("VITE_MSAL_API_SCOPE", " api://client/access ");
     vi.stubEnv("VITE_ANGULAR_ALBUMS_URL", " ");
     vi.resetModules();
-    const config = await import("../../frontend/src/authConfig");
+    const config = await import("../../frontend/src/config/auth");
 
     expect(config.apiBaseUrl).toBe("https://api.example.test");
     expect(config.msalConfig.auth.clientId).toBe("client-id");
@@ -56,7 +63,7 @@ describe("MSAL configuration", () => {
   it("resolves an explicitly configured absolute Angular Albums URL", async () => {
     vi.stubEnv("VITE_ANGULAR_ALBUMS_URL", "https://albums.example.test/angular/albums");
     vi.resetModules();
-    const config = await import("../../frontend/src/authConfig");
+    const config = await import("../../frontend/src/config/auth");
     expect(config.getAngularAlbumsUrl()).toBe("https://albums.example.test/angular/albums");
   });
 });

@@ -7,6 +7,7 @@ const frontendRoot = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: [
+      { find: "@", replacement: path.resolve(frontendRoot, "src") },
       {
         find: /^(?![./]|[A-Za-z]:[\\/])(@[^/]+\/[^/]+|[^/]+)(\/.*)?$/,
         replacement: path.resolve(frontendRoot, "node_modules/$1$2"),
