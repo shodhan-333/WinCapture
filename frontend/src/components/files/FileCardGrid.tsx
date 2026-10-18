@@ -21,6 +21,7 @@ interface FileCardGridProps {
   onSelectionToggle?: (file: FileResponse) => void;
   selectionEligible?: (file: FileResponse) => boolean;
   selectionDisabled?: boolean;
+  focusedFileId?: number | null;
 }
 
 export default function FileCardGrid({
@@ -41,6 +42,7 @@ export default function FileCardGrid({
   onSelectionToggle,
   selectionEligible,
   selectionDisabled = false,
+  focusedFileId = null,
 }: FileCardGridProps) {
   if (files.length === 0) {
     return <>{empty}</>;
@@ -73,6 +75,7 @@ export default function FileCardGrid({
                 : undefined
             }
             selectionDisabled={selectionDisabled}
+            focused={file.id === focusedFileId}
           />
         );
       })}

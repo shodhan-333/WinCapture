@@ -39,6 +39,7 @@ import {
   formatFileType,
 } from "../utils/formatters";
 import { getAccountKey } from "../utils/accountKey";
+import { getAdminContentScope, setAdminContentScope } from "../utils/adminContentScope";
 
 const dashboardPanelClass =
   "surface relative isolate min-w-0 overflow-hidden rounded-[20px]";
@@ -94,7 +95,7 @@ export default function Dashboard() {
   const [fileCategoryCounts, setFileCategoryCounts] = useState<
     Record<string, number>
   >({});
-  const [contentScope, setContentScope] = useState<"mine" | "all">("mine");
+  const [contentScope, setContentScope] = useState<"mine" | "all">(() => getAdminContentScope());
   const [contentVersion, setContentVersion] = useState(0);
   const [allAlbumsPage, setAllAlbumsPage] = useState(1);
   const [allFilesPage, setAllFilesPage] = useState(1);
@@ -107,7 +108,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const recentDataKey = useRef<string | null>(null);
+  const albumsDataKey = useRef<string | null>(null);
+  const filesDataKey = useRef<string | null>(null);
   const categoryCountsCache = useRef(
     new Map<
       string,
@@ -166,7 +168,6 @@ export default function Dashboard() {
   const { previewUrls: recentFilePreviewUrls } = useFilePreviews(
     recentFiles,
     loadFilePreview,
-    contentScope === "all" && canViewAllContent,
   );
 
   useEffect(() => {
@@ -178,8 +179,12 @@ export default function Dashboard() {
         return;
       }
 
-      const requestedRecentKey = canViewAllContent && contentScope === "all"
-        ? `${accountKey}:all:${contentVersion}:${allAlbumsPage}:${allFilesPage}:${allAlbumsSearch}:${allFilesSearch}`
+      const allScope = canViewAllContent && contentScope === "all";
+      const requestedAlbumsKey = allScope
+        ? `${accountKey}:all:${contentVersion}:${allAlbumsPage}:${allAlbumsSearch}`
+        : `${accountKey}:mine:${contentVersion}`;
+      const requestedFilesKey = allScope
+        ? `${accountKey}:all:${contentVersion}:${allFilesPage}:${allFilesSearch}`
         : `${accountKey}:mine:${contentVersion}`;
       // Counts follow the same effective scope as the list requests. Keeping
       // the capability in this key prevents an "all" count cache from being
@@ -189,10 +194,11 @@ export default function Dashboard() {
       const requestedCountsKey = `${accountKey}:${effectiveContentScope}`;
       const cachedCounts = categoryCountsCache.current.get(requestedCountsKey);
       const countsAreCurrent = cachedCounts?.version === contentVersion;
-      const shouldLoadRecent = recentDataKey.current !== requestedRecentKey;
+      const shouldLoadAlbums = albumsDataKey.current !== requestedAlbumsKey;
+      const shouldLoadFiles = filesDataKey.current !== requestedFilesKey;
       const shouldLoadCounts = !countsAreCurrent;
 
-      if (!shouldLoadRecent && !shouldLoadCounts) {
+      if (!shouldLoadAlbums && !shouldLoadFiles && !shouldLoadCounts) {
         setFileCategoryCounts(cachedCounts.counts);
         setLoading(false);
         setHasLoaded(true);
@@ -204,33 +210,31 @@ export default function Dashboard() {
         setError(null);
         setFileCategoryCounts(countsAreCurrent ? cachedCounts.counts : {});
 
-        const recentRequest = !shouldLoadRecent
+        const albumsRequest = !shouldLoadAlbums
           ? Promise.resolve(null)
-          : contentScope === "all" && canViewAllContent
-            ? Promise.all([
-                getAdminAlbums(
-                  instance,
-                  account,
-                  allAlbumsPage,
-                  ALL_CONTENT_PAGE_SIZE,
-                  allAlbumsSearch.trim() || undefined,
-                ),
-                getAdminFiles(
-                  instance,
-                  account,
-                  allFilesPage,
-                  ALL_CONTENT_PAGE_SIZE,
-                  allFilesSearch.trim() || undefined,
-                ),
-              ]).then(([albumResult, fileResult]) => ({
-                albums: albumResult.items,
-                albumsPage: albumResult.page,
-                albumsPageCount: albumResult.pageCount,
-                albumsCount: albumResult.totalItems,
-                filesPage: fileResult.page,
-                filesPageCount: fileResult.pageCount,
-                filesCount: fileResult.totalItems,
-                files: fileResult.items.map((file): DashboardFile => ({
+          : allScope
+            ? getAdminAlbums(
+                instance,
+                account,
+                allAlbumsPage,
+                ALL_CONTENT_PAGE_SIZE,
+                allAlbumsSearch.trim() || undefined,
+              )
+            : getMyAlbums(instance, account, 1, 4);
+        const filesRequest = !shouldLoadFiles
+          ? Promise.resolve(null)
+          : allScope
+            ? getAdminFiles(
+                instance,
+                account,
+                allFilesPage,
+                ALL_CONTENT_PAGE_SIZE,
+                allFilesSearch.trim() || undefined,
+              ).then((fileResult) => ({
+                page: fileResult.page,
+                pageCount: fileResult.pageCount,
+                totalItems: fileResult.totalItems,
+                items: fileResult.items.map((file): DashboardFile => ({
                   ...file,
                   url: "",
                   downloadUrl: file.albumId === null
@@ -241,22 +245,10 @@ export default function Dashboard() {
                   canDownload: true,
                 })),
               }))
-            : Promise.all([
-                getMyAlbums(instance, account, 1, 4),
-                getFiles(instance, account, 1, 4),
-              ]).then(([albumResult, fileResult]) => ({
-                albums: albumResult.items,
-                files: fileResult.items,
-                albumsPage: 1,
-                albumsPageCount: 1,
-                albumsCount: albumResult.totalItems,
-                filesPage: 1,
-                filesPageCount: 1,
-                filesCount: fileResult.totalItems,
-              }));
-
-        const [recentResults, categoryResults] = await Promise.all([
-          recentRequest,
+            : getFiles(instance, account, 1, 4);
+        const [albumResult, fileResult, categoryResults] = await Promise.all([
+          albumsRequest,
+          filesRequest,
           shouldLoadCounts
             ? Promise.all(
                 dashboardFileCategories.map(({ label }) =>
@@ -270,16 +262,19 @@ export default function Dashboard() {
 
         if (!active) return;
 
-        if (recentResults) {
-          setAlbums(recentResults.albums);
-          setFiles(recentResults.files);
-          setAllAlbumsPage(recentResults.albumsPage);
-          setAllAlbumsPageCount(recentResults.albumsPageCount);
-          setAllAlbumsCount(recentResults.albumsCount);
-          setAllFilesPage(recentResults.filesPage);
-          setAllFilesPageCount(recentResults.filesPageCount);
-          setAllFilesCount(recentResults.filesCount);
-          recentDataKey.current = requestedRecentKey;
+        if (albumResult) {
+          setAlbums(albumResult.items);
+          setAllAlbumsPage(albumResult.page ?? 1);
+          setAllAlbumsPageCount(albumResult.pageCount ?? 1);
+          setAllAlbumsCount(albumResult.totalItems);
+          albumsDataKey.current = requestedAlbumsKey;
+        }
+        if (fileResult) {
+          setFiles(fileResult.items);
+          setAllFilesPage(fileResult.page ?? 1);
+          setAllFilesPageCount(fileResult.pageCount ?? 1);
+          setAllFilesCount(fileResult.totalItems);
+          filesDataKey.current = requestedFilesKey;
         }
         if (shouldLoadCounts) {
           const counts = Object.fromEntries(
@@ -466,7 +461,10 @@ export default function Dashboard() {
           <button
             type="button"
             aria-pressed={contentScope === "mine"}
-            onClick={() => setContentScope("mine")}
+            onClick={() => {
+              setAdminContentScope("mine");
+              setContentScope("mine");
+            }}
             className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "mine" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}
           >
             My Content
@@ -474,7 +472,10 @@ export default function Dashboard() {
           <button
             type="button"
             aria-pressed={contentScope === "all"}
-            onClick={() => setContentScope("all")}
+            onClick={() => {
+              setAdminContentScope("all");
+              setContentScope("all");
+            }}
             className={`min-h-10 rounded-[10px] px-3.5 text-sm font-semibold transition-colors ${contentScope === "all" ? "bg-white/80 text-[#145a99] shadow-sm" : "text-[#617c91] hover:bg-white/40"}`}
           >
             All Content
@@ -607,7 +608,11 @@ export default function Dashboard() {
 
                     <button
                       type="button"
-                      onClick={() => navigate(`/albums/${album.id}`)}
+                      onClick={() => {
+                        if (!(contentScope === "all" && canViewAllContent)) {
+                          navigate(`/albums/${album.id}`);
+                        }
+                      }}
                       className="grid min-w-0 flex-1 gap-1 text-left"
                     >
                       <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold tracking-[-0.01em] text-[#26445f] max-[520px]:text-[12px]">
@@ -748,17 +753,11 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (contentScope === "all" && canViewAllContent) {
-                          setPreviewFile(file);
-                        } else {
-                          navigate("/files");
-                        }
+                        setPreviewFile(file);
                       }}
-                      className={`${dashboardIconClass} relative bg-[#edf2f5] text-[#607d92]`}
+                      className={`${dashboardIconClass} relative cursor-pointer bg-[#edf2f5] text-[#607d92]`}
                       aria-label={
-                        contentScope === "all"
-                          ? `Preview ${file.originalFileName}`
-                          : `Open ${file.originalFileName} in files`
+                        `Preview ${file.originalFileName}`
                       }
                     >
                       {recentFilePreviewUrls[file.id] ? (
@@ -783,7 +782,11 @@ export default function Dashboard() {
 
                     <button
                       type="button"
-                      onClick={() => navigate("/files")}
+                      onClick={() => {
+                        if (!(contentScope === "all" && canViewAllContent)) {
+                          navigate(`/files?fileId=${file.id}&search=${encodeURIComponent(file.originalFileName)}`);
+                        }
+                      }}
                       className="grid min-w-0 flex-1 gap-1 text-left"
                     >
                       <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold tracking-[-0.01em] text-[#26445f] max-[520px]:text-[12px]">
@@ -804,7 +807,7 @@ export default function Dashboard() {
                       <div className="flex flex-none items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => navigate("/files")}
+                          onClick={() => navigate(`/files?scope=all&fileId=${file.id}&search=${encodeURIComponent(file.originalFileName)}`)}
                           className="secondary-action compact-action inline-flex !min-h-[30px] !cursor-pointer items-center gap-1 !rounded-[8px] !px-2 text-[9px] font-semibold !text-[#2b72bd] hover:!border-[rgba(117,181,232,0.62)] hover:!bg-[linear-gradient(135deg,rgba(226,243,255,0.92),rgba(203,229,250,0.88))] hover:!text-[#1f659f]"
                           aria-label={`Manage file ${file.originalFileName}`}
                         >

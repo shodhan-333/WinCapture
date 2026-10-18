@@ -14,11 +14,13 @@ import {
   Upload,
 } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
+import { useLocation } from "react-router-dom";
 
 import {
   deleteFile,
   downloadFileByPath,
   getFavorites,
+  getAdminFiles,
   getFile,
   getFilePreviewUrlByPath,
   getFiles,
@@ -43,8 +45,10 @@ import useFileFavorites from "../hooks/useFileFavorites";
 import useFilePreviews from "../hooks/useFilePreviews";
 import useBulkSelection from "../hooks/useBulkSelection";
 import { useAuth } from "../context/AuthContext";
-import type { FileResponse } from "../types/file";
+import type { AdminFileResponse, FileResponse } from "../types/file";
+import type { PagedResponse } from "../types/api";
 import { getAccountKey } from "../utils/accountKey";
+import { getAdminContentScope } from "../utils/adminContentScope";
 import {
   FILE_CATEGORY_FILTERS,
   type FileCategoryFilter,
@@ -68,7 +72,13 @@ type BulkAction = "delete" | "unfavorite" | null;
 
 export default function FilesPage() {
   const { instance } = useMsal();
-  const { account } = useAuth();
+  const { account, user } = useAuth();
+  const location = useLocation();
+  const routeParams = new URLSearchParams(location.search);
+  const isAdminAllContent =
+    user?.role === "Admin" &&
+    (routeParams.get("scope") === "all" || getAdminContentScope() === "all");
+  const routeFileId = Number(routeParams.get("fileId")) || null;
   const accountKey = getAccountKey(account);
 
   // Hidden replacement input opens the native file picker from a file card.
@@ -77,6 +87,7 @@ export default function FilesPage() {
   // Keep the replacement target while the native file picker is open.
   const replaceTargetIdRef = useRef<number | null>(null);
   const loadRequestVersion = useRef(0);
+  const focusedFileResolved = useRef(false);
 
   const [files, setFiles] = useState<FileResponse[]>([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -89,7 +100,8 @@ export default function FilesPage() {
   const [uploading, setUploading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(() => routeParams.get("search") ?? "");
+  const [focusedFileId, setFocusedFileId] = useState<number | null>(routeFileId);
   const [categoryFilter, setCategoryFilter] =
     useState<FileCategoryFilter>("All");
   const [fileDetails, setFileDetails] = useState<FileResponse | null>(null);
@@ -132,6 +144,31 @@ export default function FilesPage() {
 
   const { previewUrls } = useFilePreviews(files, loadPreview);
 
+  const fetchAdminPage = async (page: number): Promise<PagedResponse<FileResponse>> => {
+    if (!account) throw new Error("An authenticated account is required.");
+    const result = await getAdminFiles(
+      instance,
+      account,
+      page,
+      PAGE_SIZE,
+      searchQuery,
+      categoryFilter,
+    );
+    return {
+      ...result,
+      items: result.items.map((file: AdminFileResponse): FileResponse => ({
+        ...file,
+        url: "",
+        downloadUrl: file.albumId === null
+          ? `/api/files/${file.id}/download`
+          : `/api/albums/${file.albumId}/files/${file.id}/download`,
+        isFavorite: false,
+        canManage: true,
+        canDownload: true,
+      })),
+    };
+  };
+
   const loadFiles = async (
     nextView: FileView = view,
     requestedPage: number = currentPage,
@@ -158,7 +195,9 @@ export default function FilesPage() {
               searchQuery,
               requestedCategory,
             )
-          : await getFiles(
+          : isAdminAllContent
+            ? await fetchAdminPage(requestedPage)
+            : await getFiles(
               instance,
               account,
               requestedPage,
@@ -166,6 +205,38 @@ export default function FilesPage() {
               searchQuery,
               requestedCategory,
             );
+
+      if (
+        nextView === "all" &&
+        routeFileId &&
+        !focusedFileResolved.current &&
+        requestedPage === 1
+      ) {
+        let targetPage = nextPage;
+        const fetchTargetPage = (page: number) =>
+          isAdminAllContent
+            ? fetchAdminPage(page)
+            : getFiles(
+                instance,
+                account,
+                page,
+                PAGE_SIZE,
+                searchQuery,
+                requestedCategory,
+              );
+        while (
+          !targetPage.items.some((file) => file.id === routeFileId) &&
+          targetPage.page < targetPage.pageCount
+        ) {
+          targetPage = await fetchTargetPage(targetPage.page + 1);
+        }
+        if (targetPage.items.some((file) => file.id === routeFileId)) {
+          nextPage.items = targetPage.items;
+          nextPage.page = targetPage.page;
+          setFocusedFileId(routeFileId);
+        }
+        focusedFileResolved.current = true;
+      }
 
       if (requestVersion !== loadRequestVersion.current) return;
       setFiles(nextPage.items);
@@ -203,7 +274,7 @@ export default function FilesPage() {
     return () => {
       loadRequestVersion.current += 1;
     };
-  }, [accountKey, instance, view, currentPage, searchQuery, categoryFilter]);
+  }, [accountKey, instance, view, currentPage, searchQuery, categoryFilter, isAdminAllContent]);
 
   useEffect(() => {
     cancelSelection();
@@ -461,16 +532,18 @@ export default function FilesPage() {
         <div className="min-w-0">
           <h1 className="page-heading flex items-center gap-3">
             <span className="page-kicker-dot" aria-hidden="true" />
-            {view === "favorites" ? "Favorites" : "Files"}
+            {view === "favorites" ? "Favorites" : isAdminAllContent ? "All Files" : "Files"}
           </h1>
 
           <p className="page-description">
-            Browse, search, and manage your files from one place.
+            {isAdminAllContent
+              ? "Browse and manage files across all users."
+              : "Browse, search, and manage your files from one place."}
           </p>
         </div>
 
         <div className={fileToolbarClass}>
-          <div
+          {!isAdminAllContent && <div
             className={viewSwitcherClass}
             role="group"
             aria-label="File view"
@@ -509,7 +582,7 @@ export default function FilesPage() {
               />
               Favorites
             </button>
-          </div>
+          </div>}
 
           <SearchField
             value={searchQuery}
@@ -734,6 +807,7 @@ export default function FilesPage() {
             onDelete={(file) => void handleDelete(file.id)}
             selectionMode={selectionMode}
             selectionDisabled={bulkPending}
+            focusedFileId={focusedFileId}
             selectedIds={selectedIds}
             selectionEligible={(file) => view === "favorites" || file.canManage}
             onSelectionToggle={(file) => toggle(file.id)}

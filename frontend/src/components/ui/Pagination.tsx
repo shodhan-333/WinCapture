@@ -20,7 +20,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.52)] px-[11px] py-[6px] font-semibold text-[#3b5d77] shadow-[0_2px_6px_rgba(20,54,84,0.04),inset_0_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-all hover:bg-white/80 hover:text-[#194f7d] disabled:cursor-not-allowed disabled:opacity-45"
+          className="cursor-pointer rounded-[8px] border border-[rgba(64,112,153,0.42)] bg-[rgba(203,226,246,0.96)] px-[11px] py-[6px] font-semibold text-[#111827] shadow-[0_2px_6px_rgba(20,54,84,0.08),inset_0_1px_rgba(255,255,255,0.9)] backdrop-blur-md transition-all hover:border-[rgba(46,94,137,0.58)] hover:bg-[rgba(183,215,242,1)] hover:text-black disabled:cursor-not-allowed disabled:border-[rgba(112,137,158,0.34)] disabled:bg-[rgba(220,230,238,0.96)] disabled:text-[#303a43] disabled:opacity-100"
         >
           Previous
         </button>
@@ -28,7 +28,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= pageCount}
-          className="rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.52)] px-[11px] py-[6px] font-semibold text-[#3b5d77] shadow-[0_2px_6px_rgba(20,54,84,0.04),inset_0_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-all hover:bg-white/80 hover:text-[#194f7d] disabled:cursor-not-allowed disabled:opacity-45"
+          className="cursor-pointer rounded-[8px] border border-[rgba(64,112,153,0.42)] bg-[rgba(203,226,246,0.96)] px-[11px] py-[6px] font-semibold text-[#111827] shadow-[0_2px_6px_rgba(20,54,84,0.08),inset_0_1px_rgba(255,255,255,0.9)] backdrop-blur-md transition-all hover:border-[rgba(46,94,137,0.58)] hover:bg-[rgba(183,215,242,1)] hover:text-black disabled:cursor-not-allowed disabled:border-[rgba(112,137,158,0.34)] disabled:bg-[rgba(220,230,238,0.96)] disabled:text-[#303a43] disabled:opacity-100"
         >
           Next
         </button>

@@ -7,6 +7,7 @@ import {
   createAlbum,
   getAlbums,
   getMyAlbums,
+  getAdminAlbums,
   getSharedAlbums,
 } from "../api/apiClient";
 import ErrorBanner from "../components/ui/ErrorBanner";
@@ -23,6 +24,7 @@ import type { PagedResponse } from "../types/api";
 import { ApiError } from "../types/api";
 import { formatDate } from "../utils/formatters";
 import { getAccountKey } from "../utils/accountKey";
+import { getAdminContentScope } from "../utils/adminContentScope";
 
 const PAGE_SIZE = 9;
 type AlbumFilter = "all" | "shared" | "mine";
@@ -30,6 +32,7 @@ type AlbumFilter = "all" | "shared" | "mine";
 export default function AlbumsPage() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
+  const isAdminAllContent = user?.role === "Admin" && getAdminContentScope() === "all";
   const accountKey = getAccountKey(account);
   const navigate = useNavigate();
 
@@ -70,7 +73,15 @@ export default function AlbumsPage() {
       setError(null);
 
       let page: PagedResponse<AlbumResponse>;
-      if (requestedFilter === "shared") {
+      if (isAdminAllContent) {
+        page = await getAdminAlbums(
+          instance,
+          account,
+          requestedPage,
+          PAGE_SIZE,
+          requestedSearch,
+        );
+      } else if (requestedFilter === "shared") {
         try {
           page = await getSharedAlbums(
             instance,
@@ -163,7 +174,7 @@ export default function AlbumsPage() {
     return () => {
       loadRequestVersion.current += 1;
     };
-  }, [accountKey, instance, currentPage, albumFilter, searchQuery]);
+  }, [accountKey, instance, currentPage, albumFilter, searchQuery, isAdminAllContent]);
 
   useEffect(() => {
     // Debounce search so each keystroke does not trigger a separate API request.
@@ -289,7 +300,7 @@ export default function AlbumsPage() {
       {error && <ErrorBanner message={error} />}
 
       <section className="flex flex-wrap items-center justify-between gap-3 max-[760px]:items-stretch">
-        <div
+        {!isAdminAllContent && <div
           className="glass-toolbar inline-flex flex-wrap gap-1 rounded-[11px] p-[3px]"
           role="group"
           aria-label="Album filters"
@@ -314,7 +325,7 @@ export default function AlbumsPage() {
               {label}
             </button>
           ))}
-        </div>
+        </div>}
 
         <SearchField
           value={searchInput}

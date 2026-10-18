@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../api/api.service';
 import type { CurrentUser } from '../models';
 import { apiErrorMessage } from '../utils';
+import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -52,6 +53,12 @@ export class AuthService {
         account: account ?? undefined,
         postLogoutRedirectUri: this.msal.instance.getConfiguration().auth?.redirectUri,
       }));
+      try {
+        sessionStorage.setItem('wincapture.pick-account-after-logout', 'true');
+      } catch {
+        // The React app will still open if session storage is unavailable.
+      }
+      window.location.assign(new URL('/', environment.reactAlbumsUrl).toString());
     } catch (error: unknown) {
       this.error.set(apiErrorMessage(error, 'Microsoft sign-out could not be completed.'));
     }

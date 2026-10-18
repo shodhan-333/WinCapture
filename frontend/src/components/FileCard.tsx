@@ -32,6 +32,7 @@ interface FileCardProps {
   selected?: boolean;
   onSelectionToggle?: () => void;
   selectionDisabled?: boolean;
+  focused?: boolean;
 }
 
 export default function FileCard({
@@ -49,6 +50,7 @@ export default function FileCard({
   selected = false,
   onSelectionToggle,
   selectionDisabled = false,
+  focused = false,
 }: FileCardProps) {
   const fileCategory = getFileCategory(file.originalFileName);
   const isImage = fileCategory === "Images";
@@ -135,6 +137,12 @@ export default function FileCard({
     [contentUrl],
   );
 
+  useEffect(() => {
+    if (focused) {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focused]);
+
   const openPreview = async () => {
     if (isImage) {
       onPreview(file, previewUrl);
@@ -199,7 +207,7 @@ export default function FileCard({
   return (
     <article
       ref={cardRef}
-      className="surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)]"
+      className={`surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)] ${focused ? "!border-[#3787d4] ring-2 ring-[#3787d4]/35" : ""}`}
     >
       <div className="relative m-2 h-[136px] min-w-0 overflow-hidden rounded-[12px] border border-white/60 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_40%),linear-gradient(145deg,rgba(215,238,255,0.65)_0%,rgba(190,222,248,0.45)_50%,rgba(220,238,252,0.60)_100%)] max-[520px]:h-[150px]">
         {previewArea}

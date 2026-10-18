@@ -31,6 +31,24 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const PICK_ACCOUNT_AFTER_LOGOUT_KEY = "wincapture.pick-account-after-logout";
+
+function accountPickerPending(): boolean {
+  try {
+    return sessionStorage.getItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setAccountPickerPending(pending: boolean): void {
+  try {
+    if (pending) sessionStorage.setItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY, "true");
+    else sessionStorage.removeItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY);
+  } catch {
+    // Auth can continue if browser storage is unavailable.
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { instance, accounts, inProgress } = useMsal();
@@ -41,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
+  const logoutStarted = useRef(false);
   const profileAccountId = useRef<string | null>(null);
   const refreshUserRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
@@ -69,8 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
 
+    let profileTimeout: number | undefined;
     try {
-      const currentUser = await getCurrentUser(instance, account);
+      const currentUser = await Promise.race([
+        getCurrentUser(instance, account),
+        new Promise<never>((_, reject) => {
+          profileTimeout = window.setTimeout(
+            () => reject(new Error("WinCapture sign-in took too long. Check that the backend is running, then retry.")),
+            15_000,
+          );
+        }),
+      ]);
 
       if (requestVersion.current === version) {
         profileAccountId.current = account.homeAccountId;
@@ -87,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
       }
     } finally {
+      if (profileTimeout !== undefined) window.clearTimeout(profileTimeout);
       if (requestVersion.current === version) setLoading(false);
     }
   }, [account, instance]);
@@ -94,12 +123,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   refreshUserRef.current = refreshUser;
 
   useEffect(() => {
-    if (inProgress === InteractionStatus.None) {
-      void refreshUserRef.current();
+    if (inProgress !== InteractionStatus.None || logoutStarted.current) return;
+
+    if (accountPickerPending()) {
+      setAccountPickerPending(false);
+      setError(null);
+      setLoading(true);
+      void instance.loginRedirect({ ...loginRequest, prompt: "select_account" }).catch((caughtError: unknown) => {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Microsoft account selection could not be started.",
+        );
+        setLoading(false);
+      });
+      return;
     }
-  }, [account?.homeAccountId, inProgress]);
+
+    void refreshUserRef.current();
+  }, [account?.homeAccountId, inProgress, instance]);
 
   const login = useCallback(async () => {
+    setAccountPickerPending(false);
     setError(null);
 
     try {
@@ -114,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [instance]);
 
   const logout = useCallback(async () => {
+    setAccountPickerPending(true);
+    logoutStarted.current = true;
     requestVersion.current += 1;
     profileAccountId.current = null;
     setUser(null);
@@ -125,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         postLogoutRedirectUri: msalPostLogoutRedirectUri,
       });
     } catch (caughtError) {
+      setAccountPickerPending(false);
+      logoutStarted.current = false;
       setError(
         caughtError instanceof Error
           ? caughtError.message
