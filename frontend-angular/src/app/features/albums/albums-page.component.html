@@ -1,0 +1,113 @@
+@if (auth.loading()) {
+  <main class="relative isolate grid min-h-[calc(100vh-82px)] place-items-center overflow-hidden p-6 max-[520px]:p-[17px]" aria-live="polite">
+    <section class="surface w-[min(460px,100%)] rounded-[23px] p-[30px] text-center shadow-[0_24px_60px_rgba(44,93,135,0.11),inset_0_1px_rgba(255,255,255,0.86)]">
+      <span class="mx-auto block h-9 w-9 animate-spin rounded-full border-[3px] border-[#dce8f1] border-t-[#2c8bea] motion-reduce:animate-none" aria-hidden="true"></span>
+      <p class="mt-4 text-sm text-[#60798e]">Checking your WinCapture session...</p>
+    </section>
+  </main>
+} @else if (!auth.user()) {
+  <main class="relative isolate grid min-h-[calc(100vh-82px)] place-items-center overflow-hidden p-6 max-[520px]:p-[17px]">
+    <section class="surface relative w-[min(460px,100%)] rounded-[23px] p-[30px] shadow-[0_24px_60px_rgba(44,93,135,0.11),inset_0_1px_rgba(255,255,255,0.86)] max-[520px]:rounded-[19px] max-[520px]:px-5 max-[520px]:py-[23px]">
+      <div class="flex items-center gap-[11px]"><span class="relative grid h-8 w-8 flex-none rotate-[-7deg] place-items-center rounded-[11px] bg-[linear-gradient(145deg,#53adff_0%,#1c7af0_50%,#0c5cdb_100%)] text-white shadow-[0_8px_18px_rgba(30,115,225,0.24),inset_0_1px_rgba(255,255,255,0.25)]" aria-hidden="true"><span class="rotate-[7deg] text-[15px] font-extrabold">W</span></span><strong class="text-[15px] font-bold tracking-[-0.02em] text-[#173653]">WinCapture</strong></div>
+      <div class="mt-9">
+        <h1 class="m-0 text-[18px] font-[650] tracking-[-0.02em] text-[#183a57]">{{ auth.error() ? 'Could not reuse your React sign-in' : 'Sign in to WinCapture first' }}</h1>
+        <p class="mt-2 text-[12px] leading-6 text-[#60798e]">{{ auth.error()?.includes('AADSTS50058') ? 'React and Angular have separate browser token caches. Sign out from the React profile menu, complete a fresh Microsoft sign-in, then open Albums again.' : auth.error() ? 'Your React account may already be signed in. Angular needs a silent Microsoft session to finish before it can load albums.' : 'Sign in through the React application first, then choose Albums to open this page. Angular will reuse that Microsoft session silently.' }}</p>
+        @if (auth.error()) { <p role="alert" class="mt-3 rounded-xl border border-red-100 bg-red-50/75 p-3 text-[12px] leading-5 text-red-700">{{ auth.error() }}</p> }
+        <a class="primary-action mt-5" [href]="reactDashboardUrl">{{ auth.error()?.includes('AADSTS50058') ? 'Return to React' : 'Go to React sign-in' }}</a>
+      </div>
+    </section>
+  </main>
+} @else if (loading() && !hasLoaded()) {
+  <div class="app-page">
+    <section class="skeleton-panel flex min-h-[108px] items-center justify-between gap-4 rounded-[16px] px-6 py-4 max-[960px]:items-stretch max-[960px]:flex-col max-[760px]:px-4 max-[760px]:py-4">
+      <div class="skeleton-content"><span class="skeleton-line skeleton-line-sm"></span><span class="skeleton-line skeleton-line-lg"></span><span class="skeleton-line skeleton-line-md"></span></div>
+      <div class="flex items-center gap-2"><span class="skeleton-field"></span><span class="skeleton-button skeleton-button-wide"></span></div>
+    </section>
+    <section class="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
+      @for (item of [1,2,3,4,5,6]; track item) {
+        <article class="surface min-h-[270px] w-full min-w-0 overflow-hidden rounded-[16px] p-0 text-left text-inherit">
+          <div class="relative h-[148px] w-full overflow-hidden bg-[linear-gradient(145deg,#e3edf5,#d7e5ef)] after:absolute after:top-0 after:bottom-0 after:w-[35%] after:translate-x-[-130%] after:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.56),transparent)] after:animate-[skeleton-shimmer_1.55s_infinite_ease-in-out] after:content-['']"></div>
+          <div class="p-4"><span class="skeleton-line skeleton-line-sm"></span><span class="skeleton-line skeleton-line-md"></span><span class="skeleton-line skeleton-line-xs"></span></div>
+        </article>
+      }
+    </section>
+  </div>
+} @else {
+  <div class="app-page">
+    <section class="surface flex items-end justify-between gap-4 rounded-[16px] px-6 py-4 max-[960px]:items-stretch max-[960px]:flex-col max-[760px]:px-4 max-[760px]:py-4">
+      <div class="min-w-0">
+        <h1 class="page-heading flex items-center gap-3"><span class="page-kicker-dot" aria-hidden="true"></span>Albums</h1>
+        <p class="page-description">Organize your images and files into collections that are easy to access and share.</p>
+      </div>
+      <div class="flex flex-[0_1_430px] gap-2 max-[960px]:w-full max-[960px]:basis-auto max-[760px]:flex-col">
+        <label for="new-album-name" class="sr-only">New album name</label>
+        <input id="new-album-name" [ngModel]="albumName()" (ngModelChange)="albumName.set($event)" (keydown.enter)="!creating() && createAlbum()" placeholder="New album name" class="field min-w-0 flex-1" maxlength="200" />
+        <button type="button" (click)="createAlbum()" [disabled]="creating()" class="primary-action flex-none disabled:cursor-wait disabled:opacity-60 max-[760px]:w-full">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg><span>{{ creating() ? 'Creating...' : 'New album' }}</span>
+        </button>
+      </div>
+    </section>
+
+    @if (error()) {
+      <div role="alert" class="glass-alert-error flex min-h-[48px] items-center gap-[10px] rounded-[12px] px-[14px] py-[10px] text-[11px] leading-[1.5] text-[#a63e46]">
+        <span class="grid h-[25px] w-[25px] flex-none place-items-center rounded-[8px] bg-[#ffe3e6] text-[12px] font-extrabold text-[#c74851]" aria-hidden="true">!</span>
+        <span class="min-w-0">{{ error() }}</span>
+        @if (error()?.includes('sign-in') || error()?.includes('consent')) { <a class="secondary-action compact-action ml-auto" [href]="reactDashboardUrl">Return to React sign-in</a> }
+      </div>
+    }
+
+    <section class="flex flex-wrap items-center justify-between gap-3 max-[760px]:items-stretch">
+      <div class="glass-toolbar inline-flex flex-wrap gap-1 rounded-[11px] p-[3px]" role="group" aria-label="Album filters">
+        <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')" [class]="filterButtonClass('all')">All</button>
+        <button type="button" [attr.aria-pressed]="filter() === 'shared'" (click)="setFilter('shared')" [class]="filterButtonClass('shared')">Shared with me</button>
+        <button type="button" [attr.aria-pressed]="filter() === 'mine'" (click)="setFilter('mine')" [class]="filterButtonClass('mine')">My albums</button>
+      </div>
+      <label class="glass-toolbar flex min-h-[39px] w-[min(300px,100%)] items-center gap-2 rounded-[11px] px-[11px] text-[#8195a5] focus-within:border-[#87a9c2] focus-within:shadow-[0_0_0_3px_rgba(84,132,169,0.1)] max-[760px]:w-full">
+        <span class="sr-only">Search albums</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+        <input type="search" [ngModel]="searchInput()" (ngModelChange)="setSearch($event)" [ngModelOptions]="{standalone:true}" placeholder="Search albums" aria-label="Search albums" class="min-w-0 flex-1 border-0 bg-transparent text-[11px] text-[#284963] outline-none placeholder:text-[#8b9eae]" />
+      </label>
+    </section>
+
+    <section class="min-w-0">
+      @if (albums().length === 0) {
+        <section class="surface flex min-h-[300px] flex-col items-center justify-center rounded-[18px] px-[22px] py-[38px] text-center">
+          <span class="grid h-[62px] w-[62px] place-items-center rounded-[19px] border border-white/80 bg-white/50 text-[#1b74d3] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_6px_18px_rgba(26,54,80,0.06)] backdrop-blur-md"><svg class="h-7 w-7" aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg></span>
+          <h2 class="mt-4 mb-0 text-[15px] font-[650] text-[#29445d]">No albums available</h2>
+          <p class="mt-[7px] mb-[18px] max-w-[390px] text-[10px] leading-[1.6] text-[#8497a7]">Create your first album to start organizing your WinCapture files.</p>
+          <div class="albums-empty-actions"><button type="button" (click)="focusCreateField()" class="primary-action"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>Create album</button></div>
+        </section>
+      } @else {
+        <div class="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
+          @for (album of albums(); track album.id) {
+            <button type="button" (click)="openReactAlbum(album)" class="surface group w-full min-w-0 cursor-pointer overflow-hidden rounded-[16px] p-0 text-left text-inherit transition-[transform,box-shadow,border-color] duration-[220ms] hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)]" [attr.aria-label]="'Open album ' + album.albumName">
+              <div class="relative h-[148px] overflow-hidden max-[760px]:h-[132px] max-[520px]:h-[148px]">
+                <div class="relative grid h-full w-full place-items-center overflow-hidden bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_35%),linear-gradient(145deg,rgba(215,238,255,0.7)_0%,rgba(180,218,250,0.5)_48%,rgba(215,235,250,0.65)_100%)]">
+                  @if (covers()[album.id]) { <img [src]="covers()[album.id]" alt="" aria-hidden="true" class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" /> }
+                  @else {
+                    <span class="absolute right-[-22px] top-[-92px] h-[170px] w-[170px] rounded-full bg-[rgba(75,158,237,0.24)] blur-[1px]"></span><span class="absolute bottom-[-78px] left-[-23px] h-[125px] w-[125px] rounded-full bg-[rgba(255,255,255,0.36)] blur-[1px]"></span>
+                    <span class="relative z-[1] grid h-[61px] w-[61px] place-items-center rounded-[18px] border border-[rgba(255,255,255,0.8)] bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-[0_8px_20px_rgba(26,54,80,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-md"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg></span>
+                  }
+                </div>
+              </div>
+              <div class="px-[15px] pt-[15px] pb-[13px] max-[760px]:p-3">
+                <h3 class="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] leading-[1.3] font-[650] text-[#183b59]" [title]="album.albumName">{{ album.albumName }}</h3>
+                <div class="mt-[15px] grid grid-cols-2 gap-[9px] border-t border-[rgba(255,255,255,0.45)] pt-3 max-[760px]:grid-cols-1 max-[760px]:gap-[7px]">
+                  <div class="flex min-w-0 items-center gap-2"><span class="grid h-7 w-7 flex-none place-items-center rounded-[9px] border border-white/60 bg-[rgba(255,255,255,0.5)] text-[#246bb1]"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M4 4h6l2 3h8a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" /><path d="M3 10h18" /></svg></span><span class="grid min-w-0 gap-0.5"><small class="text-[11px] text-[#869cb0]">Owner</small><strong class="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#3b5973]" [title]="album.ownerName">{{ album.ownerName }}</strong></span></div>
+                  <div class="flex min-w-0 items-center gap-2"><span class="grid h-7 w-7 flex-none place-items-center rounded-[9px] border border-white/60 bg-[rgba(255,255,255,0.5)] text-[#246bb1]"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg></span><span class="grid min-w-0 gap-0.5"><small class="text-[11px] text-[#869cb0]">Created</small><strong class="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#3b5973]">{{ formatDate(album.createdAt) }}</strong></span></div>
+                </div>
+                <div class="mt-[13px] flex items-center justify-between gap-[10px] border-t border-[rgba(255,255,255,0.45)] pt-[11px] text-[8px] text-[#8299aa]"><span>{{ album.updatedAt ? 'Updated ' + formatDate(album.updatedAt) : 'Not updated' }}</span><span class="inline-flex items-center gap-1 text-[8px] font-semibold text-[#1a74d2]">Open<svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M7 17 17 7M7 7h10v10" /></svg></span></div>
+              </div>
+            </button>
+          }
+        </div>
+      }
+      @if (totalItems() > 0) {
+        <nav aria-label="Pagination" class="glass-toolbar flex items-center justify-between gap-3 rounded-[11px] px-[15px] py-3 text-[9px] text-[#70879a] max-[520px]:px-3">
+          <span>Page {{ currentPage() }} of {{ pageCount() }}</span>
+          <div class="flex items-center gap-2"><button type="button" (click)="setPage(currentPage() - 1)" [disabled]="currentPage() <= 1" class="rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.52)] px-[11px] py-[6px] font-semibold text-[#3b5d77] shadow-[0_2px_6px_rgba(20,54,84,0.04),inset_0_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-all hover:bg-white/80 hover:text-[#194f7d] disabled:cursor-not-allowed disabled:opacity-45">Previous</button><button type="button" (click)="setPage(currentPage() + 1)" [disabled]="currentPage() >= pageCount()" class="rounded-[8px] border border-white/70 bg-[rgba(255,255,255,0.52)] px-[11px] py-[6px] font-semibold text-[#3b5d77] shadow-[0_2px_6px_rgba(20,54,84,0.04),inset_0_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-all hover:bg-white/80 hover:text-[#194f7d] disabled:cursor-not-allowed disabled:opacity-45">Next</button></div>
+        </nav>
+      }
+    </section>
+  </div>
+}

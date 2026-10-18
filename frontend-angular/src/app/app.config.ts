@@ -1,61 +1,25 @@
-import { HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom, provideAppInitializer, inject } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import {
-  InteractionType,
-  PublicClientApplication,
-  type IPublicClientApplication,
-} from '@azure/msal-browser';
-import {
-  MsalGuardConfiguration,
-  MsalInterceptor,
-  MsalInterceptorConfiguration,
-  MsalModule,
-} from '@azure/msal-angular';
+import { MsalModule, MsalService } from '@azure/msal-angular';
+import { InteractionType, PublicClientApplication } from '@azure/msal-browser';
 import { routes } from './app.routes';
-import { environment } from '../environments/environment';
+import { msalConfig, apiScopes } from './core/auth/msal.config';
 
-function createMsalInstance(): IPublicClientApplication {
-  return new PublicClientApplication({
-    auth: {
-      clientId: environment.msalClientId || '00000000-0000-0000-0000-000000000000',
-      authority: `https://login.microsoftonline.com/${environment.msalTenantId || 'common'}`,
-      redirectUri: environment.redirectUri,
-      postLogoutRedirectUri: environment.postLogoutRedirectUri,
-    },
-    cache: { cacheLocation: 'sessionStorage' },
-  });
-}
-
-function createMsalGuardConfig(): MsalGuardConfiguration {
-  return {
-    interactionType: InteractionType.Redirect,
-    authRequest: { scopes: environment.msalApiScope ? [environment.msalApiScope] : [] },
-  };
-}
-
-function createMsalInterceptorConfig(): MsalInterceptorConfiguration {
-  const protectedResourceMap = new Map<string, string[]>();
-  const apiUrl = environment.apiBaseUrl.replace(/\/$/, '');
-  if (apiUrl && environment.msalApiScope) {
-    protectedResourceMap.set(`${apiUrl}/*`, [environment.msalApiScope]);
-  }
-
-  return {
-    interactionType: InteractionType.Redirect,
-    protectedResourceMap,
-  };
-}
+const msalInstance = new PublicClientApplication(msalConfig);
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    provideHttpClient(withInterceptorsFromDi()),
+    provideHttpClient(),
     importProvidersFrom(MsalModule.forRoot(
-      createMsalInstance(),
-      createMsalGuardConfig(),
-      createMsalInterceptorConfig(),
+      msalInstance,
+      { interactionType: InteractionType.Popup, authRequest: { scopes: apiScopes } },
+      { interactionType: InteractionType.Popup, protectedResourceMap: new Map() },
     )),
-    { provide: HTTP_INTERCEPTORS, useClass: MsalInterceptor, multi: true },
+    provideAppInitializer(() => {
+      const msal = inject(MsalService);
+      return msal.instance.initialize();
+    }),
   ],
 };

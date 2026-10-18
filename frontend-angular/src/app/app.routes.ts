@@ -1,11 +1,15 @@
 import { Routes } from '@angular/router';
-import { signedInGuard } from './auth/signed-in.guard';
-import { RedirectComponent } from './auth/redirect.component';
-import { AlbumsComponent } from './pages/albums/albums.component';
+import { AppShellComponent } from './app-shell.component';
+import { AlbumsPageComponent } from './features/albums/albums-page.component';
 
 export const routes: Routes = [
-  { path: 'redirect', component: RedirectComponent },
-  { path: '', pathMatch: 'full', redirectTo: 'albums' },
-  { path: 'albums', component: AlbumsComponent, canActivate: [signedInGuard] },
-  { path: '**', redirectTo: 'albums' },
+  {
+    path: '',
+    component: AppShellComponent,
+    children: [
+      { path: 'albums', component: AlbumsPageComponent },
+      { path: '', pathMatch: 'full', redirectTo: 'albums' },
+      { path: '**', redirectTo: 'albums' },
+    ],
+  },
 ];

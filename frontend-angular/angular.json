@@ -17,7 +17,14 @@
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
-            "assets": [{ "glob": "**/*", "input": "public" }],
+            "assets": [
+              { "glob": "**/*", "input": "public" },
+              {
+                "glob": "msal-redirect-bridge.min.js",
+                "input": "node_modules/@azure/msal-browser/lib/redirect-bridge",
+                "output": "/"
+              }
+            ],
             "styles": ["src/styles.css"]
           },
           "configurations": {
@@ -25,16 +32,10 @@
               "optimization": true,
               "outputHashing": "all",
               "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.production.ts"
-                }
+                { "replace": "src/environments/environment.ts", "with": "src/environments/environment.production.ts" }
               ]
             },
-            "development": {
-              "optimization": false,
-              "sourceMap": true
-            }
+            "development": { "optimization": false, "sourceMap": true }
           },
           "defaultConfiguration": "production"
         },
