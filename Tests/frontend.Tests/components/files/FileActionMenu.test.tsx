@@ -8,6 +8,7 @@ describe("FileActionMenu", () => {
     render(<FileActionMenu
       fileName="shared.png"
       canManage={false}
+      canDownload
       onReplace={vi.fn()}
       onDetails={vi.fn()}
       onDownload={vi.fn()}
@@ -29,6 +30,7 @@ describe("FileActionMenu", () => {
     render(<FileActionMenu
       fileName="owned.png"
       canManage
+      canDownload
       onReplace={onReplace}
       onDetails={vi.fn()}
       onDownload={vi.fn()}
@@ -44,6 +46,36 @@ describe("FileActionMenu", () => {
     fireEvent.click(trigger);
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("positions the menu above its trigger and clamps it within the viewport", () => {
+    const { container } = render(<FileActionMenu
+      fileName="edge.pdf"
+      canManage={false}
+      canDownload={false}
+      onReplace={vi.fn()}
+      onDetails={vi.fn()}
+      onDownload={vi.fn()}
+      onDelete={vi.fn()}
+    />);
+    const trigger = screen.getByRole("button", { name: "Actions for edge.pdf" });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      top: 750, bottom: 770, left: 1000, right: 1020, width: 20, height: 20,
+      x: 1000, y: 750, toJSON: () => ({}),
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      return this.getAttribute("role") === "menu"
+        ? { top: 0, bottom: 100, left: 0, right: 2000, width: 2000, height: 100, x: 0, y: 0, toJSON: () => ({}) }
+        : { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) };
+    });
+
+    fireEvent.click(trigger);
+    const menu = screen.getByRole("menu");
+    expect(menu).toHaveStyle({ top: "644px", left: "8px" });
+    fireEvent.pointerDown(menu);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.pointerDown(container);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

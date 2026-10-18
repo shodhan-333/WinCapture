@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
+using WinCapture.DTOs.Common;
 using WinCapture.DTOs.Albums;
 using WinCapture.Exceptions;
 using WinCapture.Models;
@@ -197,6 +198,52 @@ public sealed class AlbumFileServiceTests
         Assert.True(result.Single(file => file.Id == FileId).IsFavorite);
         Assert.False(result.Single(file => file.Id == 43).IsFavorite);
         Assert.All(result, file => Assert.True(file.CanManage));
+    }
+
+    [Fact]
+    public async Task GetPageAsync_MapsFavoritesAndAlbumPermissionsForPageItems()
+    {
+        var page = new PagedResponse<FileMetadata>([ExistingFile()], 11, 2, 1, 11);
+        _albums.Setup(service => service.GetAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(new AlbumResponse(AlbumId, "Trips", OwnerId, "Owner", DateTime.UtcNow, null));
+        _files.Setup(repository => repository.GetPagedByAlbumIdAsync(AlbumId, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(page);
+        _files.Setup(repository => repository.GetFavoriteFileIdsByUserIdAsync(20, It.IsAny<IReadOnlyCollection<long>>()))
+            .ReturnsAsync(new long[] { FileId });
+        _albums.Setup(service => service.CanDownloadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(false);
+
+        var result = await _service.GetPageAsync(
+            AlbumId, new User { Id = 20 }, UserRole.User, new PaginationQuery { Page = 2, PageSize = 1 });
+
+        Assert.Equal(page.TotalItems, result.TotalItems);
+        Assert.Equal(page.Page, result.Page);
+        Assert.Equal(page.PageSize, result.PageSize);
+        Assert.Equal(page.PageCount, result.PageCount);
+        var file = Assert.Single(result.Items);
+        Assert.True(file.IsFavorite);
+        Assert.False(file.CanManage);
+        Assert.False(file.CanDownload);
+    }
+
+    [Fact]
+    public async Task GetPageAsync_AdminCanManageEvenWhenNotAlbumOwner()
+    {
+        _albums.Setup(service => service.GetAsync(AlbumId, It.IsAny<User>(), UserRole.Admin))
+            .ReturnsAsync(new AlbumResponse(AlbumId, "Trips", OwnerId, "Owner", DateTime.UtcNow, null));
+        _files.Setup(repository => repository.GetPagedByAlbumIdAsync(AlbumId, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(new PagedResponse<FileMetadata>([ExistingFile()], 1, 1, 10, 1));
+        _files.Setup(repository => repository.GetFavoriteFileIdsByUserIdAsync(20, It.IsAny<IReadOnlyCollection<long>>()))
+            .ReturnsAsync(Array.Empty<long>());
+        _albums.Setup(service => service.CanDownloadAsync(AlbumId, It.IsAny<User>(), UserRole.Admin))
+            .ReturnsAsync(true);
+
+        var result = await _service.GetPageAsync(AlbumId, new User { Id = 20 }, UserRole.Admin, new PaginationQuery());
+
+        var file = Assert.Single(result.Items);
+        Assert.True(file.CanManage);
+        Assert.True(file.CanDownload);
+        Assert.False(file.IsFavorite);
     }
 
     [Fact]

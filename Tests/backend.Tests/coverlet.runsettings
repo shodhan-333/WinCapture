@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <ExcludeByFile>**/Migrations/**/*.cs,**/*ModelSnapshot.cs,**/*.g.cs,**/*.designer.cs,**/Program.cs</ExcludeByFile>
+          <Exclude>[*.Tests]*,[*]Microsoft.*,[*]System.*,[WinCapture]WinCapture.Models.*,[WinCapture]WinCapture.DTOs.Albums.*,[WinCapture]WinCapture.DTOs.Auth.*,[WinCapture]WinCapture.DTOs.Files.*,[WinCapture]WinCapture.DTOs.Common.PagedResponse`1,[WinCapture]WinCapture.DTOs.Common.ErrorResponse</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

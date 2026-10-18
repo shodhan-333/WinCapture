@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import FileCard from "../../../frontend/src/components/FileCard";
@@ -14,6 +14,7 @@ const file: FileResponse = {
   downloadUrl: "/api/files/2/download",
   isFavorite: false,
   canManage: false,
+  canDownload: true,
 };
 
 describe("FileCard", () => {
@@ -99,5 +100,53 @@ describe("FileCard", () => {
     previewButtons.forEach((button) => fireEvent.click(button));
     await waitFor(() => expect(onPreview).toHaveBeenCalledTimes(previewFiles.length));
     expect(container.querySelectorAll('[aria-label="Loading preview"]')).toHaveLength(0);
+  });
+
+  it("loads non-image previews when they intersect and reuses the cached object URL", async () => {
+    let intersection: IntersectionObserverCallback | undefined;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    class ObserverMock {
+      constructor(callback: IntersectionObserverCallback) { intersection = callback; }
+      observe = observe;
+      disconnect = disconnect;
+      unobserve = vi.fn();
+      takeRecords = vi.fn(() => []);
+      root = null;
+      rootMargin = "120px";
+      thresholds = [0];
+    }
+    vi.stubGlobal("IntersectionObserver", ObserverMock);
+    const loadPreview = vi.fn().mockResolvedValue("blob:cached-pdf");
+    const onPreview = vi.fn();
+    const { unmount } = render(
+      <FileCard
+        file={{ ...file, originalFileName: "report.pdf", contentType: "application/pdf" }}
+        loadPreview={loadPreview}
+        onFavoriteToggle={vi.fn()}
+        onReplace={vi.fn()}
+        onDetails={vi.fn()}
+        onPreview={onPreview}
+        onDownload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(observe).toHaveBeenCalledOnce();
+    await act(async () => {
+      intersection?.([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    });
+    await waitFor(() => expect(loadPreview).toHaveBeenCalledOnce());
+    const previewButton = screen.getByRole("button", { name: "Open preview of report.pdf" });
+    await waitFor(() => expect(previewButton).toBeEnabled());
+    fireEvent.click(previewButton);
+    await waitFor(() => expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ originalFileName: "report.pdf" }), "blob:cached-pdf"));
+    expect(loadPreview).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalled();
+
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    unmount();
+    expect(revoke).toHaveBeenCalledWith("blob:cached-pdf");
+    vi.unstubAllGlobals();
   });
 });

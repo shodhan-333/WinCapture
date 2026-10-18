@@ -1239,7 +1239,7 @@ export default function AlbumDetailPage() {
                             void handleUpdateMember(
                               member.userId,
                               !member.canView,
-                              !member.canView && member.canDownload
+                              member.canView && member.canDownload
                                 ? false
                                 : member.canDownload,
                             )

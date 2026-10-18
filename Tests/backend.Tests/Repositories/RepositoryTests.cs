@@ -11,6 +11,176 @@ namespace WinCapture.Tests.Repositories;
 public sealed class RepositoryTests
 {
     [Fact]
+    public async Task FileRepository_PaginatesSearchAndEverySupportedCategory()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+
+        var user = AddUser(database, "category-user");
+        var names = new[] { "photo.jpg", "report.pdf", "clip.mp4", "song.mp3", "backup.zip", "notes.txt", "unknown.bin" };
+        var files = names.Select((name, index) => AddFile(database, user, name, DateTime.UtcNow.AddMinutes(-index))).ToArray();
+        files[0].ContentType = "image/png";
+        await database.SaveChangesAsync();
+
+        var repository = new FileRepository(database);
+        async Task<long[]> Search(string? search, string? category, int page = 1, int pageSize = 10)
+        {
+            var result = await repository.GetPagedByUserIdAsync(user.Id, new PaginationQuery
+            {
+                Search = search,
+                Category = category,
+                Page = page,
+                PageSize = pageSize
+            });
+            return result.Items.Select(file => file.Id).ToArray();
+        }
+
+        Assert.Equal(7, (await repository.GetPagedByUserIdAsync(user.Id, new PaginationQuery { Page = 1, PageSize = 10 })).TotalItems);
+        Assert.Equal(new[] { files[1].Id }, await Search(" report ", null));
+        Assert.Equal(new[] { files[0].Id }, await Search("image/png", null));
+        Assert.Equal(new[] { files[1].Id }, await Search(files[1].Id.ToString(), null));
+        Assert.Equal(new[] { files[0].Id }, await Search(null, "Images"));
+        Assert.Equal(new[] { files[1].Id, files[5].Id }, await Search(null, "Documents"));
+        Assert.Equal(new[] { files[2].Id }, await Search(null, "Videos"));
+        Assert.Equal(new[] { files[3].Id }, await Search(null, "Audio"));
+        Assert.Equal(new[] { files[4].Id }, await Search(null, "Archives"));
+        Assert.Equal(7, (await Search(null, "All")).Length);
+        Assert.Equal(7, (await Search(null, "Unknown")).Length);
+        Assert.Equal(1, (await repository.GetPagedByUserIdAsync(user.Id, new PaginationQuery { Page = 99, PageSize = 10 })).Page);
+        Assert.Equal(7, (await Search(null, null, page: 1, pageSize: 7)).Length);
+    }
+
+    [Fact]
+    public async Task FileRepository_PagedFavoritesEnforcesVisibilitySearchCategoriesAndBounds()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>().UseSqlite(connection).Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+
+        var viewer = AddUser(database, "favorite-viewer");
+        var other = AddUser(database, "favorite-other");
+        var shared = AddAlbum(database, other, "Shared favorites");
+        var hidden = AddAlbum(database, other, "Hidden favorites");
+        database.AlbumAccess.Add(new AlbumAccess
+        {
+            AlbumId = shared.Id, UserId = viewer.Id, CanView = true, CanDownload = false,
+            GrantedBy = other.Id, GrantedAt = DateTime.UtcNow
+        });
+        database.AlbumAccess.Add(new AlbumAccess
+        {
+            AlbumId = hidden.Id, UserId = viewer.Id, CanView = false, CanDownload = false,
+            GrantedBy = other.Id, GrantedAt = DateTime.UtcNow
+        });
+        await database.SaveChangesAsync();
+
+        var files = new[]
+        {
+            AddFile(database, viewer, "photo.jpg", DateTime.UtcNow),
+            AddFile(database, viewer, "report.pdf", DateTime.UtcNow.AddMinutes(-1)),
+            AddFile(database, viewer, "clip.mp4", DateTime.UtcNow.AddMinutes(-2)),
+            AddFile(database, viewer, "song.mp3", DateTime.UtcNow.AddMinutes(-3)),
+            AddFile(database, viewer, "backup.zip", DateTime.UtcNow.AddMinutes(-4)),
+            AddFile(database, other, "visible.txt", DateTime.UtcNow.AddMinutes(-5)),
+            AddFile(database, other, "secret.txt", DateTime.UtcNow.AddMinutes(-6))
+        };
+        foreach (var file in files)
+        {
+            file.ContentType = "application/octet-stream";
+        }
+        files[5].ContentType = "text/plain";
+        files[5].AlbumId = shared.Id;
+        files[5].Album = shared;
+        files[6].AlbumId = hidden.Id;
+        files[6].Album = hidden;
+        await database.SaveChangesAsync();
+        database.Favorites.AddRange(files.Select((file, index) => new Favorite
+        {
+            UserId = viewer.Id, FileId = file.Id, File = file,
+            FavoritedAt = DateTime.UtcNow.AddMinutes(-index)
+        }));
+        await database.SaveChangesAsync();
+
+        var repository = new FileRepository(database);
+        async Task<PagedResponse<FileMetadata>> Query(UserRole role, string? search = null, string? category = null, int page = 1) =>
+            await repository.GetPagedFavoriteFilesByUserIdAsync(viewer.Id, role, new PaginationQuery
+            {
+                Search = search, Category = category, Page = page, PageSize = 2
+            });
+
+        var userResults = await Query(UserRole.User);
+        Assert.Equal(6, userResults.TotalItems);
+        Assert.DoesNotContain(userResults.Items, file => file.OriginalFileName == "secret.txt");
+        Assert.Equal(new[] { "photo.jpg", "report.pdf" }, userResults.Items.Select(file => file.OriginalFileName));
+        Assert.Equal("visible.txt", Assert.Single((await Query(UserRole.User, " visible ")).Items).OriginalFileName);
+        Assert.Equal("visible.txt", Assert.Single((await Query(UserRole.User, "text/plain")).Items).OriginalFileName);
+        Assert.Equal("visible.txt", Assert.Single((await Query(UserRole.User, files[5].Id.ToString())).Items).OriginalFileName);
+        Assert.Equal("photo.jpg", Assert.Single((await Query(UserRole.User, category: "Images")).Items).OriginalFileName);
+        var documents = await Query(UserRole.User, category: "Documents");
+        Assert.Equal(2, documents.TotalItems);
+        Assert.Contains(documents.Items, file => file.OriginalFileName == "report.pdf");
+        Assert.Contains(documents.Items, file => file.OriginalFileName == "visible.txt");
+        Assert.Equal("clip.mp4", Assert.Single((await Query(UserRole.User, category: "Videos")).Items).OriginalFileName);
+        Assert.Equal("song.mp3", Assert.Single((await Query(UserRole.User, category: "Audio")).Items).OriginalFileName);
+        Assert.Equal("backup.zip", Assert.Single((await Query(UserRole.User, category: "Archives")).Items).OriginalFileName);
+        Assert.Equal(3, (await Query(UserRole.User, page: 99)).Page);
+
+        var adminResults = await Query(UserRole.Admin);
+        Assert.Equal(7, adminResults.TotalItems);
+        Assert.Contains((await Query(UserRole.Admin, page: 4)).Items, file => file.OriginalFileName == "secret.txt");
+        Assert.Equal(0, (await Query(UserRole.Admin, "not-found")).TotalItems);
+    }
+
+    [Fact]
+    public async Task AlbumRepository_PagedQueriesSupportOwnershipAccessSearchAndPageBounds()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>().UseSqlite(connection).Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+
+        var owner = AddUser(database, "album-query-owner");
+        var member = AddUser(database, "album-query-member");
+        var privateAlbum = AddAlbum(database, owner, "Orchid collection");
+        var sharedAlbum = AddAlbum(database, AddUser(database, "album-query-other"), "Mountain archive");
+        database.AlbumAccess.Add(new AlbumAccess
+        {
+            AlbumId = sharedAlbum.Id,
+            UserId = member.Id,
+            CanView = true,
+            GrantedBy = sharedAlbum.CreatedBy,
+            GrantedAt = DateTime.UtcNow
+        });
+        await database.SaveChangesAsync();
+
+        var repository = new AlbumRepository(database);
+        static PaginationQuery Query(string? search = null, int page = 1) => new()
+        {
+            Search = search,
+            Page = page,
+            PageSize = 1
+        };
+
+        Assert.Equal(privateAlbum.Id, Assert.Single((await repository.GetPagedOwnedByUserIdAsync(owner.Id, Query())).Items).Id);
+        Assert.Equal(privateAlbum.Id, Assert.Single((await repository.GetPagedOwnedByUserIdAsync(owner.Id, Query("Orchid"))).Items).Id);
+        Assert.Equal(privateAlbum.Id, Assert.Single((await repository.GetPagedOwnedByUserIdAsync(owner.Id, Query(owner.Name))).Items).Id);
+        Assert.Equal(privateAlbum.Id, Assert.Single((await repository.GetPagedOwnedByUserIdAsync(owner.Id, Query(owner.Id.ToString()))).Items).Id);
+        Assert.Equal(privateAlbum.Id, Assert.Single((await repository.GetPagedAccessibleByUserIdAsync(owner.Id, Query())).Items).Id);
+        Assert.Equal(sharedAlbum.Id, Assert.Single((await repository.GetPagedAccessibleByUserIdAsync(member.Id, Query("Mountain"))).Items).Id);
+        Assert.Equal(sharedAlbum.Id, Assert.Single((await repository.GetPagedSharedWithUserIdAsync(member.Id, Query())).Items).Id);
+        Assert.Equal(privateAlbum.Id, Assert.Single((await repository.GetPagedAllAsync(Query("Orchid"))).Items).Id);
+        Assert.Equal(sharedAlbum.Id, Assert.Single((await repository.GetPagedAllAsync(Query(sharedAlbum.Id.ToString()))).Items).Id);
+        Assert.Equal(sharedAlbum.Id, Assert.Single((await repository.GetPagedAllAsync(Query(sharedAlbum.CreatedBy.ToString()))).Items).Id);
+        Assert.Equal(sharedAlbum.Id, Assert.Single((await repository.GetPagedAllAsync(Query("album-query-other"))).Items).Id);
+        Assert.Equal(2, (await repository.GetPagedAllAsync(Query(page: 99))).Page);
+        Assert.Equal(2, (await repository.GetPagedAllAsync(Query())).TotalItems);
+    }
+
+    [Fact]
     public async Task AlbumRepository_ReturnsOwnedAndViewSharedAlbumsOnly()
     {
         await using var connection = await OpenDatabaseAsync();

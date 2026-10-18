@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { loginRequest, msalConfig, msalPostLogoutRedirectUri, msalRedirectUri } from "../../frontend/src/authConfig";
+import { getAngularAlbumsUrl, loginRequest, msalConfig, msalPostLogoutRedirectUri, msalRedirectUri } from "../../frontend/src/authConfig";
 
 describe("MSAL configuration", () => {
   afterEach(() => {
@@ -31,5 +31,32 @@ describe("MSAL configuration", () => {
       "VITE_MSAL_TENANT_ID",
       "VITE_MSAL_API_SCOPE",
     ]));
+  });
+
+  it("trims configured values, applies redirect defaults, and validates complete configuration", async () => {
+    vi.stubEnv("VITE_API_BASE_URL", " https://api.example.test ");
+    vi.stubEnv("VITE_MSAL_CLIENT_ID", " client-id ");
+    vi.stubEnv("VITE_MSAL_TENANT_ID", " tenant-id ");
+    vi.stubEnv("VITE_MSAL_REDIRECT_URI", " ");
+    vi.stubEnv("VITE_MSAL_POST_LOGOUT_REDIRECT_URI", " ");
+    vi.stubEnv("VITE_MSAL_API_SCOPE", " api://client/access ");
+    vi.stubEnv("VITE_ANGULAR_ALBUMS_URL", " ");
+    vi.resetModules();
+    const config = await import("../../frontend/src/authConfig");
+
+    expect(config.apiBaseUrl).toBe("https://api.example.test");
+    expect(config.msalConfig.auth.clientId).toBe("client-id");
+    expect(config.msalConfig.auth.authority).toBe("https://login.microsoftonline.com/tenant-id");
+    expect(config.validateEnvironment()).toEqual([]);
+    expect(config.msalRedirectUri).toBe("https://localhost:5173/");
+    expect(config.msalPostLogoutRedirectUri).toBe("https://localhost:5173/");
+    expect(config.getAngularAlbumsUrl()).toBe("https://localhost:5173/angular/albums");
+  });
+
+  it("resolves an explicitly configured absolute Angular Albums URL", async () => {
+    vi.stubEnv("VITE_ANGULAR_ALBUMS_URL", "https://albums.example.test/angular/albums");
+    vi.resetModules();
+    const config = await import("../../frontend/src/authConfig");
+    expect(config.getAngularAlbumsUrl()).toBe("https://albums.example.test/angular/albums");
   });
 });

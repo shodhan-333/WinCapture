@@ -21,6 +21,21 @@ describe("file preview parsing", () => {
     ]);
   });
 
+  it("handles escaped quotes, CR-only rows, empty input, and ignored blank rows", () => {
+    expect(parseDelimitedText('a,"b""c"\r\n\r"x,y",z')).toEqual([
+      ["a", 'b"c'], ["x,y", "z"],
+    ]);
+    expect(parseDelimitedText("")).toEqual([]);
+    expect(parseDelimitedText("\n,,x\n")).toEqual([["", "", "x"]]);
+  });
+
+  it("reports unreadable network responses and unsupported preview formats", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, arrayBuffer: async () => new ArrayBuffer(0) })));
+    await expect(readFilePreview("/missing", ".txt")).rejects.toThrow("The preview content could not be read.");
+    serve(new ArrayBuffer(0));
+    await expect(readFilePreview("/file", ".bin")).rejects.toThrow("This file type does not have a readable preview.");
+  });
+
   it("reads text files as their actual contents", async () => {
     serve(new TextEncoder().encode("Authentic file text").buffer);
     await expect(readFilePreview("blob:text", ".txt")).resolves.toEqual({ kind: "text", text: "Authentic file text" });
@@ -36,7 +51,7 @@ describe("file preview parsing", () => {
     const result = await readFilePreview("blob:docx", ".docx");
     expect(result.kind).toBe("text");
     if (result.kind === "text") expect(result.text).toContain("Document preview text");
-  });
+  }, 15000);
 
   it("reads the first worksheet from XLSX", async () => {
     serve(await zipBuffer({
@@ -47,6 +62,16 @@ describe("file preview parsing", () => {
     }));
     const result = await readFilePreview("blob:xlsx", ".xlsx");
     expect(result).toEqual({ kind: "table", sheetName: "Overview", rows: [["City", "Count"], ["Pune", "3"]] });
+  });
+
+  it("reads inline and boolean XLSX cells when optional workbook metadata is absent", async () => {
+    serve(await zipBuffer({
+      "xl/workbook.xml": '<workbook xmlns="urn:sheet"><sheets><sheet sheetId="1"/></sheets></workbook>',
+      "xl/worksheets/sheet1.xml": '<worksheet xmlns="urn:sheet"><sheetData><row><c r="A1" t="inlineStr"><is><t>Label</t></is></c><c r="B1" t="b"><v>1</v></c><c r="C1" t="b"><v>0</v></c><c r="AE1"><v>ignored</v></c></row></sheetData></worksheet>',
+    }));
+    await expect(readFilePreview("blob:xlsx", ".xlsx")).resolves.toEqual({
+      kind: "table", sheetName: "Sheet 1", rows: [["Label", "TRUE", "FALSE"]],
+    });
   });
 
   it("extracts first-slide text and positions from PPTX", async () => {

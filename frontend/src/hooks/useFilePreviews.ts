@@ -65,14 +65,18 @@ export default function useFilePreviews(
           try {
             const signature = signatureFor(file);
             const pendingKey = `${file.id}:${signature}`;
-            let request = pending.current.get(pendingKey);
-            if (!request) {
-              request = loadPreview(file);
-              pending.current.set(pendingKey, request);
-            }
             const cached = cache.current.get(file.id);
-            const url =
-              cached?.signature === signature ? cached.url : await request;
+            let url: string;
+            if (cached?.signature === signature) {
+              url = cached.url;
+            } else {
+              let request = pending.current.get(pendingKey);
+              if (!request) {
+                request = loadPreview(file);
+                pending.current.set(pendingKey, request);
+              }
+              url = await request;
+            }
             const isCurrent =
               active && currentSignatures.current.get(file.id) === signature;
             if (!isCurrent) {

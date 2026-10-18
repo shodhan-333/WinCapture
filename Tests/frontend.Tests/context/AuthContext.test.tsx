@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { IPublicClientApplication, AccountInfo } from "@azure/msal-browser";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getCurrentUser } from "../../../frontend/src/api/apiClient";
 import { AuthProvider, useAuth } from "../../../frontend/src/context/AuthContext";
@@ -15,6 +15,7 @@ const msalState = vi.hoisted(() => ({
   },
   accounts: [] as AccountInfo[],
   inProgress: "none",
+  logoutRedirectError: null as unknown,
 }));
 
 vi.mock("@azure/msal-react", () => ({ useMsal: () => msalState }));
@@ -43,13 +44,19 @@ function AuthStatus() {
 }
 
 describe("AuthContext", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   beforeEach(() => {
+    sessionStorage.clear();
     msalState.instance.getActiveAccount.mockReturnValue(account);
     msalState.instance.setActiveAccount.mockClear();
     msalState.instance.loginRedirect.mockResolvedValue(undefined);
-    msalState.instance.logoutRedirect.mockResolvedValue(undefined);
+    msalState.instance.logoutRedirect.mockImplementation(() => msalState.logoutRedirectError
+      ? Promise.reject(msalState.logoutRedirectError)
+      : Promise.resolve(undefined));
     msalState.accounts = [account];
     msalState.inProgress = "none";
+    msalState.logoutRedirectError = null;
     vi.mocked(getCurrentUser).mockResolvedValue(user);
   });
 
@@ -90,6 +97,18 @@ describe("AuthContext", () => {
     expect(getCurrentUser).not.toHaveBeenCalled();
   });
 
+  it("continues authentication when session storage is unavailable", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("blocked"); });
+    render(<AuthProvider><AuthStatus /></AuthProvider>);
+
+    expect(await screen.findByText("Test User")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    await waitFor(() => expect(msalState.instance.logoutRedirect).toHaveBeenCalledOnce());
+  });
+
   it("clears the user and surfaces current-user API errors", async () => {
     vi.mocked(getCurrentUser).mockRejectedValueOnce(new Error("Access denied"));
     render(<AuthProvider><AuthStatus /></AuthProvider>);
@@ -118,5 +137,52 @@ describe("AuthContext", () => {
     fireEvent.click(screen.getByRole("button", { name: "Login" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Login failed");
+  });
+
+  it("waits for MSAL interactions before loading the profile", async () => {
+    msalState.inProgress = "login";
+    render(<AuthProvider><AuthStatus /></AuthProvider>);
+
+    expect(screen.getByText("Loading")).toBeInTheDocument();
+    expect(getCurrentUser).not.toHaveBeenCalled();
+  });
+
+  it("prompts for account selection after logout and reports redirect failures", async () => {
+    sessionStorage.setItem("wincapture.pick-account-after-logout", "true");
+    msalState.instance.loginRedirect.mockRejectedValueOnce("cannot redirect");
+    render(<AuthProvider><AuthStatus /></AuthProvider>);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Microsoft account selection could not be started.");
+    expect(msalState.instance.loginRedirect).toHaveBeenCalledWith(expect.objectContaining({ prompt: "select_account" }));
+    expect(sessionStorage.getItem("wincapture.pick-account-after-logout")).toBeNull();
+  });
+
+  it("clears the account-picker request when login starts and surfaces logout failures", async () => {
+    sessionStorage.setItem("wincapture.pick-account-after-logout", "true");
+    msalState.logoutRedirectError = "logout failed";
+    render(<AuthProvider><AuthStatus /></AuthProvider>);
+    await waitFor(() => expect(msalState.instance.loginRedirect).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+    await waitFor(() => expect(sessionStorage.getItem("wincapture.pick-account-after-logout")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Microsoft logout could not be completed.");
+    expect(sessionStorage.getItem("wincapture.pick-account-after-logout")).toBeNull();
+  });
+
+  it("ignores a late profile response after a newer refresh has completed", async () => {
+    let resolveOld: ((value: CurrentUser) => void) | undefined;
+    vi.mocked(getCurrentUser)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }))
+      .mockResolvedValueOnce({ ...user, name: "Latest User" });
+    render(<AuthProvider><AuthStatus /></AuthProvider>);
+    await waitFor(() => expect(resolveOld).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(await screen.findByText("Latest User")).toBeInTheDocument();
+    resolveOld?.({ ...user, name: "Stale User" });
+    await Promise.resolve();
+    expect(screen.getByText("Latest User")).toBeInTheDocument();
+    expect(screen.queryByText("Stale User")).not.toBeInTheDocument();
   });
 });

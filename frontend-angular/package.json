@@ -6,7 +6,9 @@
     "start": "ng serve --host localhost --port 4200 --serve-path /angular",
     "build": "ng build",
     "build:production": "ng build --configuration production",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test": "node ../frontend/node_modules/vitest/vitest.mjs run --config ../frontend/vitest.angular.config.ts",
+    "test:coverage": "node ../frontend/node_modules/vitest/vitest.mjs run --config ../frontend/vitest.angular.config.ts --coverage"
   },
   "dependencies": {
     "@angular/common": "21.2.0",

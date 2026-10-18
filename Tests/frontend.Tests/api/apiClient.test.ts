@@ -112,6 +112,37 @@ describe("API client security and error handling", () => {
       .rejects.toMatchObject({ status: 0 });
   });
 
+  it("reports missing silent tokens and generic token acquisition failures", async () => {
+    const missingToken = { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: "" }) } as unknown as IPublicClientApplication;
+    await expect(callApi(missingToken, account, "/api/files"))
+      .rejects.toMatchObject({ status: 401, message: "Microsoft Entra did not return an access token for the WinCapture API." });
+
+    const tokenFailure = { acquireTokenSilent: vi.fn().mockRejectedValue("offline") } as unknown as IPublicClientApplication;
+    await expect(callApi(tokenFailure, account, "/api/files"))
+      .rejects.toMatchObject({ status: 401, message: "Unable to acquire the Microsoft access token for the WinCapture API." });
+  });
+
+  it("translates error payload casing and malformed response bodies", async () => {
+    const bodies = [
+      [{ Message: "Pascal message" }, "Validation failed: Pascal message"],
+      [{ error: "lower error" }, "Validation failed: lower error"],
+      [{ Error: "Pascal error" }, "Validation failed: Pascal error"],
+      [{}, "Validation failed: Backend returned HTTP 400."],
+    ] as const;
+
+    for (const [body, message] of bodies) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), { status: 400 }),
+      ));
+      await expect(callApi(makeClient(), account, "/api/files"))
+        .rejects.toMatchObject({ status: 400, message });
+    }
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not-json", { status: 418 })));
+    await expect(callApi(makeClient(), account, "/api/files"))
+      .rejects.toMatchObject({ status: 418, message: "Backend returned HTTP 418." });
+  });
+
   it("returns object URLs for authenticated preview responses", async () => {
     const blob = new Blob(["preview"], { type: "application/octet-stream" });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(blob, { status: 200 })));

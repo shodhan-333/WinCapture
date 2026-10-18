@@ -17,6 +17,19 @@ const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
 });
 
 describe("useFilePreviews", () => {
+  it("skips non-image and unsupported image formats", async () => {
+    const loadPreview = vi.fn(async () => "blob:unused");
+    const unsupported = [
+      makeFile(10, "application/pdf"),
+      { ...makeFile(11), originalFileName: "vector.svg" },
+    ];
+    const { result } = renderHook(() => useFilePreviews(unsupported, loadPreview));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.previewUrls).toEqual({});
+    expect(loadPreview).not.toHaveBeenCalled();
+  });
+
   it("keeps image URL loading in the shared cache while other formats load on demand", async () => {
     const loadPreview = vi.fn(async (file: FileResponse) => `blob:${file.id}`);
     const files = [makeFile(1), makeFile(2), makeFile(3, "application/pdf")];
@@ -42,6 +55,29 @@ describe("useFilePreviews", () => {
 
     await act(async () => resolvePreview("blob:4"));
     await waitFor(() => expect(result.current.previewUrls[4]).toBe("blob:4"));
+  });
+
+  it("reuses a cached preview until file metadata changes, then revokes the old URL", async () => {
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const loadPreview = vi.fn()
+      .mockResolvedValueOnce("blob:old")
+      .mockResolvedValueOnce("blob:new");
+    const file = makeFile(12);
+    const { result, rerender, unmount } = renderHook(
+      ({ pageFiles }) => useFilePreviews(pageFiles, loadPreview),
+      { initialProps: { pageFiles: [file] } },
+    );
+
+    await waitFor(() => expect(result.current.previewUrls[12]).toBe("blob:old"));
+    rerender({ pageFiles: [{ ...file }] });
+    expect(result.current.previewUrls[12]).toBe("blob:old");
+    expect(loadPreview).toHaveBeenCalledOnce();
+
+    rerender({ pageFiles: [{ ...file, uploadedAt: "2025-01-02T00:00:00.000Z" }] });
+    await waitFor(() => expect(result.current.previewUrls[12]).toBe("blob:new"));
+    expect(revoke).toHaveBeenCalledWith("blob:old");
+    unmount();
+    expect(revoke).toHaveBeenCalledWith("blob:new");
   });
 
   it("ignores results after the requesting page is unmounted", async () => {
