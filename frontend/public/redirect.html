@@ -3,15 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WinCapture Redirect</title>
+    <meta name="referrer" content="no-referrer" />
+    <title>Completing Microsoft sign-in</title>
   </head>
   <body>
-    <p>Returning to WinCapture...</p>
-
+    <p>Completing Microsoft sign-in...</p>
+    <script src="/msal-redirect-bridge.min.js"></script>
     <script>
-      window.location.replace(
-        "/" + window.location.search + window.location.hash,
+      const search = new URLSearchParams(window.location.search);
+      const fragment = new URLSearchParams(window.location.hash.slice(1));
+      const hasAuthResponse = ["code", "error", "state"].some(
+        (key) => search.has(key) || fragment.has(key),
       );
+
+      if (hasAuthResponse) {
+        window.msalRedirectBridge.broadcastResponseToMainFrame().catch((error) => {
+          if (error?.errorCode !== "empty_response") {
+            document.body.textContent =
+              "Microsoft sign-in could not be completed. Return to WinCapture and try again.";
+          }
+        });
+      }
     </script>
   </body>
 </html>

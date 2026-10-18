@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "ng serve --host localhost --port 4200",
+    "start": "ng serve --host localhost --port 4200 --serve-path /angular",
     "build": "ng build",
     "build:production": "ng build --configuration production",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"

@@ -9,6 +9,13 @@ export const msalPostLogoutRedirectUri =
   import.meta.env.VITE_MSAL_POST_LOGOUT_REDIRECT_URI?.trim() ||
   "https://localhost:5173/";
 export const apiScope = import.meta.env.VITE_MSAL_API_SCOPE?.trim() ?? "";
+const angularAlbumsBaseUrl =
+  import.meta.env.VITE_ANGULAR_ALBUMS_URL?.trim() ||
+  "https://localhost:5173/angular/albums";
+
+export function getAngularAlbumsUrl(): string {
+  return new URL(angularAlbumsBaseUrl, window.location.origin).toString();
+}
 
 export function validateEnvironment(): string[] {
   const missing: string[] = [];

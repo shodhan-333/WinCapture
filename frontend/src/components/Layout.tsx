@@ -2,6 +2,7 @@ import { FolderOpen, House, Images, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import { getAngularAlbumsUrl } from "../authConfig";
 import { useAuth } from "../context/AuthContext";
 import { appShellClass } from "./ui/uiClasses";
 
@@ -10,16 +11,19 @@ const navigation = [
     to: "/dashboard",
     label: "Dashboard",
     icon: House,
+    external: false,
   },
   {
     to: "/albums",
     label: "Albums",
     icon: Images,
+    external: true,
   },
   {
     to: "/files",
     label: "Files",
     icon: FolderOpen,
+    external: false,
   },
 ];
 
@@ -40,6 +44,7 @@ const navLinkClass = (active: boolean, mobile = false) =>
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const angularAlbumsUrl = getAngularAlbumsUrl();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -102,6 +107,19 @@ export default function Layout() {
             >
               {navigation.map((item) => {
                 const Icon = item.icon;
+
+                if (item.external) {
+                  return (
+                    <a
+                      key={item.to}
+                      href={angularAlbumsUrl}
+                      className={navLinkClass(false)}
+                    >
+                      <Icon aria-hidden="true" size={21} strokeWidth={1.8} />
+                      <span>{item.label}</span>
+                    </a>
+                  );
+                }
 
                 return (
                   <NavLink
@@ -201,6 +219,20 @@ export default function Layout() {
               <div className="mx-auto flex w-full max-w-7xl flex-col gap-1">
                 {navigation.map((item) => {
                   const Icon = item.icon;
+
+                  if (item.external) {
+                    return (
+                      <a
+                        key={item.to}
+                        href={angularAlbumsUrl}
+                        onClick={closeMobileNavigation}
+                        className={navLinkClass(false, true)}
+                      >
+                        <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
+                        <span>{item.label}</span>
+                      </a>
+                    );
+                  }
 
                   return (
                     <NavLink

@@ -19,6 +19,14 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
 
+    proxy: {
+      "/angular": {
+        target: process.env.ANGULAR_DEV_SERVER_URL || "http://localhost:4200",
+        changeOrigin: true,
+        ws: true,
+      },
+    },
+
     https: {
       key: fs.readFileSync(
         path.resolve(__dirname, "certs/localhost-key.pem")

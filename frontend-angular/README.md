@@ -1,22 +1,26 @@
 # WinCapture Angular Albums
 
-This standalone Angular app recreates the React Albums page and calls the existing ASP.NET Core API. Its Entra client ID, tenant, and delegated API scope are public SPA configuration values in `src/environments/environment.ts`; never add a client secret. `environment.example.ts` documents the fields to replace for another environment.
+This Angular app recreates the React Albums page and uses the existing ASP.NET Core API. Its public Entra client ID, tenant, and delegated API scope are configured in `src/environments/environment.ts`; do not add a client secret.
 
-The currently registered callback is kept exactly as `http://localhost:4200/silent-redirect.html`. It is served as a standalone static page from `public/silent-redirect.html`, with the pinned MSAL Browser redirect bridge copied into the build output. It invokes `broadcastResponseToMainFrame()` only when an OAuth response is present, so ordinary visits do not trigger `empty_response` handling. Keep this callback free of `Cross-Origin-Opener-Policy` headers and serve it with `Cache-Control: no-store` in production.
+## Shared local origin and sign-in
 
-Authentication uses MSAL Angular 5.3.1 and MSAL Browser 5.25.1 with session storage. When React opens Albums, it passes the signed-in account's login hint and Angular attempts `ssoSilent`; no access token is passed between apps. A direct Angular visit without an established Angular session asks the user to sign in through React first. Silent SSO can still fail when the browser blocks Microsoft cookies in a hidden iframe; no password flow or application JWT is used.
+Run Angular behind the React Vite server at `https://localhost:5173/angular`. Vite proxies `/angular` to Angular on `http://localhost:4200`, while the React pages remain at the root paths such as `/dashboard`, `/files`, and `/albums/{id}`. The browser therefore uses the same origin and session storage for both apps. Angular reads the account already cached by React and obtains API access tokens with `acquireTokenSilent`; it does not start a second sign-in flow. Opening Angular without a React session shows a sign-in-first message.
 
-Album operations use the same endpoints and query parameters as React:
+The Angular MSAL redirect URI is the already registered `https://localhost:5173/redirect.html`. React's Vite server serves `frontend/public/redirect.html` and the pinned MSAL Browser 5.25.1 redirect bridge. The page only starts the bridge when an OAuth response is present, so a normal visit does not process an empty response. No Entra redirect URI change is required.
+
+## Album API operations
 
 - `GET /api/albums`, `/api/albums/mine`, or `/api/albums/shared` with `page`, `pageSize`, and optional `search`.
 - `POST /api/albums` with `{ "albumName": "..." }`.
 - `GET /api/albums/{id}/files?page=1&pageSize=100&category=Images` for the first cover image.
 - `GET /api/albums/{id}/files/{fileId}/download` for managers, or `/preview` for shared viewers.
-- All protected requests use an Entra access token for `access_as_user` in the `Authorization: Bearer` header.
+- Protected requests use a Microsoft access token for `access_as_user` in the `Authorization: Bearer` header.
 
-The Angular page reuses the React app shell styling, logo, navigation, profile menu, page header, album cards, empty state, and pagination. Dashboard and Files navigation still opens the corresponding React route. Album cards and a newly created album open the existing React detail route at `https://localhost:5173/albums/{id}`; the React app stays responsible for that page.
+Album cards, filtering, creation, cover images, empty states, and pagination follow the React page. Selecting an album returns to the existing React detail route. Dashboard and Files navigation also returns to React.
 
 ## Run locally
+
+Start the backend at `https://localhost:7106` and trust its ASP.NET Core HTTPS development certificate. Then run these commands in separate terminals:
 
 ```powershell
 cd frontend-angular
@@ -24,9 +28,15 @@ npm install
 npm start
 ```
 
-Run the backend at `https://localhost:7106` and React at `https://localhost:5173` for API calls and album detail navigation. Trust the existing ASP.NET Core HTTPS development certificate so the browser can access the backend and React site. The backend development CORS policy allows `http://localhost:4200` explicitly.
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
-The fixed Entra registration only authorizes the localhost redirect URL. A deployed Angular origin needs its own registered redirect URI; this project does not change the registration or invent a production callback. Configure `Cors:AllowedOrigins` with the exact deployed origin if the backend is deployed elsewhere.
+Open `https://localhost:5173`. Sign in through React, then choose Albums. To test the Angular page directly, use `https://localhost:5173/angular/albums`. `ANGULAR_DEV_SERVER_URL` can override the proxy target if Angular runs on a different local address.
+
+The backend's development CORS policy allows the React origin `https://localhost:5173`; Angular API calls use that same browser origin. Production hosting needs equivalent same-origin routing for `/angular` and an already registered callback on that origin. Configure the backend's explicit `Cors:AllowedOrigins` for any different production origin.
 
 ## Checks
 

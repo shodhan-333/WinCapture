@@ -2,13 +2,13 @@ import { useEffect, useRef } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "./context/AuthContext";
+import { getAngularAlbumsUrl } from "./authConfig";
 import {
   brandMarkClass,
   brandMarkLetterClass,
 } from "./components/ui/uiClasses";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
-import AlbumsPage from "./pages/AlbumsPage";
 import AlbumDetailPage from "./pages/AlbumDetailPage";
 import FilesPage from "./pages/FilesPage";
 
@@ -163,6 +163,14 @@ function AuthGate() {
   return null;
 }
 
+function AngularAlbumsRedirect() {
+  useEffect(() => {
+    window.location.replace(getAngularAlbumsUrl());
+  }, []);
+
+  return null;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
 
@@ -181,7 +189,10 @@ export default function App() {
 
         <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/albums" element={<AlbumsPage />} />
+        <Route
+          path="/albums"
+          element={<AngularAlbumsRedirect />}
+        />
 
         <Route path="/albums/:albumId" element={<AlbumDetailPage />} />
 

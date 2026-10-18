@@ -90,7 +90,7 @@ export class ApiService {
       if (error instanceof HttpErrorResponse) {
         const body = error.error as { message?: string; Message?: string; error?: string; Error?: string } | null;
         if (error.status === 0) {
-          throw new Error('The WinCapture API is unreachable. Check that https://localhost:7106 is running, its certificate is trusted, and Angular origin is allowed by CORS.');
+          throw new Error('The WinCapture API is unreachable. Check that https://localhost:7106 is running and its certificate is trusted. Browser API calls use the React origin https://localhost:5173.');
         }
         if (error.status === 401) {
           throw new Error('Microsoft sign-in or consent is required. Choose Sign in again and retry.');
