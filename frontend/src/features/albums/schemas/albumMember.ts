@@ -1,9 +1,14 @@
+import { z } from "zod";
 import { ApiError } from "@/shared/types/api";
-import type { AlbumMemberResponse } from "@/features/albums/types/album";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+export const AlbumMemberSchema = z.object({
+  userId: z.number().int().safe().positive(),
+  name: z.string().refine((value) => value.trim().length > 0),
+  email: z.string().refine((value) => value.trim().length > 0),
+  canView: z.boolean(),
+  canDownload: z.boolean(),
+  grantedAt: z.string().min(1).refine((value) => Number.isFinite(Date.parse(value))),
+}).refine((member) => !member.canDownload || member.canView);
 
 function invalidAlbumMembers(correlationId?: string): never {
   throw new ApiError(
@@ -15,26 +20,8 @@ function invalidAlbumMembers(correlationId?: string): never {
   );
 }
 
-export function parseAlbumMembers(value: unknown, correlationId?: string): AlbumMemberResponse[] {
-  if (!Array.isArray(value)) invalidAlbumMembers(correlationId);
-
-  return value.map((member): AlbumMemberResponse => {
-    if (!isRecord(member)) invalidAlbumMembers(correlationId);
-
-    const { userId, name, email, canView, canDownload, grantedAt } = member;
-    if (typeof userId !== "number" || !Number.isSafeInteger(userId) || userId <= 0) {
-      invalidAlbumMembers(correlationId);
-    }
-    if (typeof name !== "string" || !name.trim()) invalidAlbumMembers(correlationId);
-    if (typeof email !== "string" || !email.trim()) invalidAlbumMembers(correlationId);
-    if (typeof canView !== "boolean" || typeof canDownload !== "boolean") {
-      invalidAlbumMembers(correlationId);
-    }
-    if (canDownload && !canView) invalidAlbumMembers(correlationId);
-    if (typeof grantedAt !== "string" || !Number.isFinite(Date.parse(grantedAt))) {
-      invalidAlbumMembers(correlationId);
-    }
-
-    return { userId, name, email, canView, canDownload, grantedAt };
-  });
+export function parseAlbumMembers(value: unknown, correlationId?: string): z.infer<typeof AlbumMemberSchema>[] {
+  const result = z.array(AlbumMemberSchema).safeParse(value);
+  if (!result.success) invalidAlbumMembers(correlationId);
+  return result.data;
 }

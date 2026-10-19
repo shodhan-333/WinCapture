@@ -3,7 +3,7 @@ import { CalendarDays, FolderOpen, Images, ArrowUpRight } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useNavigate } from "react-router-dom";
 
-import { createAlbum } from "../api/albumsApi";
+import { useCreateAlbumMutation } from "@/features/albums/hooks/albumQueries";
 import { ErrorBanner } from "@/shared/components/ui/ErrorBanner";
 import { Pagination } from "@/shared/components/ui/Pagination";
 import { SearchField } from "@/shared/components/ui/SearchField";
@@ -19,6 +19,7 @@ export function AlbumsPage() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
   const accountKey = getAccountKey(account);
+  const createAlbumMutation = useCreateAlbumMutation({ instance, account, accountKey });
   const isAdminAllContent = user?.role === "Admin" && getAdminContentScope() === "all";
   const navigate = useNavigate();
 
@@ -66,7 +67,7 @@ export function AlbumsPage() {
       setCreating(true);
       setError(null);
 
-      const created = await createAlbum(instance, account, {
+      const created = await createAlbumMutation.mutateAsync({
         albumName: albumName.trim(),
       });
 

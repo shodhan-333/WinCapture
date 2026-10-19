@@ -1,13 +1,13 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { MsalService } from '@azure/msal-angular';
-import type { AccountInfo } from '@azure/msal-browser';
-import { firstValueFrom } from 'rxjs';
-import { ApiService } from '../api/api.service';
-import type { CurrentUser } from '../models';
-import { apiErrorMessage } from '../utils';
-import { environment } from '../../../environments/environment';
+import { Injectable, inject, signal } from "@angular/core";
+import { MsalService } from "@azure/msal-angular";
+import type { AccountInfo } from "@azure/msal-browser";
+import { firstValueFrom } from "rxjs";
+import { ApiService } from "../api/api.service";
+import type { CurrentUser } from "../models";
+import { apiErrorMessage } from "../../shared/api/api-error-message";
+import { environment } from "../../../environments/environment";
 
-@Injectable({ providedIn: 'root' })
+@Injectable({ providedIn: "root" })
 export class AuthService {
   private readonly msal = inject(MsalService);
   private readonly api = inject(ApiService);
@@ -23,13 +23,16 @@ export class AuthService {
 
     try {
       const redirectResult = await firstValueFrom(this.msal.handleRedirectObservable());
-      const account = redirectResult?.account
-        ?? this.msal.instance.getActiveAccount()
-        ?? this.msal.instance.getAllAccounts()[0]
-        ?? null;
+      const account =
+        redirectResult?.account ??
+        this.msal.instance.getActiveAccount() ??
+        this.msal.instance.getAllAccounts()[0] ??
+        null;
 
       if (!account) {
-        this.error.set('No signed-in React session was found in this browser tab. Sign in through React, then open Albums again.');
+        this.error.set(
+          "No signed-in React session was found in this browser tab. Sign in through React, then open Albums again.",
+        );
         return;
       }
 
@@ -37,7 +40,12 @@ export class AuthService {
       this.account.set(account);
       await this.loadProfile(account);
     } catch (error: unknown) {
-      this.error.set(apiErrorMessage(error, 'The shared Microsoft session could not be read. Return to React and sign in again.'));
+      this.error.set(
+        apiErrorMessage(
+          error,
+          "The shared Microsoft session could not be read. Return to React and sign in again.",
+        ),
+      );
     } finally {
       this.loading.set(false);
     }
@@ -49,28 +57,35 @@ export class AuthService {
     this.account.set(null);
     this.error.set(null);
     try {
-      await firstValueFrom(this.msal.logoutPopup({
-        account: account ?? undefined,
-        postLogoutRedirectUri: this.msal.instance.getConfiguration().auth?.redirectUri,
-      }));
+      await firstValueFrom(
+        this.msal.logoutPopup({
+          account: account ?? undefined,
+          postLogoutRedirectUri: this.msal.instance.getConfiguration().auth?.redirectUri,
+        }),
+      );
       try {
-        sessionStorage.setItem('wincapture.pick-account-after-logout', 'true');
+        sessionStorage.setItem("wincapture.pick-account-after-logout", "true");
       } catch {
         // The React app will still open if session storage is unavailable.
       }
-      window.location.assign(new URL('/', environment.reactAlbumsUrl).toString());
+      window.location.assign(new URL("/", environment.reactAlbumsUrl).toString());
     } catch (error: unknown) {
-      this.error.set(apiErrorMessage(error, 'Microsoft sign-out could not be completed.'));
+      this.error.set(apiErrorMessage(error, "Microsoft sign-out could not be completed."));
     }
   }
 
   private async loadProfile(account: AccountInfo): Promise<void> {
     try {
-      const user = await this.api.getCurrentUser<CurrentUser>(account);
+      const user = await this.api.getCurrentUser(account);
       this.user.set(user);
       this.error.set(null);
     } catch (error: unknown) {
-      this.error.set(apiErrorMessage(error, 'Microsoft sign-in succeeded, but the WinCapture API could not load your account.'));
+      this.error.set(
+        apiErrorMessage(
+          error,
+          "Microsoft sign-in succeeded, but the WinCapture API could not load your account.",
+        ),
+      );
     }
   }
 }

@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { MsalProvider } from "@azure/msal-react";
 import type { IPublicClientApplication } from "@azure/msal-browser";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/shared/api/queryClient";
 import { AuthProvider } from "@/features/auth";
 
 interface AppProvidersProps {
@@ -11,10 +13,12 @@ interface AppProvidersProps {
 
 export function AppProviders({ children, msalInstance }: AppProvidersProps) {
   return (
-    <BrowserRouter>
-      <MsalProvider instance={msalInstance}>
-        <AuthProvider>{children}</AuthProvider>
-      </MsalProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <MsalProvider instance={msalInstance}>
+          <AuthProvider>{children}</AuthProvider>
+        </MsalProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }

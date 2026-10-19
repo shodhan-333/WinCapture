@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render as testingLibraryRender, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -130,6 +131,13 @@ const adminFile: AdminFileResponse = {
   albumName: null,
 };
 const account = state.account as AccountInfo;
+function render(ui: ReactNode, options?: Parameters<typeof testingLibraryRender>[1]) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  function QueryWrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  }
+  return testingLibraryRender(ui, { ...options, wrapper: QueryWrapper });
+}
 const paged = <T,>(items: T[] = []) => ({
   items,
   totalItems: items.length,
@@ -222,10 +230,11 @@ describe("page workflows", () => {
     );
     renderPage(<AlbumsPage />);
 
+    await screen.findByRole("heading", { name: "Albums" });
     await screen.findByRole("heading", { name: "No albums available" });
     fireEvent.click(screen.getByRole("button", { name: "Shared with me" }));
     await waitFor(() =>
-      expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, ""),
+      expect(state.api.getSharedAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "", expect.any(AbortSignal)),
     );
     expect(await screen.findByText("Shared coast")).toBeInTheDocument();
 
@@ -239,16 +248,17 @@ describe("page workflows", () => {
         1,
         9,
         "coast",
+        expect.any(AbortSignal),
       ),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "My albums" }));
     await waitFor(() =>
-      expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"),
+      expect(state.api.getMyAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast", expect.any(AbortSignal)),
     );
     fireEvent.click(screen.getByRole("button", { name: "All" }));
     await waitFor(() =>
-      expect(state.api.getAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast"),
+      expect(state.api.getAlbums).toHaveBeenCalledWith(expect.anything(), account, 1, 9, "coast", expect.any(AbortSignal)),
     );
   });
 
@@ -268,8 +278,8 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Shared with me" }));
 
     expect(await screen.findByText("Shared coast")).toBeInTheDocument();
-    expect(screen.queryByText("Coastal trip")).not.toBeInTheDocument();
-    expect(state.api.getAlbums).toHaveBeenLastCalledWith(expect.anything(), account, 1, 100, "");
+    await waitFor(() => expect(screen.queryByText("Coastal trip")).not.toBeInTheDocument());
+    expect(state.api.getAlbums).toHaveBeenLastCalledWith(expect.anything(), account, 1, 100, "", expect.any(AbortSignal));
   });
 
   it("loads files, searches the current list, and requests favorites on view change", async () => {

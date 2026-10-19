@@ -18,11 +18,13 @@ export async function getFiles(
   pageSize: number,
   search?: string,
   category?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<FileResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/files", page, pageSize, search, category),
+    { signal },
   );
 
   return parsePagedResponse(await response.json(), parseFileResponse);
@@ -45,11 +47,13 @@ export async function getFavorites(
   pageSize: number,
   search?: string,
   category?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<FileResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/files/favorites", page, pageSize, search, category),
+    { signal },
   );
 
   return parsePagedResponse(await response.json(), parseFileResponse);
@@ -129,11 +133,13 @@ export async function getAdminFiles(
   pageSize: number,
   search?: string,
   category?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<AdminFileResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/admin/files", page, pageSize, search, category),
+    { signal },
   );
 
   return parsePagedResponse(await response.json(), parseAdminFileResponse);

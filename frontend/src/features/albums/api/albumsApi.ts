@@ -3,7 +3,7 @@ import { callApi } from "@/shared/api/request";
 import { buildPagePath } from "@/shared/api/pagination";
 import { downloadResponse, uploadMultipartFile } from "@/shared/api/transfers";
 import { getFilePreviewUrlByPath } from "@/shared/api/previews";
-import type { PagedResponse } from "@/shared/types/api";
+import { ApiError, type PagedResponse } from "@/shared/types/api";
 import type {
   AlbumMemberResponse,
   AlbumResponse,
@@ -14,7 +14,13 @@ import type {
 } from "@/features/albums/types/album";
 import type { FileResponse } from "@/features/files/types/file";
 import { parseAlbumMembers } from "@/features/albums/schemas/albumMember";
-import { parseAlbumResponse, parsePagedAlbums } from "@/features/albums/schemas/album";
+import {
+  AddAlbumMemberRequestSchema,
+  parseAlbumResponse,
+  parsePagedAlbums,
+  UpdateAlbumMemberRequestSchema,
+  validateAlbumNameRequest,
+} from "@/features/albums/schemas/album";
 import {
   parseFileResponse,
   parsePagedResponse,
@@ -27,11 +33,13 @@ export async function getAlbums(
   page: number,
   pageSize: number,
   search?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<AlbumResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/albums", page, pageSize, search),
+    { signal },
   );
 
   return parsePagedAlbums(await response.json());
@@ -43,11 +51,13 @@ export async function getMyAlbums(
   page = 1,
   pageSize = 10,
   search?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<AlbumResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/albums/mine", page, pageSize, search),
+    { signal },
   );
 
   return parsePagedAlbums(await response.json());
@@ -59,11 +69,13 @@ export async function getSharedAlbums(
   page = 1,
   pageSize = 10,
   search?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<AlbumResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/albums/shared", page, pageSize, search),
+    { signal },
   );
 
   return parsePagedAlbums(await response.json());
@@ -75,11 +87,13 @@ export async function getAdminAlbums(
   page: number,
   pageSize: number,
   search?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<AlbumResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath("/api/admin/albums", page, pageSize, search),
+    { signal },
   );
 
   return parsePagedAlbums(await response.json());
@@ -116,9 +130,10 @@ export async function createAlbum(
   account: AccountInfo,
   request: CreateAlbumRequest,
 ): Promise<AlbumResponse> {
+  const validatedRequest = validateAlbumNameRequest(request);
   const response = await callApi(instance, account, "/api/albums", {
     method: "POST",
-    body: JSON.stringify(request),
+    body: JSON.stringify(validatedRequest),
   });
 
   return parseAlbumResponse(await response.json());
@@ -130,9 +145,10 @@ export async function updateAlbum(
   albumId: number,
   request: UpdateAlbumRequest,
 ): Promise<AlbumResponse> {
+  const validatedRequest = validateAlbumNameRequest(request);
   const response = await callApi(instance, account, `/api/albums/${albumId}`, {
     method: "PUT",
-    body: JSON.stringify(request),
+    body: JSON.stringify(validatedRequest),
   });
 
   return parseAlbumResponse(await response.json());
@@ -165,9 +181,13 @@ export async function addAlbumMember(
   albumId: number,
   request: AddAlbumMemberRequest,
 ): Promise<void> {
+  const validation = AddAlbumMemberRequestSchema.safeParse(request);
+  if (!validation.success) {
+    throw new ApiError("Provide a valid email address and album permissions.", 400);
+  }
   await callApi(instance, account, `/api/albums/${albumId}/members`, {
     method: "POST",
-    body: JSON.stringify(request),
+    body: JSON.stringify(validation.data),
   });
 }
 
@@ -178,9 +198,13 @@ export async function updateAlbumMember(
   userId: number,
   request: UpdateAlbumMemberRequest,
 ): Promise<void> {
+  const validation = UpdateAlbumMemberRequestSchema.safeParse(request);
+  if (!validation.success) {
+    throw new ApiError("Album permissions are invalid.", 400);
+  }
   await callApi(instance, account, `/api/albums/${albumId}/members/${userId}`, {
     method: "PUT",
-    body: JSON.stringify(request),
+    body: JSON.stringify(validation.data),
   });
 }
 

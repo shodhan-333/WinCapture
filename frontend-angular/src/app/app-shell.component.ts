@@ -1,17 +1,17 @@
-import { Component, ElementRef, HostListener, ViewChild, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AuthService } from './core/auth/auth.service';
-import { environment } from '../environments/environment';
+import { Component, ElementRef, HostListener, ViewChild, inject, signal } from "@angular/core";
+import { RouterLink, RouterLinkActive, RouterOutlet } from "@angular/router";
+import { AuthService } from "./core/auth/auth.service";
+import { environment } from "../environments/environment";
 
 @Component({
-  selector: 'app-shell',
+  selector: "app-shell",
   standalone: true,
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
-  templateUrl: './app-shell.component.html',
+  templateUrl: "./app-shell.component.html",
 })
 export class AppShellComponent {
-  @ViewChild('profileContainer') private profileElement?: ElementRef<HTMLElement>;
-  @ViewChild('profileTrigger') private profileTrigger?: ElementRef<HTMLButtonElement>;
+  @ViewChild("profileContainer") private profileElement?: ElementRef<HTMLElement>;
+  @ViewChild("profileTrigger") private profileTrigger?: ElementRef<HTMLButtonElement>;
   readonly auth = inject(AuthService);
   readonly mobileOpen = signal(false);
   readonly profileOpen = signal(false);
@@ -23,7 +23,13 @@ export class AppShellComponent {
 
   initials(name: string | undefined): string {
     const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-    return parts.length === 0 ? 'U' : parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+    return parts.length === 0
+      ? "U"
+      : parts
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("")
+          .toUpperCase();
   }
 
   closeMobileNavigation(): void {
@@ -38,7 +44,7 @@ export class AppShellComponent {
     this.profileOpen.update((open) => !open);
   }
 
-  @HostListener('document:pointerdown', ['$event'])
+  @HostListener("document:pointerdown", ["$event"])
   closeProfileOnOutsideClick(event: PointerEvent): void {
     const target = event.target;
     if (target instanceof Node && !this.profileElement?.nativeElement.contains(target)) {
@@ -46,11 +52,10 @@ export class AppShellComponent {
     }
   }
 
-  @HostListener('document:keydown.escape')
+  @HostListener("document:keydown.escape")
   closeProfileOnEscape(): void {
     if (!this.profileOpen()) return;
     this.profileOpen.set(false);
     this.profileTrigger?.nativeElement.focus();
   }
-
 }

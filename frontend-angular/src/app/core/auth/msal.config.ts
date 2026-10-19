@@ -1,5 +1,5 @@
-import type { Configuration } from '@azure/msal-browser';
-import { environment } from '../../../environments/environment';
+import type { Configuration } from "@azure/msal-browser";
+import { environment } from "../../../environments/environment";
 
 export const msalConfig: Configuration = {
   auth: {
@@ -8,7 +8,7 @@ export const msalConfig: Configuration = {
     redirectUri: environment.redirectUri,
     postLogoutRedirectUri: environment.redirectUri,
   },
-  cache: { cacheLocation: 'sessionStorage' },
+  cache: { cacheLocation: "sessionStorage" },
 };
 
 export const apiScopes = [environment.msalApiScope];

@@ -37,7 +37,7 @@ export default defineConfig({
   server: { fs: { allow: [".."] } },
   test: {
     environment: "jsdom",
-    include: ["tests/**/*.test.ts"],
+    include: ["../Tests/angular.Tests/**/*.test.ts"],
     clearMocks: true,
     restoreMocks: true,
     pool: "threads",

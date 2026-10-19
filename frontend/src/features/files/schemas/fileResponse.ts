@@ -1,9 +1,42 @@
-import { ApiError } from "@/shared/types/api";
+import { z } from "zod";
+import { ApiError, type PagedResponse } from "@/shared/types/api";
 import type { AdminFileResponse, FileResponse } from "@/features/files/types/file";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const positiveId = z.number().int().safe().positive();
+const validDate = z.string().min(1).refine((value) => Number.isFinite(Date.parse(value)));
+
+export const FileResponseSchema = z.object({
+  id: positiveId,
+  originalFileName: z.string().refine((value) => value.trim().length > 0),
+  contentType: z.string().refine((value) => value.trim().length > 0),
+  fileSize: z.number().int().safe().nonnegative(),
+  uploadedAt: validDate,
+  url: z.string(),
+  downloadUrl: z.string(),
+  isFavorite: z.boolean(),
+  canManage: z.boolean(),
+  canDownload: z.boolean(),
+});
+
+export const AdminFileResponseSchema = z.object({
+  id: positiveId,
+  originalFileName: z.string().refine((value) => value.trim().length > 0),
+  contentType: z.string().refine((value) => value.trim().length > 0),
+  fileSize: z.number().int().safe().nonnegative(),
+  uploadedAt: validDate,
+  uploadedBy: positiveId,
+  uploaderName: z.string().refine((value) => value.trim().length > 0),
+  albumId: positiveId.nullable(),
+  albumName: z.string().nullable(),
+});
+
+export const StorageCleanupResponseSchema = z.object({ storageCleanupComplete: z.boolean() });
+export const PaginationMetadataSchema = z.object({
+  totalItems: z.number().int().safe().nonnegative(),
+  page: z.number().int().safe().positive(),
+  pageSize: z.number().int().safe().positive(),
+  pageCount: z.number().int().safe().nonnegative(),
+});
 
 function invalidFileResponse(): never {
   throw new ApiError(
@@ -15,100 +48,29 @@ function invalidFileResponse(): never {
   );
 }
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function isPositiveSafeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
-}
-
-function isNonNegativeSafeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
-
-function isValidDate(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
+function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) invalidFileResponse();
+  return result.data;
 }
 
 export function parseFileResponse(value: unknown): FileResponse {
-  if (!isRecord(value)) invalidFileResponse();
-  if (
-    !isPositiveSafeInteger(value.id) ||
-    !isNonEmptyString(value.originalFileName) ||
-    !isNonEmptyString(value.contentType) ||
-    typeof value.fileSize !== "number" ||
-    !Number.isSafeInteger(value.fileSize) ||
-    value.fileSize < 0 ||
-    !isValidDate(value.uploadedAt) ||
-    typeof value.url !== "string" ||
-    typeof value.downloadUrl !== "string" ||
-    typeof value.isFavorite !== "boolean" ||
-    typeof value.canManage !== "boolean" ||
-    typeof value.canDownload !== "boolean"
-  ) {
-    invalidFileResponse();
-  }
-  return {
-    id: value.id,
-    originalFileName: value.originalFileName,
-    contentType: value.contentType,
-    fileSize: value.fileSize,
-    uploadedAt: value.uploadedAt,
-    url: value.url,
-    downloadUrl: value.downloadUrl,
-    isFavorite: value.isFavorite,
-    canManage: value.canManage,
-    canDownload: value.canDownload,
-  };
+  return parse(FileResponseSchema, value);
 }
 
 export function parseAdminFileResponse(value: unknown): AdminFileResponse {
-  if (!isRecord(value)) invalidFileResponse();
-  if (
-    !isPositiveSafeInteger(value.id) ||
-    !isNonEmptyString(value.originalFileName) ||
-    !isNonEmptyString(value.contentType) ||
-    typeof value.fileSize !== "number" ||
-    !Number.isSafeInteger(value.fileSize) ||
-    value.fileSize < 0 ||
-    !isValidDate(value.uploadedAt) ||
-    !isPositiveSafeInteger(value.uploadedBy) ||
-    !isNonEmptyString(value.uploaderName) ||
-    (value.albumId !== null && !isPositiveSafeInteger(value.albumId)) ||
-    (value.albumName !== null && typeof value.albumName !== "string")
-  ) {
-    invalidFileResponse();
-  }
-  return {
-    id: value.id,
-    originalFileName: value.originalFileName,
-    contentType: value.contentType,
-    fileSize: value.fileSize,
-    uploadedAt: value.uploadedAt,
-    uploadedBy: value.uploadedBy,
-    uploaderName: value.uploaderName,
-    albumId: value.albumId,
-    albumName: value.albumName,
-  };
+  return parse(AdminFileResponseSchema, value);
 }
 
-export function parsePagedResponse<T>(value: unknown, parseItem: (item: unknown) => T) {
-  if (!isRecord(value) || !Array.isArray(value.items)) invalidFileResponse();
-  const { totalItems, page, pageSize, pageCount } = value;
-  if (
-    !isNonNegativeSafeInteger(totalItems) ||
-    !isPositiveSafeInteger(page) ||
-    !isPositiveSafeInteger(pageSize) ||
-    !isNonNegativeSafeInteger(pageCount)
-  )
-    invalidFileResponse();
-  return { items: value.items.map(parseItem), totalItems, page, pageSize, pageCount };
+export function parsePagedResponse<T>(value: unknown, parseItem: (item: unknown) => T): PagedResponse<T> {
+  const result = z.object({
+    items: z.array(z.unknown()),
+    ...PaginationMetadataSchema.shape,
+  }).safeParse(value);
+  if (!result.success) invalidFileResponse();
+  return { ...result.data, items: result.data.items.map(parseItem) };
 }
 
 export function parseStorageCleanupResponse(value: unknown): { storageCleanupComplete: boolean } {
-  if (!isRecord(value) || typeof value.storageCleanupComplete !== "boolean") {
-    invalidFileResponse();
-  }
-  return { storageCleanupComplete: value.storageCleanupComplete };
+  return parse(StorageCleanupResponseSchema, value);
 }

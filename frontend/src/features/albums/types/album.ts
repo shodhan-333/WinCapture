@@ -1,36 +1,11 @@
-export interface AlbumResponse {
-  id: number;
-  albumName: string;
-  ownerId: number;
-  ownerName: string;
-  createdAt: string;
-  updatedAt: string | null;
-}
+import type { z } from "zod";
+import type { AlbumNameRequestSchema, AlbumResponseSchema, AddAlbumMemberRequestSchema, UpdateAlbumMemberRequestSchema } from "@/features/albums/schemas/album";
+import type { AlbumMemberSchema } from "@/features/albums/schemas/albumMember";
 
-export interface CreateAlbumRequest {
-  albumName: string;
-}
+export type AlbumResponse = z.infer<typeof AlbumResponseSchema>;
+export type CreateAlbumRequest = z.infer<typeof AlbumNameRequestSchema>;
+export type UpdateAlbumRequest = z.infer<typeof AlbumNameRequestSchema>;
 
-export interface UpdateAlbumRequest {
-  albumName: string;
-}
-
-export interface AlbumMemberResponse {
-  userId: number;
-  name: string;
-  email: string;
-  canView: boolean;
-  canDownload: boolean;
-  grantedAt: string;
-}
-
-export interface AddAlbumMemberRequest {
-  email: string;
-  canView: boolean;
-  canDownload: boolean;
-}
-
-export interface UpdateAlbumMemberRequest {
-  canView: boolean;
-  canDownload: boolean;
-}
+export type AlbumMemberResponse = z.infer<typeof AlbumMemberSchema>;
+export type AddAlbumMemberRequest = z.infer<typeof AddAlbumMemberRequestSchema>;
+export type UpdateAlbumMemberRequest = z.infer<typeof UpdateAlbumMemberRequestSchema>;

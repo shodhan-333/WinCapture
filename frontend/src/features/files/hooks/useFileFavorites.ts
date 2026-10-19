@@ -1,12 +1,13 @@
 import { useCallback, useState } from "react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 
-import { addFavorite, removeFavorite } from "../api/filesApi";
+import { useToggleFavoriteMutation } from "@/features/files/hooks/fileQueries";
 import type { FileResponse } from "@/features/files/types/file";
 
 interface UseFileFavoritesOptions {
   instance: IPublicClientApplication;
   account: AccountInfo | null;
+  accountKey?: string | null;
   onSuccess: (file: FileResponse, nextFavorite: boolean) => void;
   onError: (message: string) => void;
 }
@@ -14,10 +15,12 @@ interface UseFileFavoritesOptions {
 export function useFileFavorites({
   instance,
   account,
+  accountKey = account?.homeAccountId ?? null,
   onSuccess,
   onError,
 }: UseFileFavoritesOptions) {
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+  const favoriteMutation = useToggleFavoriteMutation({ instance, account, accountKey });
 
   const setPending = useCallback((fileId: number, pending: boolean) => {
     setPendingIds((previous) => {
@@ -44,11 +47,7 @@ export function useFileFavorites({
       setPending(file.id, true);
 
       try {
-        if (nextFavorite) {
-          await addFavorite(instance, account, file.id);
-        } else {
-          await removeFavorite(instance, account, file.id);
-        }
+        await favoriteMutation.mutateAsync({ fileId: file.id, favorite: nextFavorite });
 
         onSuccess(file, nextFavorite);
       } catch (caughtError) {
@@ -57,7 +56,7 @@ export function useFileFavorites({
         setPending(file.id, false);
       }
     },
-    [account, instance, onError, onSuccess, pendingIds, setPending],
+    [account, favoriteMutation, onError, onSuccess, pendingIds, setPending],
   );
 
   return {

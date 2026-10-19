@@ -1,5 +1,5 @@
-export type AlbumFilter = 'all' | 'mine' | 'shared';
-export type FileCategory = 'All' | 'Images' | 'Documents' | 'Videos' | 'Audio' | 'Archives';
+export type AlbumFilter = "all" | "mine" | "shared";
+export type FileCategory = "All" | "Images" | "Documents" | "Videos" | "Audio" | "Archives";
 
 export interface AlbumResponse {
   id: number;
@@ -35,5 +35,5 @@ export interface CurrentUser {
   userId: number;
   name: string;
   email: string;
-  role: 'User' | 'Admin';
+  role: "User" | "Admin";
 }

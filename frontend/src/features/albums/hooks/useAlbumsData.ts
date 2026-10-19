@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
-import {
-  getAdminAlbums,
-  getAlbums,
-  getMyAlbums,
-  getSharedAlbums,
-} from "@/features/albums/api/albumsApi";
+import { useQuery } from "@tanstack/react-query";
+import { getAdminAlbums, getAlbums, getMyAlbums, getSharedAlbums } from "@/features/albums/api/albumsApi";
+import { albumKeys } from "@/features/albums/hooks/albumQueries";
 import type { AlbumResponse } from "@/features/albums/types/album";
 import { ApiError, type PagedResponse } from "@/shared/types/api";
 
 const PAGE_SIZE = 9;
-
 export type AlbumFilter = "all" | "shared" | "mine";
 
 interface UseAlbumsDataOptions {
@@ -26,117 +22,41 @@ interface UseAlbumsDataOptions {
   setCurrentPage: Dispatch<SetStateAction<number>>;
 }
 
-export function useAlbumsData({
-  instance,
-  account,
-  accountKey,
-  userId,
-  isAdminAllContent,
-  currentPage,
-  albumFilter,
-  searchQuery,
-  setCurrentPage,
-}: UseAlbumsDataOptions) {
-  const [albums, setAlbums] = useState<AlbumResponse[]>([]);
-  const [pageCount, setPageCount] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const loadRequestVersion = useRef(0);
-
-  const loadAlbums = useCallback(
-    async (
-      requestedPage: number = currentPage,
-      requestedFilter: AlbumFilter = albumFilter,
-      requestedSearch: string = searchQuery,
-    ): Promise<void> => {
-      const requestVersion = ++loadRequestVersion.current;
-      if (!account) {
-        setLoading(false);
-        return;
-      }
-
+export function useAlbumsData({ instance, account, accountKey, userId, isAdminAllContent, currentPage, albumFilter, searchQuery, setCurrentPage }: UseAlbumsDataOptions) {
+  const [localError, setLocalError] = useState<string | null>(null);
+  const query = useQuery<PagedResponse<AlbumResponse>>({
+    queryKey: albumKeys.list(accountKey, albumFilter, currentPage, PAGE_SIZE, searchQuery, isAdminAllContent),
+    enabled: !!account,
+    placeholderData: (previousData) => previousData,
+    queryFn: async ({ signal }) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      if (isAdminAllContent) return getAdminAlbums(instance, account, currentPage, PAGE_SIZE, searchQuery, signal);
+      if (albumFilter === "mine") return getMyAlbums(instance, account, currentPage, PAGE_SIZE, searchQuery, signal);
+      if (albumFilter === "all") return getAlbums(instance, account, currentPage, PAGE_SIZE, searchQuery, signal);
       try {
-        setLoading(true);
-        setError(null);
-
-        let page: PagedResponse<AlbumResponse>;
-        if (isAdminAllContent) {
-          page = await getAdminAlbums(instance, account, requestedPage, PAGE_SIZE, requestedSearch);
-        } else if (requestedFilter === "shared") {
-          try {
-            page = await getSharedAlbums(
-              instance,
-              account,
-              requestedPage,
-              PAGE_SIZE,
-              requestedSearch,
-            );
-          } catch (caughtError) {
-            if (!(caughtError instanceof ApiError) || caughtError.status !== 404 || !userId) {
-              throw caughtError;
-            }
-
-            const firstPage = await getAlbums(instance, account, 1, 100, requestedSearch);
-            if (requestVersion !== loadRequestVersion.current) return;
-            const accessibleAlbums = [...firstPage.items];
-            for (let pageNumber = 2; pageNumber <= firstPage.pageCount; pageNumber += 1) {
-              const nextPage = await getAlbums(instance, account, pageNumber, 100, requestedSearch);
-              if (requestVersion !== loadRequestVersion.current) return;
-              accessibleAlbums.push(...nextPage.items);
-            }
-
-            const sharedAlbums = accessibleAlbums.filter((item) => item.ownerId !== userId);
-            const startIndex = (requestedPage - 1) * PAGE_SIZE;
-            page = {
-              items: sharedAlbums.slice(startIndex, startIndex + PAGE_SIZE),
-              totalItems: sharedAlbums.length,
-              page: requestedPage,
-              pageSize: PAGE_SIZE,
-              pageCount: Math.ceil(sharedAlbums.length / PAGE_SIZE),
-            };
-          }
-        } else {
-          const loadPage = requestedFilter === "mine" ? getMyAlbums : getAlbums;
-          page = await loadPage(instance, account, requestedPage, PAGE_SIZE, requestedSearch);
-        }
-
-        if (requestVersion !== loadRequestVersion.current) return;
-        setAlbums(page.items);
-        setCurrentPage(page.page);
-        setPageCount(page.pageCount);
-        setTotalItems(page.totalItems);
-      } catch (caughtError) {
-        if (requestVersion !== loadRequestVersion.current) return;
-        setError(caughtError instanceof Error ? caughtError.message : "Unable to load albums.");
-      } finally {
-        if (requestVersion === loadRequestVersion.current) {
-          setLoading(false);
-          setHasLoaded(true);
-        }
+        return await getSharedAlbums(instance, account, currentPage, PAGE_SIZE, searchQuery, signal);
+      } catch (error) {
+        if (signal.aborted || !(error instanceof ApiError) || error.status !== 404 || !userId) throw error;
+        const firstPage = await getAlbums(instance, account, 1, 100, searchQuery, signal);
+        const accessible = [...firstPage.items];
+        for (let next = 2; next <= firstPage.pageCount; next += 1) accessible.push(...(await getAlbums(instance, account, next, 100, searchQuery, signal)).items);
+        const shared = accessible.filter((album) => album.ownerId !== userId);
+        const pageCount = Math.ceil(shared.length / PAGE_SIZE);
+        return { items: shared.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), totalItems: shared.length, page: currentPage, pageSize: PAGE_SIZE, pageCount };
       }
     },
-    // The account key tracks identity changes; token refreshes reuse the current data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      accountKey,
-      albumFilter,
-      currentPage,
-      instance,
-      isAdminAllContent,
-      searchQuery,
-      setCurrentPage,
-      userId,
-    ],
-  );
-
+  });
   useEffect(() => {
-    void loadAlbums();
-    return () => {
-      loadRequestVersion.current += 1;
-    };
-  }, [loadAlbums, currentPage, albumFilter, searchQuery]);
-
-  return { albums, pageCount, totalItems, loading, hasLoaded, error, setError };
+    if (query.data && query.data.page !== currentPage) setCurrentPage(query.data.page);
+  }, [currentPage, query.data, setCurrentPage]);
+  const data = query.data;
+  return {
+    albums: data?.items ?? [],
+    pageCount: data?.pageCount ?? 1,
+    totalItems: data?.totalItems ?? 0,
+    loading: query.isPending || query.isFetching,
+    hasLoaded: query.isSuccess || query.isError,
+    error: localError ?? (query.error instanceof Error ? query.error.message : null),
+    setError: setLocalError,
+  };
 }
