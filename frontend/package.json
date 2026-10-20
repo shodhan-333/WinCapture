@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "cd .. && eslint --config frontend/eslint.config.js frontend/src Tests/frontend.Tests --max-warnings=0",
-    "format:check": "cd .. && prettier --config frontend/.prettierrc.json --check \"frontend/src/**/*.{ts,tsx,css}\" \"Tests/frontend.Tests/**/*.{ts,tsx}\" frontend/eslint.config.js frontend/.prettierrc.json frontend/package.json frontend/tsconfig.json frontend/vite.config.ts frontend/vitest.config.ts frontend/vitest.angular.config.ts frontend/index.html",
+    "format:check": "cd .. && prettier --config frontend/.prettierrc.json --check \"frontend/src/**/*.{ts,tsx,css}\" \"Tests/frontend.Tests/**/*.{ts,tsx}\" frontend/eslint.config.js frontend/.prettierrc.json frontend/package.json frontend/tsconfig.json frontend/vite.config.ts frontend/vitest.config.ts frontend/index.html",
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",

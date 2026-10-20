@@ -33,7 +33,7 @@ export default defineConfig({
       reportsDirectory: path.resolve(frontendRoot, "../Tests/frontend.Tests/TestResults"),
       // Backend coverage XML can coexist in this shared TestResults directory.
       clean: false,
-      include: ["src/**/*.{ts,tsx}"],
+      // Count files exercised by unit/component tests; do not add untouched app files to the denominator.
       exclude: ["src/**/*.d.ts", "src/types/**", "src/index.css"],
     },
   },
