@@ -28,7 +28,7 @@ export function AppRoutes() {
       <Suspense
         fallback={
           <main className="p-6" role="status">
-            Loading page…
+            Loading pageâ€¦
           </main>
         }
       >

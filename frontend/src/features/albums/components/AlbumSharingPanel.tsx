@@ -21,7 +21,7 @@ const sharePanelClass = "min-w-0 p-5 max-[760px]:p-[17px] max-[520px]:p-[14px]";
 const permissionToggleClass =
   "inline-flex h-6 min-w-[46px] cursor-pointer items-center justify-center gap-[4px] rounded-full border border-[rgba(255,255,255,0.65)] bg-[rgba(255,255,255,0.45)] px-[7px] text-[9px] font-bold text-[#648096] shadow-[inset_0_1px_1px_rgba(255,255,255,0.85)] backdrop-blur-md transition-[color,background,border-color] duration-[180ms] disabled:opacity-[0.56]";
 const memberPermissionClass =
-  "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] !text-[11px] !font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-[0.68]";
+  "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] !text-[11px] !font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4] disabled:cursor-not-allowed disabled:opacity-[0.68]";
 
 export function AlbumSharingPanel({
   members,
@@ -37,7 +37,7 @@ export function AlbumSharingPanel({
   onRemoveMember,
 }: AlbumSharingPanelProps) {
   return (
-    <details className="surface group overflow-hidden rounded-[18px]">
+    <details className="[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:linear-gradient(145deg,_rgba(255,_255,_255,_0.52)_0%,_rgba(255,_255,_255,_0.42)_100%)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(20px)_saturate(180%)] [-webkit-backdrop-filter:blur(20px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] group overflow-hidden rounded-[18px]">
       <summary className="flex min-h-[76px] cursor-pointer select-none items-center gap-[11px] px-4 py-3 transition-colors duration-[180ms] hover:bg-[rgba(235,244,251,0.5)] group-open:border-b group-open:border-[#e4edf4] max-[520px]:px-3 [&::-webkit-details-marker]:hidden">
         <span className="grid h-[38px] w-[38px] flex-none place-items-center rounded-[11px] bg-[#e8f3ff] text-[#2d7dd7]">
           <Share2 aria-hidden="true" size={18} strokeWidth={1.8} />
@@ -70,19 +70,19 @@ export function AlbumSharingPanel({
         >
           <div className="mb-[15px] flex items-center justify-between gap-[14px]">
             <div>
-              <p className="dashboard-panel-kicker">Album permissions</p>
+              <p className="[margin:0] [display:inline-flex] [align-items:center] [gap:7px] [color:#6f8ba3] [font-size:11px] [line-height:1.2] [font-weight:700] [letter-spacing:0.11em] [text-transform:uppercase]">Album permissions</p>
 
               <h3 className="mt-1 mb-0 text-[16px] leading-[1.25] font-[650] tracking-[-0.025em] text-[#163855]">
                 Invite a WinWire user
               </h3>
             </div>
 
-            <span className="grid h-[33px] w-[33px] flex-none place-items-center rounded-[10px] border border-white/70 bg-[rgba(255,255,255,0.55)] text-[var(--accent)] shadow-sm backdrop-blur-sm">
+            <span className="grid h-[33px] w-[33px] flex-none place-items-center rounded-[10px] border border-white/70 bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-sm backdrop-blur-sm">
               <UserPlus aria-hidden="true" size={17} strokeWidth={1.8} />
             </span>
           </div>
 
-          <label htmlFor="share-email" className="field-label">
+          <label htmlFor="share-email" className="[display:block] [margin-bottom:7px] [color:#5d758a] [font-size:11px] [font-weight:600]">
             Email address
           </label>
 
@@ -92,7 +92,7 @@ export function AlbumSharingPanel({
             value={memberEmail}
             onChange={(event) => onMemberEmailChange(event.target.value)}
             placeholder="name@winwire.com"
-            className="field w-full"
+            className="[min-height:42px] [padding:0_13px] [color:#193850] [border:1px_solid_rgba(255,_255,_255,_0.58)] [border-radius:12px] [background:rgba(255,_255,_255,_0.45)] [outline:0] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.85),_0_2px_8px_rgba(24,_52,_78,_0.025)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] [transition:border-color_180ms_ease,_box-shadow_180ms_ease,_background_180ms_ease] [&::placeholder]:[color:#8fa5b7] [&:hover]:[background:rgba(255,_255,_255,_0.6)] [&:hover]:[border-color:rgba(255,_255,_255,_0.82)] [&:focus]:[border-color:rgba(30,_120,_214,_0.65)] [&:focus]:[background:rgba(255,_255,_255,_0.72)] [&:focus]:[box-shadow:0_0_0_3px_rgba(30,_120,_214,_0.16),_inset_0_1px_1px_rgba(255,_255,_255,_0.9)] w-full"
           />
 
           <div className="mt-[11px] overflow-hidden rounded-xl border border-[rgba(255,255,255,0.55)] bg-[rgba(255,255,255,0.30)] backdrop-blur-md">
@@ -161,7 +161,7 @@ export function AlbumSharingPanel({
           <button
             type="button"
             onClick={() => void onAddMember()}
-            className="primary-action mt-4 w-full"
+            className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#ffffff] [border:1px_solid_rgba(255,_255,_255,_0.36)] [background:linear-gradient(135deg,_rgba(46,_134,_222,_0.9)_0%,_rgba(20,_99,_188,_0.96)_100%)] [box-shadow:0_8px_20px_rgba(28,_106,_194,_0.2),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.45)] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[background:linear-gradient(135deg,_rgba(56,_144,_232,_0.95)_0%,_rgba(24,_108,_198,_0.98)_100%)] [&:hover:not(:disabled)]:[box-shadow:0_11px_24px_rgba(28,_106,_194,_0.26),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.55)] mt-4 w-full"
           >
             <Link2 aria-hidden="true" size={16} strokeWidth={1.8} />
             Share album
@@ -177,7 +177,7 @@ export function AlbumSharingPanel({
 
           <div className="mb-[15px] flex items-center justify-between gap-[14px]">
             <div>
-              <p className="dashboard-panel-kicker">Current members</p>
+              <p className="[margin:0] [display:inline-flex] [align-items:center] [gap:7px] [color:#6f8ba3] [font-size:11px] [line-height:1.2] [font-weight:700] [letter-spacing:0.11em] [text-transform:uppercase]">Current members</p>
 
               <h3 className="mt-1 mb-0 text-[18px] leading-[1.25] font-[650] tracking-[-0.025em] text-[#163855]">
                 People with access
@@ -258,7 +258,7 @@ export function AlbumSharingPanel({
                       }
                       className={`${memberPermissionClass} ${
                         member.canView
-                          ? "primary-action"
+                          ? "[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#ffffff] [border:1px_solid_rgba(255,_255,_255,_0.36)] [background:linear-gradient(135deg,_rgba(46,_134,_222,_0.9)_0%,_rgba(20,_99,_188,_0.96)_100%)] [box-shadow:0_8px_20px_rgba(28,_106,_194,_0.2),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.45)] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[background:linear-gradient(135deg,_rgba(56,_144,_232,_0.95)_0%,_rgba(24,_108,_198,_0.98)_100%)] [&:hover:not(:disabled)]:[box-shadow:0_11px_24px_rgba(28,_106,_194,_0.26),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.55)]"
                           : "border-[#d4dde5] bg-[#f2f5f8] text-[#647789] hover:bg-[#eaf0f4]"
                       }`}
                     >
@@ -276,7 +276,7 @@ export function AlbumSharingPanel({
                       }
                       className={`${memberPermissionClass} ${
                         member.canDownload
-                          ? "primary-action"
+                          ? "[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#ffffff] [border:1px_solid_rgba(255,_255,_255,_0.36)] [background:linear-gradient(135deg,_rgba(46,_134,_222,_0.9)_0%,_rgba(20,_99,_188,_0.96)_100%)] [box-shadow:0_8px_20px_rgba(28,_106,_194,_0.2),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.45)] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[background:linear-gradient(135deg,_rgba(56,_144,_232,_0.95)_0%,_rgba(24,_108,_198,_0.98)_100%)] [&:hover:not(:disabled)]:[box-shadow:0_11px_24px_rgba(28,_106,_194,_0.26),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.55)]"
                           : "border-[#d4dde5] bg-[#f2f5f8] text-[#647789] hover:bg-[#eaf0f4]"
                       } ${!member.canView ? "cursor-not-allowed opacity-[0.47]" : ""}`}
                     >
@@ -291,7 +291,7 @@ export function AlbumSharingPanel({
                       aria-label={`Revoke access for ${member.email}`}
                       title="Revoke access"
                       onClick={() => void onRemoveMember(member.userId)}
-                      className="danger-gradient-action inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] px-[11px] !text-[11px] !font-semibold transition-[transform,box-shadow] duration-[160ms] max-[520px]:w-7 max-[520px]:px-0"
+                      className="[color:#ffffff] [border:1px_solid_rgba(255,_255,_255,_0.32)] [background:linear-gradient(135deg,_rgba(230,_58,_72,_0.88)_0%,_rgba(198,_28,_42,_0.95)_100%)] [box-shadow:0_8px_20px_rgba(200,_32,_48,_0.18),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.38)] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[box-shadow:0_11px_24px_rgba(200,_32,_48,_0.24),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.48)] inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] px-[11px] !text-[11px] !font-semibold transition-[transform,box-shadow] duration-[160ms] max-[520px]:w-7 max-[520px]:px-0"
                     >
                       <Trash2 aria-hidden="true" size={15} strokeWidth={1.8} />
                       <span className="max-[520px]:hidden">Revoke</span>

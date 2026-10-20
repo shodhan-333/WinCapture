@@ -147,7 +147,7 @@ export function FileActionMenu({
         createPortal(
           <div
             ref={menuRef}
-            className="glass-popover z-[1000] w-[148px] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-[12px] p-[6px]"
+            className="[border:1px_solid_rgba(255,_255,_255,_0.88)] [background:rgba(255,_255,_255,_0.72)] [box-shadow:0_16px_40px_rgba(20,_48,_72,_0.09),_inset_0_1px_1.5px_0_rgba(255,_255,_255,_0.92),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.25)] [backdrop-filter:blur(24px)_saturate(180%)] [-webkit-backdrop-filter:blur(24px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] z-[1000] w-[148px] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-[12px] p-[6px]"
             role="menu"
             style={{
               position: "fixed",

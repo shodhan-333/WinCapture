@@ -33,11 +33,11 @@ export function FileDetailsDialog({ file, onClose }: FileDetailsDialogProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="file-details-title"
-        className="glass-dialog relative z-[1] w-[min(430px,100%)] rounded-[20px] p-6 shadow-[0_24px_64px_rgba(16,40,64,0.16)]"
+        className="[border:1px_solid_rgba(255,_255,_255,_0.88)] [background:rgba(255,_255,_255,_0.76)] [box-shadow:0_24px_64px_rgba(16,_40,_64,_0.14),_inset_0_1px_2px_0_rgba(255,_255,_255,_0.95)] [backdrop-filter:blur(28px)_saturate(180%)] [-webkit-backdrop-filter:blur(28px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] relative z-[1] w-[min(430px,100%)] rounded-[20px] p-6 shadow-[0_24px_64px_rgba(16,40,64,0.16)]"
       >
         <header className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="page-kicker mb-2 text-[#5a778e]">File details</p>
+            <p className="[margin:0] [display:inline-flex] [align-items:center] [gap:7px] [color:#6f8ba3] [font-size:11px] [line-height:1.2] [font-weight:700] [letter-spacing:0.11em] [text-transform:uppercase] mb-2 text-[#5a778e]">File details</p>
             <h2
               id="file-details-title"
               className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-[16px] font-semibold text-[#143653]"
@@ -51,7 +51,7 @@ export function FileDetailsDialog({ file, onClose }: FileDetailsDialogProps) {
             type="button"
             onClick={onClose}
             aria-label="Close file details"
-            className="grid h-8 w-8 flex-none cursor-pointer place-items-center rounded-[10px] border border-white/70 bg-white/55 text-[#506d84] shadow-sm backdrop-blur-sm transition-colors hover:border-white/90 hover:bg-white/80 hover:text-[var(--accent)]"
+            className="grid h-8 w-8 flex-none cursor-pointer place-items-center rounded-[10px] border border-white/70 bg-white/55 text-[#506d84] shadow-sm backdrop-blur-sm transition-colors hover:border-white/90 hover:bg-white/80 hover:text-[#1b74d3]"
           >
             <X aria-hidden="true" size={17} />
           </button>

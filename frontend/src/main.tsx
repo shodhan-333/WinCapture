@@ -31,7 +31,7 @@ function showStartupError(error: unknown) {
   root.render(
     <main className={`${appShellClass} min-h-screen px-5 py-8 sm:px-8 sm:py-12`}>
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-2xl items-center justify-center">
-        <div className="surface w-full overflow-hidden rounded-[24px] p-6 sm:p-8">
+        <div className="[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:linear-gradient(145deg,_rgba(255,_255,_255,_0.52)_0%,_rgba(255,_255,_255,_0.42)_100%)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(20px)_saturate(180%)] [-webkit-backdrop-filter:blur(20px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] w-full overflow-hidden rounded-[24px] p-6 sm:p-8">
           <div className="flex items-start gap-4">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] border border-red-200 bg-red-50 text-red-600 shadow-sm">
               <span aria-hidden="true" className="text-lg font-bold">

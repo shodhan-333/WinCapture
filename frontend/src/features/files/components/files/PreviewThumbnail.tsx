@@ -132,7 +132,7 @@ export function PreviewThumbnail({ file, src }: { file: FileResponse; src?: stri
     return (
       <PreviewFallback
         icon={<LoaderCircle className="animate-spin" size={28} />}
-        label="Loading preview…"
+        label="Loading previewâ€¦"
       />
     );
   if (content.kind === "text")

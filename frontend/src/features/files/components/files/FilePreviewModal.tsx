@@ -262,7 +262,7 @@ export function FilePreviewModal({
       ) : !content ? (
         <div role="status" className="flex items-center gap-3 text-white">
           <LoaderCircle className="animate-spin" />
-          Reading file preview…
+          Reading file previewâ€¦
         </div>
       ) : content.kind === "text" ? (
         <pre className="max-h-[84vh] w-[min(1050px,95vw)] overflow-auto whitespace-pre-wrap break-words rounded-[16px] border border-white/60 bg-[rgba(255,255,255,0.90)] p-6 text-left text-sm leading-relaxed text-[#1d3d5a] shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl">

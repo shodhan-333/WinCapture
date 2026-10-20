@@ -35,7 +35,7 @@ const navLinkClass = (active: boolean, mobile = false) =>
   transition-[color,background,border-color,box-shadow,transform]
   duration-200
   focus-visible:outline-none focus-visible:ring-2
-  focus-visible:ring-[var(--focus-ring)]
+  focus-visible:ring-[#3787d4]
   ${
     active
       ? "border-[rgba(255,255,255,0.85)] bg-[rgba(255,255,255,0.55)] text-[#12589b] shadow-[0_4px_16px_rgba(20,54,84,0.06),inset_0_1px_1px_rgba(255,255,255,0.95)] backdrop-blur-md after:absolute after:bottom-[3px] after:left-4 after:right-4 after:h-[2px] after:rounded-full after:bg-[#1f7bda] after:content-['']"
@@ -81,7 +81,7 @@ export function Layout() {
     <div className={appShellClass}>
       <div className="relative z-[1] flex min-h-screen w-full flex-col">
         {/* Full-width top header */}
-        <header className="glass-chrome sticky top-0 z-40 w-full border-b border-[rgba(255,255,255,0.55)]">
+        <header className="[border-color:rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.42)] [box-shadow:0_4px_20px_rgba(24,_52,_78,_0.04),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.9)] [backdrop-filter:blur(20px)_saturate(180%)] [-webkit-backdrop-filter:blur(20px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] sticky top-0 z-40 w-full border-b border-[rgba(255,255,255,0.55)]">
           <div className="mx-auto flex min-h-[82px] w-full items-center gap-5 px-8 max-[1200px]:gap-3 max-[960px]:min-h-[72px] max-[760px]:gap-3 max-[760px]:px-4">
             {/* Project logo only: no WinWire branding or WinCapture text */}
             <NavLink
@@ -151,7 +151,7 @@ export function Layout() {
               <button
                 ref={profileTriggerRef}
                 type="button"
-                className="inline-flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-transparent p-1 text-left transition-colors hover:border-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] max-[1200px]:gap-2"
+                className="inline-flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-transparent p-1 text-left transition-colors hover:border-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3787d4] max-[1200px]:gap-2"
                 onClick={() => setProfileMenuOpen((open) => !open)}
                 aria-label={`Profile menu for ${user?.name ?? "WinCapture User"}`}
                 aria-haspopup="menu"
@@ -183,12 +183,12 @@ export function Layout() {
                 <div
                   role="menu"
                   aria-label="Profile options"
-                  className="glass-popover absolute right-0 top-full z-[60] mt-2 min-w-[150px] rounded-xl p-1.5"
+                  className="[border:1px_solid_rgba(255,_255,_255,_0.88)] [background:rgba(255,_255,_255,_0.72)] [box-shadow:0_16px_40px_rgba(20,_48,_72,_0.09),_inset_0_1px_1.5px_0_rgba(255,_255,_255,_0.92),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.25)] [backdrop-filter:blur(24px)_saturate(180%)] [-webkit-backdrop-filter:blur(24px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] absolute right-0 top-full z-[60] mt-2 min-w-[150px] rounded-xl p-1.5"
                 >
                   <button
                     type="button"
                     role="menuitem"
-                    className="danger-gradient-action flex min-h-[30px] w-full items-center justify-center gap-1.5 rounded-[8px] px-2.5 text-[10px] font-semibold transition-[transform,box-shadow] duration-[160ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79b7f4]"
+                    className="[color:#ffffff] [border:1px_solid_rgba(255,_255,_255,_0.32)] [background:linear-gradient(135deg,_rgba(230,_58,_72,_0.88)_0%,_rgba(198,_28,_42,_0.95)_100%)] [box-shadow:0_8px_20px_rgba(200,_32,_48,_0.18),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.38)] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[box-shadow:0_11px_24px_rgba(200,_32,_48,_0.24),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.48)] flex min-h-[30px] w-full items-center justify-center gap-1.5 rounded-[8px] px-2.5 text-[10px] font-semibold transition-[transform,box-shadow] duration-[160ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79b7f4]"
                     onClick={() => {
                       setProfileMenuOpen(false);
                       void logout();
@@ -245,7 +245,7 @@ export function Layout() {
         </header>
 
         {/* Existing page content remains unchanged */}
-        <main className="app-main min-w-0 w-full flex-1">
+        <main className="[min-height:100vh] min-w-0 w-full flex-1">
           <Outlet />
         </main>
       </div>

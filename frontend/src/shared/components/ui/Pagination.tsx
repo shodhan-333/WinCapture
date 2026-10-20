@@ -8,7 +8,7 @@ export function Pagination({ currentPage, pageCount, onPageChange }: PaginationP
   return (
     <nav
       aria-label="Pagination"
-      className="glass-toolbar flex items-center justify-between gap-3 rounded-[11px] px-[15px] py-3 text-[9px] text-[#70879a] max-[520px]:px-3"
+      className="[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.28)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.85),_0_4px_16px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(16px)_saturate(160%)] [-webkit-backdrop-filter:blur(16px)_saturate(160%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] flex items-center justify-between gap-3 rounded-[11px] px-[15px] py-3 text-[9px] text-[#70879a] max-[520px]:px-3"
     >
       <span>
         Page {currentPage} of {pageCount}

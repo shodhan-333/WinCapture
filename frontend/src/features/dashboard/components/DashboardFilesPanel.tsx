@@ -5,13 +5,13 @@ import { SearchField } from "@/shared/components/ui/SearchField";
 import { formatFileSize, formatFileType } from "@/shared/utils/formatters";
 import type { DashboardFile } from "@/features/dashboard/types/dashboard";
 
-const dashboardPanelClass = "surface relative isolate min-w-0 overflow-hidden rounded-[20px]";
+const dashboardPanelClass = "[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:linear-gradient(145deg,_rgba(255,_255,_255,_0.52)_0%,_rgba(255,_255,_255,_0.42)_100%)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(20px)_saturate(180%)] [-webkit-backdrop-filter:blur(20px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] relative isolate min-w-0 overflow-hidden rounded-[20px]";
 const dashboardPanelHeaderClass =
   "flex min-h-[68px] items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.45)] bg-[rgba(255,255,255,0.32)] px-6 backdrop-blur-[20px] max-[520px]:min-h-[62px] max-[520px]:px-4";
 const dashboardListRowClass =
   "group/row flex min-h-[66px] w-full cursor-pointer items-center gap-3 border-b border-[rgba(255,255,255,0.35)] bg-[rgba(255,255,255,0.18)] px-5 py-2 text-left text-inherit transition-[background,box-shadow] duration-200 hover:bg-[rgba(255,255,255,0.48)] hover:shadow-[inset_3px_0_0_rgba(30,120,214,0.55)] last:border-b-0 focus-visible:bg-[rgba(255,255,255,0.52)] max-[520px]:min-h-[60px] max-[520px]:px-4";
 const dashboardIconClass =
-  "grid h-[38px] w-[38px] flex-none place-items-center overflow-hidden rounded-[12px] border border-white/80 bg-[rgba(255,255,255,0.55)] text-[var(--accent)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_12px_rgba(26,54,80,0.05)] backdrop-blur-[16px] max-[520px]:h-[34px] max-[520px]:w-[34px] max-[520px]:rounded-[11px]";
+  "grid h-[38px] w-[38px] flex-none place-items-center overflow-hidden rounded-[12px] border border-white/80 bg-[rgba(255,255,255,0.55)] text-[#1b74d3] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_4px_12px_rgba(26,54,80,0.05)] backdrop-blur-[16px] max-[520px]:h-[34px] max-[520px]:w-[34px] max-[520px]:rounded-[11px]";
 const dashboardViewAllClass =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/75 bg-white/45 px-3 py-1.5 text-[12px] font-semibold text-[#156ecb] shadow-sm backdrop-blur-md transition-colors hover:bg-white/75 hover:text-[#0b5fbf] max-[520px]:px-2.5 max-[520px]:text-[11px]";
 
@@ -98,7 +98,7 @@ export function DashboardFilesPanel({
                   : "Upload a file to see it appear in your library."}
               </p>
             </div>
-            <Link to="/files" className="secondary-action compact-action">
+            <Link to="/files" className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#245277] [border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.48)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.9),_0_3px_12px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[color:#164063] [&:hover:not(:disabled)]:[background:rgba(255,_255,_255,_0.68)] [&:hover:not(:disabled)]:[border-color:rgba(255,_255,_255,_0.88)] [&:hover:not(:disabled)]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.95),_0_5px_16px_rgba(24,_52,_78,_0.05)] [min-height:36px] [padding-right:13px] [padding-left:13px] [font-size:11px]">
               Open files
             </Link>
           </div>
@@ -140,8 +140,8 @@ export function DashboardFilesPanel({
                 </strong>
                 <small className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-[#7c91a2] max-[520px]:text-[10px]">
                   {allContent && file.uploaderName
-                    ? `Uploaded by: ${file.uploaderName} (#${file.uploadedBy})${file.albumId === null ? " · Personal file" : ` · Album: ${file.albumName ?? "Unknown album"} (#${file.albumId})`}`
-                    : `${formatFileType(file.contentType)} · ${formatFileSize(file.fileSize)}`}
+                    ? `Uploaded by: ${file.uploaderName} (#${file.uploadedBy})${file.albumId === null ? " Â· Personal file" : ` Â· Album: ${file.albumName ?? "Unknown album"} (#${file.albumId})`}`
+                    : `${formatFileType(file.contentType)} Â· ${formatFileSize(file.fileSize)}`}
                 </small>
               </button>
               <span className="flex-none text-[11px] text-[#8299aa] max-[760px]:hidden">
@@ -156,7 +156,7 @@ export function DashboardFilesPanel({
                         `/files?scope=all&fileId=${file.id}&search=${encodeURIComponent(file.originalFileName)}`,
                       )
                     }
-                    className="secondary-action compact-action inline-flex !min-h-[30px] !cursor-pointer items-center gap-1 !rounded-[8px] !px-2 text-[9px] font-semibold !text-[#2b72bd] hover:!border-[rgba(117,181,232,0.62)] hover:!bg-[linear-gradient(135deg,rgba(226,243,255,0.92),rgba(203,229,250,0.88))] hover:!text-[#1f659f]"
+                    className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#245277] [border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.48)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.9),_0_3px_12px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[color:#164063] [&:hover:not(:disabled)]:[background:rgba(255,_255,_255,_0.68)] [&:hover:not(:disabled)]:[border-color:rgba(255,_255,_255,_0.88)] [&:hover:not(:disabled)]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.95),_0_5px_16px_rgba(24,_52,_78,_0.05)] [min-height:36px] [padding-right:13px] [padding-left:13px] [font-size:11px] inline-flex !min-h-[30px] !cursor-pointer items-center gap-1 !rounded-[8px] !px-2 text-[9px] font-semibold !text-[#2b72bd] hover:!border-[rgba(117,181,232,0.62)] hover:!bg-[linear-gradient(135deg,rgba(226,243,255,0.92),rgba(203,229,250,0.88))] hover:!text-[#1f659f]"
                     aria-label={`Manage file ${file.originalFileName}`}
                   >
                     <Settings2 aria-hidden="true" size={13} /> Manage
@@ -164,7 +164,7 @@ export function DashboardFilesPanel({
                   <button
                     type="button"
                     onClick={() => onDelete(file)}
-                    className="secondary-action grid h-[30px] w-[30px] flex-none !cursor-pointer place-items-center !rounded-[8px] !p-0 !text-[#6b8295] hover:!border-[rgba(240,160,160,0.6)] hover:!bg-[rgba(255,235,235,0.85)] hover:!text-[#b4232d]"
+                    className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#245277] [border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.48)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.9),_0_3px_12px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[color:#164063] [&:hover:not(:disabled)]:[background:rgba(255,_255,_255,_0.68)] [&:hover:not(:disabled)]:[border-color:rgba(255,_255,_255,_0.88)] [&:hover:not(:disabled)]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.95),_0_5px_16px_rgba(24,_52,_78,_0.05)] grid h-[30px] w-[30px] flex-none !cursor-pointer place-items-center !rounded-[8px] !p-0 !text-[#6b8295] hover:!border-[rgba(240,160,160,0.6)] hover:!bg-[rgba(255,235,235,0.85)] hover:!text-[#b4232d]"
                     aria-label={`Delete file ${file.originalFileName}`}
                     title="Delete file"
                   >

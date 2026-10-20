@@ -155,7 +155,7 @@ export function useAlbumFileActions({
 
     setSuccessMessage(
       succeeded.length
-        ? `${succeeded.length} ${bulkAction === "remove" ? `file${succeeded.length === 1 ? "" : "s"} removed from this album. The files remain in their owners’ libraries.` : `file${succeeded.length === 1 ? "" : "s"} permanently deleted.`}${cleanupWarnings ? ` Storage cleanup needs reconciliation for: ${cleanupNames.join(", ")}. The file records are already removed.` : ""}`
+        ? `${succeeded.length} ${bulkAction === "remove" ? `file${succeeded.length === 1 ? "" : "s"} removed from this album. The files remain in their ownersâ€™ libraries.` : `file${succeeded.length === 1 ? "" : "s"} permanently deleted.`}${cleanupWarnings ? ` Storage cleanup needs reconciliation for: ${cleanupNames.join(", ")}. The file records are already removed.` : ""}`
         : null,
     );
     clearBulkAction();

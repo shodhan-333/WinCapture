@@ -183,7 +183,7 @@ export function FileCard({
           onClick={() => void openPreview()}
           disabled={previewLoading}
           aria-label={`Open preview of ${file.originalFileName}`}
-          className="absolute inset-0 z-[1] grid cursor-pointer place-items-center border-0 bg-transparent text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--focus-ring)] disabled:cursor-wait"
+          className="absolute inset-0 z-[1] grid cursor-pointer place-items-center border-0 bg-transparent text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#3787d4] disabled:cursor-wait"
         >
           {previewLoading && (
             <span className="grid h-10 w-10 place-items-center rounded-full border border-white/75 bg-[#153b59]/55 shadow-lg backdrop-blur-sm">
@@ -197,7 +197,7 @@ export function FileCard({
       </div>
     ) : (
       <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.5),transparent_40%),linear-gradient(145deg,rgba(225,242,255,0.65),rgba(205,230,248,0.5))]">
-        <span className="grid h-[57px] w-[57px] place-items-center rounded-[17px] border border-white/80 bg-white/60 text-[var(--accent)] shadow-[0_8px_20px_rgba(26,54,80,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-md">
+        <span className="grid h-[57px] w-[57px] place-items-center rounded-[17px] border border-white/80 bg-white/60 text-[#1b74d3] shadow-[0_8px_20px_rgba(26,54,80,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-md">
           <Icon aria-hidden="true" size={38} strokeWidth={1.45} />
         </span>
         <span className="rounded-full border border-white/60 bg-white/50 px-[7px] py-1 text-[8px] font-bold tracking-[0.08em] text-[#4d6b82] backdrop-blur-sm">
@@ -209,7 +209,7 @@ export function FileCard({
   return (
     <article
       ref={cardRef}
-      className={`surface group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[var(--glass-shadow-raised)] ${focused ? "!border-[var(--focus-ring)] ring-2 ring-[var(--focus-ring)]/35" : ""}`}
+      className={`[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:linear-gradient(145deg,_rgba(255,_255,_255,_0.52)_0%,_rgba(255,_255,_255,_0.42)_100%)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(20px)_saturate(180%)] [-webkit-backdrop-filter:blur(20px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] group min-w-0 overflow-visible rounded-[17px] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.85)] hover:shadow-[0_16px_40px_rgba(20,48,72,0.09),inset_0_1px_1.5px_0_rgba(255,255,255,0.92),inset_0_-1px_1px_0_rgba(255,255,255,0.25)] ${focused ? "!border-[#3787d4] ring-2 ring-[#3787d4]/35" : ""}`}
     >
       <div className="relative m-2 h-[136px] min-w-0 overflow-hidden rounded-[12px] border border-white/60 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.55),transparent_40%),linear-gradient(145deg,rgba(215,238,255,0.65)_0%,rgba(190,222,248,0.45)_50%,rgba(220,238,252,0.60)_100%)] max-[520px]:h-[150px]">
         {previewArea}

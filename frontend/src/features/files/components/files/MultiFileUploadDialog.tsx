@@ -149,7 +149,7 @@ export function MultiFileUploadDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="multi-upload-title"
-        className="surface w-full max-w-[620px] overflow-hidden rounded-[20px] border border-white/80 shadow-[0_24px_80px_rgba(9,30,50,0.32)]"
+        className="[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:linear-gradient(145deg,_rgba(255,_255,_255,_0.52)_0%,_rgba(255,_255,_255,_0.42)_100%)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(20px)_saturate(180%)] [-webkit-backdrop-filter:blur(20px)_saturate(180%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] w-full max-w-[620px] overflow-hidden rounded-[20px] border border-white/80 shadow-[0_24px_80px_rgba(9,30,50,0.32)]"
       >
         <header className="flex items-start justify-between gap-4 border-b border-white/55 px-5 py-4">
           <div>
@@ -212,7 +212,7 @@ export function MultiFileUploadDialog({
                 type="button"
                 onClick={() => inputRef.current?.click()}
                 disabled={isUploading}
-                className="secondary-action min-h-[32px] px-3 text-[10px] disabled:opacity-50"
+                className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#245277] [border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.48)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.9),_0_3px_12px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[color:#164063] [&:hover:not(:disabled)]:[background:rgba(255,_255,_255,_0.68)] [&:hover:not(:disabled)]:[border-color:rgba(255,_255,_255,_0.88)] [&:hover:not(:disabled)]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.95),_0_5px_16px_rgba(24,_52,_78,_0.05)] min-h-[32px] px-3 text-[10px] disabled:opacity-50"
               >
                 Choose files
               </button>
@@ -253,7 +253,7 @@ export function MultiFileUploadDialog({
                       </strong>
                       <span className="text-[9px] text-[#8296a6]">
                         {formatFileSize(item.file.size)}
-                        {item.message ? ` · ${item.message}` : ""}
+                        {item.message ? ` Â· ${item.message}` : ""}
                       </span>
                     </span>
                     <span
@@ -328,7 +328,7 @@ export function MultiFileUploadDialog({
           {finished && (
             <p
               role="status"
-              className="glass-alert-success mt-4 rounded-[11px] px-3 py-2 text-[10px] font-medium"
+              className="[border:1px_solid_rgba(40,_165,_95,_0.3)] [background:rgba(240,_253,_246,_0.55)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.88),_0_6px_18px_rgba(30,_95,_50,_0.03)] [backdrop-filter:blur(14px)_saturate(160%)] [-webkit-backdrop-filter:blur(14px)_saturate(160%)] mt-4 rounded-[11px] px-3 py-2 text-[10px] font-medium"
             >
               Uploads finished: {successCount} successful, {failureCount} failed.
             </p>
@@ -340,7 +340,7 @@ export function MultiFileUploadDialog({
             type="button"
             onClick={onClose}
             disabled={isUploading}
-            className="secondary-action min-h-[36px] px-4 text-[10px] disabled:opacity-50"
+            className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#245277] [border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.48)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.9),_0_3px_12px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[color:#164063] [&:hover:not(:disabled)]:[background:rgba(255,_255,_255,_0.68)] [&:hover:not(:disabled)]:[border-color:rgba(255,_255,_255,_0.88)] [&:hover:not(:disabled)]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.95),_0_5px_16px_rgba(24,_52,_78,_0.05)] min-h-[36px] px-4 text-[10px] disabled:opacity-50"
           >
             {finished ? "Close" : "Cancel"}
           </button>
@@ -349,7 +349,7 @@ export function MultiFileUploadDialog({
               type="button"
               onClick={() => void handleUpload()}
               disabled={isUploading || validCount === 0}
-              className="primary-action min-h-[36px] px-4 text-[10px] disabled:cursor-not-allowed disabled:opacity-55"
+              className="[transition:transform_180ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_180ms_cubic-bezier(0.16,_1,_0.3,_1),_background_180ms_ease,_color_180ms_ease,_border-color_180ms_ease] [min-height:42px] [display:inline-flex] [align-items:center] [justify-content:center] [gap:8px] [padding:0_17px] [border-radius:12px] [font-size:12px] [font-weight:600] [cursor:pointer] [color:#ffffff] [border:1px_solid_rgba(255,_255,_255,_0.36)] [background:linear-gradient(135deg,_rgba(46,_134,_222,_0.9)_0%,_rgba(20,_99,_188,_0.96)_100%)] [box-shadow:0_8px_20px_rgba(28,_106,_194,_0.2),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.45)] [backdrop-filter:blur(10px)] [-webkit-backdrop-filter:blur(10px)] [&:hover:not(:disabled)]:[transform:translateY(-1px)] [&:hover:not(:disabled)]:[background:linear-gradient(135deg,_rgba(56,_144,_232,_0.95)_0%,_rgba(24,_108,_198,_0.98)_100%)] [&:hover:not(:disabled)]:[box-shadow:0_11px_24px_rgba(28,_106,_194,_0.26),_inset_0_1px_1.5px_rgba(255,_255,_255,_0.55)] min-h-[36px] px-4 text-[10px] disabled:cursor-not-allowed disabled:opacity-55"
             >
               <Upload size={14} />
               {isUploading
