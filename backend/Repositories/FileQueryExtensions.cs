@@ -59,6 +59,16 @@ internal static class FileQueryExtensions
         return query;
     }
 
+    public static Expression<Func<FileMetadata, int>> FileSearchRank(string? search) =>
+        file => string.IsNullOrEmpty(search) ? 0 :
+            file.OriginalFileName == search ? 0 :
+            file.OriginalFileName.StartsWith(search) ? 1 :
+            file.OriginalFileName.Contains(search) ? 2 :
+            file.ContentType.Contains(search) ? 3 :
+            file.Id.ToString().Contains(search) ? 4 :
+            file.User.Name.Contains(search) ? 5 :
+            (file.Album != null && file.Album.AlbumName.Contains(search)) ? 6 : 7;
+
     private static IQueryable<FileMetadata> ApplyCategory(
         IQueryable<FileMetadata> query,
         string[] extensions)

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using WinCapture.Data;
 using WinCapture.DTOs.Common;
@@ -61,7 +62,8 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
         }
 
         return await query
-            .OrderByDescending(album => album.CreatedAt)
+            .OrderBy(AlbumSearchRank(search))
+            .ThenByDescending(album => album.CreatedAt)
             .ThenByDescending(album => album.Id)
             .ToPagedResponseAsync(pagination);
     }
@@ -97,7 +99,8 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
         }
 
         return await query
-            .OrderByDescending(album => album.CreatedAt)
+            .OrderBy(AlbumSearchRank(search))
+            .ThenByDescending(album => album.CreatedAt)
             .ThenByDescending(album => album.Id)
             .ToPagedResponseAsync(pagination);
     }
@@ -123,7 +126,8 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
         }
 
         return await query
-            .OrderByDescending(album => album.CreatedAt)
+            .OrderBy(AlbumSearchRank(search))
+            .ThenByDescending(album => album.CreatedAt)
             .ThenByDescending(album => album.Id)
             .ToPagedResponseAsync(pagination);
     }
@@ -155,10 +159,19 @@ public sealed class AlbumRepository(WinCaptureDbContext db) : IAlbumRepository
         }
 
         return await query
-            .OrderByDescending(album => album.CreatedAt)
+            .OrderBy(AlbumSearchRank(search))
+            .ThenByDescending(album => album.CreatedAt)
             .ThenByDescending(album => album.Id)
             .ToPagedResponseAsync(pagination);
     }
+
+    // Rank exact and prefix album-name matches ahead of broader metadata matches.
+    private static Expression<Func<Album, int>> AlbumSearchRank(string? search) =>
+        album => string.IsNullOrEmpty(search) ? 0 :
+            album.AlbumName == search ? 0 :
+            album.AlbumName.StartsWith(search) ? 1 :
+            album.AlbumName.Contains(search) ? 2 :
+            album.Owner.Name.Contains(search) ? 3 : 4;
 
     // Updates the album in the database and saves the changes.
     public async Task UpdateAsync(Album album)

@@ -40,7 +40,8 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
             .AsNoTracking()
             .Where(file => file.UploadedBy == userId)
             .ApplyFileFilters(pagination)
-            .OrderByDescending(file => file.UploadedAt)
+            .OrderBy(FileQueryExtensions.FileSearchRank(pagination.Search?.Trim()))
+            .ThenByDescending(file => file.UploadedAt)
             .ThenByDescending(file => file.Id)
             .ToPagedResponseAsync(pagination);
     }
@@ -63,7 +64,8 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
             .AsNoTracking()
             .Where(file => file.AlbumId == albumId)
             .ApplyFileFilters(pagination)
-            .OrderByDescending(file => file.UploadedAt)
+            .OrderBy(FileQueryExtensions.FileSearchRank(pagination.Search?.Trim()))
+            .ThenByDescending(file => file.UploadedAt)
             .ThenByDescending(file => file.Id)
             .ToPagedResponseAsync(pagination);
     }
@@ -95,7 +97,8 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
                 file.User.Name.Contains(pagination.Search) ||
                 (file.AlbumId != null && file.AlbumId.ToString()!.Contains(pagination.Search)) ||
                 (file.Album != null && file.Album.AlbumName.Contains(pagination.Search)))
-            .OrderByDescending(file => file.UploadedAt)
+            .OrderBy(FileQueryExtensions.FileSearchRank(pagination.Search?.Trim()))
+            .ThenByDescending(file => file.UploadedAt)
             .ThenByDescending(file => file.Id)
             .ToPagedResponseAsync(pagination);
     }
@@ -131,7 +134,8 @@ public sealed class FileRepository(WinCaptureDbContext db) : IFileRepository
                 file.User.Name.Contains(pagination.Search) ||
                 (file.AlbumId != null && file.AlbumId.ToString()!.Contains(pagination.Search)) ||
                 (file.Album != null && file.Album.AlbumName.Contains(pagination.Search)))
-            .OrderByDescending(file => file.UploadedAt)
+            .OrderBy(FileQueryExtensions.FileSearchRank(pagination.Search?.Trim()))
+            .ThenByDescending(file => file.UploadedAt)
             .ThenByDescending(file => file.Id)
             .ToPagedResponseAsync(pagination);
     }
