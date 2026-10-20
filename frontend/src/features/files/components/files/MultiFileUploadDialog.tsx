@@ -229,7 +229,7 @@ export function MultiFileUploadDialog({
                   <button
                     type="button"
                     onClick={() => setItems([])}
-                    className="text-[10px] font-semibold text-[#71879a] hover:text-[#285c84]"
+                    className="text-[12px] font-bold text-[#245277] hover:text-[#123b5c]"
                   >
                     Clear all
                   </button>
@@ -251,13 +251,13 @@ export function MultiFileUploadDialog({
                       >
                         {item.file.name}
                       </strong>
-                      <span className="text-[9px] text-[#8296a6]">
+                      <span className="text-[11px] font-semibold text-[#526b80]">
                         {formatFileSize(item.file.size)}
                         {item.message ? ` Â· ${item.message}` : ""}
                       </span>
                     </span>
                     <span
-                      className={`flex-none text-[9px] font-semibold ${item.status === "success" ? "text-[#34734b]" : item.status === "failed" || item.status === "invalid" ? "text-[#b2454d]" : "text-[#54738c]"}`}
+                      className={`flex-none text-[11px] font-bold ${item.status === "success" ? "text-[#24633b]" : item.status === "failed" || item.status === "invalid" ? "text-[#a52f39]" : "text-[#245277]"}`}
                       role={
                         item.status === "failed" || item.status === "invalid" ? "status" : undefined
                       }
@@ -287,7 +287,7 @@ export function MultiFileUploadDialog({
                           setItems((current) => current.filter((entry) => entry.key !== item.key))
                         }
                         aria-label={`Remove ${item.file.name}`}
-                        className="grid h-7 w-7 flex-none place-items-center rounded-[8px] text-[#9b6870] hover:bg-[#fff0f1]"
+                        className="grid h-7 w-7 flex-none place-items-center rounded-[8px] text-[#c2414b] hover:bg-[#fff0f1]"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -300,9 +300,9 @@ export function MultiFileUploadDialog({
 
           {isUploading && (
             <div className="mt-4" role="status" aria-live="polite">
-              <div className="mb-1 flex justify-between text-[9px] font-semibold text-[#54738c]">
+              <div className="mb-2 flex items-center justify-between text-[13px] font-bold text-[#244761]">
                 <span>Uploading files</span>
-                <span>
+                <span className="rounded-md bg-[#e7f1fa] px-2 py-0.5 text-[#174f7d]">
                   {completedCount} of {items.length}
                 </span>
               </div>
@@ -319,7 +319,7 @@ export function MultiFileUploadDialog({
                   style={{ width: `${items.length ? (completedCount / items.length) * 100 : 0}%` }}
                 />
               </div>
-              <p className="mb-0 mt-1 text-[9px] text-[#8296a6]">
+              <p className="mb-0 mt-2 text-[11px] text-[#526b80]">
                 Each file uploads separately so other files can continue if one fails.
               </p>
             </div>

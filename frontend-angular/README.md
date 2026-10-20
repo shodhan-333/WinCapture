@@ -45,3 +45,13 @@ npm run typecheck
 npm run build
 npm run build:production
 ```
+
+## Frontend conventions
+
+This project follows the repository UI standards using Angular equivalents:
+
+- Keep application wiring in `src/app`, shared API and utility code in `shared`, and business UI in `features/<feature>`.
+- Use standalone components, typed inputs and outputs, strict TypeScript, and lazy-loaded route components. Keep HTTP requests in `core/api` and show actionable errors in the page.
+- Use semantic HTML, labels, keyboard-operable controls, visible focus, and reduced-motion support. Use the global CSS variables as design tokens and Tailwind utilities for component layout and styling.
+- Keep public browser configuration in Angular environment files. These values are visible to users; never add secrets or private keys.
+- Production builds enforce initial bundle and component-style budgets. Run the type check and production build before merging UI changes.

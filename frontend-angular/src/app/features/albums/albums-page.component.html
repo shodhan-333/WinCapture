@@ -142,6 +142,15 @@
           <a class="secondary-action compact-action ml-auto" [href]="reactDashboardUrl"
             >Return to React sign-in</a
           >
+        } @else {
+          <button
+            type="button"
+            class="secondary-action compact-action ml-auto"
+            (click)="loadAlbums()"
+            [disabled]="loading()"
+          >
+            Retry
+          </button>
         }
       </div>
     }

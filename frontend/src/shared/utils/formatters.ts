@@ -19,6 +19,18 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function formatFileType(contentType: string): string {
+  const normalizedType = contentType.trim().toLowerCase().split(";")[0] ?? "";
+  const officeTypeLabels: Record<string, string> = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "PowerPoint presentation",
+    "application/msword": "Word document",
+    "application/vnd.ms-excel": "Excel spreadsheet",
+    "application/vnd.ms-powerpoint": "PowerPoint presentation",
+  };
+  const officeLabel = officeTypeLabels[normalizedType];
+  if (officeLabel) return officeLabel;
+
   const [type, subtype] = contentType.split("/");
 
   return subtype ? subtype.toUpperCase() : (type ?? "Unknown file type").toUpperCase();
