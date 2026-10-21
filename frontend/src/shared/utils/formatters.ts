@@ -1,3 +1,4 @@
+// Format an ISO date using the user's locale and a compact month-day-year display.
 export function formatDate(value: string): string {
   return new Date(value).toLocaleDateString(undefined, {
     month: "short",
@@ -6,6 +7,7 @@ export function formatDate(value: string): string {
   });
 }
 
+// Convert a byte count to a concise KB or MB label.
 export function formatFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -18,6 +20,7 @@ export function formatFileSize(bytes: number): string {
   return `${bytes} B`;
 }
 
+// Turn a MIME type into the file type label shown in file details.
 export function formatFileType(contentType: string): string {
   const normalizedType = contentType.trim().toLowerCase().split(";")[0] ?? "";
   const officeTypeLabels: Record<string, string> = {
@@ -36,6 +39,7 @@ export function formatFileType(contentType: string): string {
   return subtype ? subtype.toUpperCase() : (type ?? "Unknown file type").toUpperCase();
 }
 
+// Derive up to two uppercase initials for account avatars.
 export function getInitials(name?: string): string {
   if (!name?.trim()) {
     return "U";

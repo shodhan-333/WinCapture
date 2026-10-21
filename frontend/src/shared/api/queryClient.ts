@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 
+// Retry transient server failures, but do not repeat requests that need user action or changed input.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

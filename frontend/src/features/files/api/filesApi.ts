@@ -10,7 +10,8 @@ import {
   parsePagedResponse,
   parseStorageCleanupResponse,
 } from "@/features/files/schemas/fileResponse";
-// Personal Files
+// File endpoints share authenticated requests and validate server data before returning it.
+// Fetch a filtered page of files available to the signed-in account.
 export async function getFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -30,6 +31,7 @@ export async function getFiles(
   return parsePagedResponse(await response.json(), parseFileResponse);
 }
 
+// Fetch and validate one file's metadata.
 export async function getFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -40,6 +42,7 @@ export async function getFile(
   return parseFileResponse(await response.json());
 }
 
+// Fetch the signed-in account's favorite files.
 export async function getFavorites(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -59,6 +62,7 @@ export async function getFavorites(
   return parsePagedResponse(await response.json(), parseFileResponse);
 }
 
+// Mark a file as a favorite for the signed-in account.
 export async function addFavorite(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -69,6 +73,7 @@ export async function addFavorite(
   });
 }
 
+// Remove a file from the signed-in account's favorites.
 export async function removeFavorite(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -79,6 +84,7 @@ export async function removeFavorite(
   });
 }
 
+// Upload a new personal file using multipart form data.
 export async function uploadFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -88,6 +94,7 @@ export async function uploadFile(
   return parseFileResponse(value);
 }
 
+// Replace a personal file's stored content and metadata.
 export async function replaceFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -104,6 +111,7 @@ export async function replaceFile(
   return parseFileResponse(value);
 }
 
+// Download a file from a caller-provided authorized endpoint path.
 export async function downloadFileByPath(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -113,6 +121,7 @@ export async function downloadFileByPath(
   await downloadResponse(instance, account, path, fallbackFileName);
 }
 
+// Delete a personal file and return its storage cleanup status.
 export async function deleteFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -121,11 +130,13 @@ export async function deleteFile(
   const response = await callApi(instance, account, `/api/files/${fileId}`, {
     method: "DELETE",
   });
+  // Older API responses use 204 to indicate deletion without cleanup metadata.
   if (response.status === 204) return { storageCleanupComplete: true };
   return parseStorageCleanupResponse(await response.json());
 }
 
 // Admin API
+// Fetch a filtered page of files across users for administrators.
 export async function getAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -145,6 +156,7 @@ export async function getAdminFiles(
   return parsePagedResponse(await response.json(), parseAdminFileResponse);
 }
 
+// Fetch the administrator's own files from the admin endpoint.
 export async function getMyAdminFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,

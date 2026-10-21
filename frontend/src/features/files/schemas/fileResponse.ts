@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ApiError, type PagedResponse } from "@/shared/types/api";
 import type { AdminFileResponse, FileResponse } from "@/features/files/types/file";
 
+// Validate file metadata at the API boundary before it reaches file views.
 const positiveId = z.number().int().safe().positive();
 const validDate = z.string().min(1).refine((value) => Number.isFinite(Date.parse(value)));
 
@@ -38,6 +39,7 @@ export const PaginationMetadataSchema = z.object({
   pageCount: z.number().int().safe().nonnegative(),
 });
 
+// Report malformed server data consistently instead of exposing incomplete file records.
 function invalidFileResponse(): never {
   throw new ApiError(
     "WinCapture received invalid file information. Refresh and try again.",
@@ -48,20 +50,24 @@ function invalidFileResponse(): never {
   );
 }
 
+// Parse unknown API data with a schema and normalize malformed responses.
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) invalidFileResponse();
   return result.data;
 }
 
+// Validate one regular file response.
 export function parseFileResponse(value: unknown): FileResponse {
   return parse(FileResponseSchema, value);
 }
 
+// Validate the extended metadata returned by admin file endpoints.
 export function parseAdminFileResponse(value: unknown): AdminFileResponse {
   return parse(AdminFileResponseSchema, value);
 }
 
+// Validate page metadata and parse each item with its endpoint-specific schema.
 export function parsePagedResponse<T>(value: unknown, parseItem: (item: unknown) => T): PagedResponse<T> {
   const result = z.object({
     items: z.array(z.unknown()),
@@ -71,6 +77,7 @@ export function parsePagedResponse<T>(value: unknown, parseItem: (item: unknown)
   return { ...result.data, items: result.data.items.map(parseItem) };
 }
 
+// Validate the cleanup status returned after a file deletion.
 export function parseStorageCleanupResponse(value: unknown): { storageCleanupComplete: boolean } {
   return parse(StorageCleanupResponseSchema, value);
 }

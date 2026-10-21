@@ -17,6 +17,7 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
+// Display startup failures in the page when configuration or MSAL initialization fails.
 function showStartupError(error: unknown) {
   const missingConfiguration =
     error instanceof Error &&
@@ -66,6 +67,7 @@ function showStartupError(error: unknown) {
   );
 }
 
+// Validate public configuration and initialize MSAL before mounting providers and routes.
 async function startApp() {
   try {
     const missingEnvironment = validateEnvironment();

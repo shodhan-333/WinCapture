@@ -24,6 +24,7 @@ interface FileCardGridProps {
   focusedFileId?: number | null;
 }
 
+// Render reusable file cards while applying per-file management and selection rules.
 export function FileCardGrid({
   files,
   previewUrls,

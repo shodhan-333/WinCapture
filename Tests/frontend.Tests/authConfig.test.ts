@@ -15,7 +15,7 @@ describe("MSAL configuration", () => {
 
   it("uses redirect login and session storage without local credentials", () => {
     expect(loginRequest.scopes).toEqual([expect.any(String)]);
-    expect(msalConfig.cache.cacheLocation).toBe("sessionStorage");
+    expect(msalConfig.cache?.cacheLocation).toBe("sessionStorage");
     expect(msalConfig.auth.redirectUri).toBe(msalRedirectUri);
     expect(msalConfig.auth.postLogoutRedirectUri).toBe(msalPostLogoutRedirectUri);
   });

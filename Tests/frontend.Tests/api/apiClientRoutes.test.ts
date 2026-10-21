@@ -123,7 +123,7 @@ function setupJsonResponse() {
 describe("API route coverage", () => {
   it.each([
     ["current-user", () => api.getCurrentUser(instance, account), "/api/auth/me", "GET"],
-    ["albums", () => api.getAlbums(instance, account), "/api/albums", "GET"],
+    ["albums", () => api.getAlbums(instance, account, 1, 10), "/api/albums", "GET"],
     ["my albums", () => api.getMyAlbums(instance, account), "/api/albums/mine", "GET"],
     ["shared albums", () => api.getSharedAlbums(instance, account), "/api/albums/shared", "GET"],
     ["one album", () => api.getAlbum(instance, account, 8), "/api/albums/8", "GET"],
@@ -168,7 +168,12 @@ describe("API route coverage", () => {
       "/api/albums/8/members/9",
       "DELETE",
     ],
-    ["album files", () => api.getAlbumFiles(instance, account, 8), "/api/albums/8/files", "GET"],
+    [
+      "album files",
+      () => api.getAlbumFiles(instance, account, 8, 1, 10),
+      "/api/albums/8/files",
+      "GET",
+    ],
     ["album file", () => api.getAlbumFile(instance, account, 8, 9), "/api/albums/8/files/9", "GET"],
     [
       "delete album file",
@@ -182,9 +187,14 @@ describe("API route coverage", () => {
       "/api/albums/8/files/9/association",
       "DELETE",
     ],
-    ["personal files", () => api.getFiles(instance, account), "/api/files", "GET"],
+    ["personal files", () => api.getFiles(instance, account, 1, 10), "/api/files", "GET"],
     ["one personal file", () => api.getFile(instance, account, 9), "/api/files/9", "GET"],
-    ["favorites", () => api.getFavorites(instance, account), "/api/files/favorites", "GET"],
+    [
+      "favorites",
+      () => api.getFavorites(instance, account, 1, 10),
+      "/api/files/favorites",
+      "GET",
+    ],
     ["add favorite", () => api.addFavorite(instance, account, 9), "/api/files/9/favorite", "PUT"],
     [
       "remove favorite",
@@ -193,14 +203,24 @@ describe("API route coverage", () => {
       "DELETE",
     ],
     ["delete file", () => api.deleteFile(instance, account, 9), "/api/files/9", "DELETE"],
-    ["admin files", () => api.getAdminFiles(instance, account), "/api/admin/files", "GET"],
+    [
+      "admin files",
+      () => api.getAdminFiles(instance, account, 1, 10),
+      "/api/admin/files",
+      "GET",
+    ],
     [
       "my admin files",
       () => api.getMyAdminFiles(instance, account),
       "/api/admin/files/mine",
       "GET",
     ],
-    ["admin albums", () => api.getAdminAlbums(instance, account), "/api/admin/albums", "GET"],
+    [
+      "admin albums",
+      () => api.getAdminAlbums(instance, account, 1, 10),
+      "/api/admin/albums",
+      "GET",
+    ],
     [
       "my admin albums",
       () => api.getMyAdminAlbums(instance, account),
@@ -213,8 +233,8 @@ describe("API route coverage", () => {
     await invoke();
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][0]).toEqual(expect.stringContaining(path));
-    expect(fetchMock.mock.calls[0][1]?.method ?? "GET").toBe(method);
+    expect(fetchMock.mock.calls[0]?.[0]).toEqual(expect.stringContaining(path));
+    expect(fetchMock.mock.calls[0]?.[1]?.method ?? "GET").toBe(method);
   });
 
   it("posts and replaces multipart files without JSON headers", async () => {

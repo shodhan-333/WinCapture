@@ -31,6 +31,7 @@ interface UseDashboardDataOptions {
   setAllFilesCount: Dispatch<SetStateAction<number>>;
 }
 
+// Load personal or admin dashboard data and cache category counts for the active identity and scope.
 export function useDashboardData({
   instance,
   account,
@@ -64,6 +65,7 @@ export function useDashboardData({
   useEffect(() => {
     let active = true;
 
+    // Load only the dashboard sections whose account, filters, or paging changed.
     async function load(): Promise<void> {
       if (!account) {
         setLoading(false);
@@ -71,6 +73,7 @@ export function useDashboardData({
       }
 
       const allScope = canViewAllContent && contentScope === "all";
+      // Request keys prevent unrelated renders from refetching unchanged pages.
       const requestedAlbumsKey = allScope
         ? `${accountKey}:all:${contentVersion}:${allAlbumsPage}:${allAlbumsSearch}`
         : `${accountKey}:mine:${contentVersion}`;
@@ -134,6 +137,7 @@ export function useDashboardData({
                 })),
               }))
             : getFiles(instance, account, 1, 4);
+        // Fetch the visible lists and category totals together, then ignore results after unmount.
         const [albumResult, fileResult, categoryResults] = await Promise.all([
           albumsRequest,
           filesRequest,

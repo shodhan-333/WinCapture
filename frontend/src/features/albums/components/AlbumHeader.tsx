@@ -26,6 +26,7 @@ interface AlbumHeaderProps {
   onReplaceChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
+// Show album ownership and dates with edit, upload, and delete controls for managers.
 export function AlbumHeader({
   album,
   totalFiles,

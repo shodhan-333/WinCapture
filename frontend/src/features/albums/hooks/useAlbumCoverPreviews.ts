@@ -5,6 +5,7 @@ import { getAlbumFiles, getFilePreviewUrl } from "../api/albumsApi";
 import type { AlbumResponse } from "@/features/albums/types/album";
 import { getAccountKey } from "@/shared/utils/accountKey";
 
+// Fetch album cover blobs and release their object URLs when the account or list changes.
 export function useAlbumCoverPreviews(
   albums: AlbumResponse[],
   instance: IPublicClientApplication,
@@ -20,6 +21,7 @@ export function useAlbumCoverPreviews(
     let cleanupRequested = false;
     const createdUrls: string[] = [];
 
+    // Revoke URLs immediately if an async preview completes after cleanup.
     const registerUrl = (url: string) => {
       if (cleanupRequested) {
         URL.revokeObjectURL(url);
@@ -36,6 +38,7 @@ export function useAlbumCoverPreviews(
       };
     }
 
+    // Load the first image from each album and keep unavailable covers optional.
     const load = async () => {
       const entries = await Promise.all(
         albums.map(async (album) => {
@@ -49,6 +52,7 @@ export function useAlbumCoverPreviews(
             registerUrl(url);
             return [album.id, url] as const;
           } catch {
+            // A cover is optional, so an unavailable preview should not fail the album list.
             return null;
           }
         }),

@@ -22,11 +22,13 @@ export const FILE_CATEGORY_FILTERS: FileCategoryFilter[] = [
 
 export const SUPPORTED_FILE_ACCEPT = Object.values(FILE_EXTENSIONS).flat().join(",");
 
+// Normalize and return the suffix used to classify a file.
 export function getFileExtension(fileName: string): string {
   const lastDot = fileName.lastIndexOf(".");
   return lastDot >= 0 ? fileName.slice(lastDot).toLocaleLowerCase() : "";
 }
 
+// Match a file extension to the supported upload category.
 export function getFileCategory(fileName: string): FileCategory | undefined {
   const extension = getFileExtension(fileName);
 
@@ -35,6 +37,7 @@ export function getFileCategory(fileName: string): FileCategory | undefined {
   )?.[0];
 }
 
+// Reject unsupported, empty, or oversized files before upload requests are sent.
 export function validateUploadFile(file: File): string | undefined {
   if (!getFileCategory(file.name)) {
     return "Unsupported file format.";
@@ -51,10 +54,12 @@ export function validateUploadFile(file: File): string | undefined {
   return undefined;
 }
 
+// Check whether a file extension belongs to any supported preview category.
 export function isPreviewableFile(fileName: string): boolean {
   return getFileCategory(fileName) !== undefined;
 }
 
+// Limit image previews to the image formats handled by the preview UI.
 export function isImagePreviewableFile(fileName: string): boolean {
   return FILE_EXTENSIONS.Images.includes(
     getFileExtension(fileName) as (typeof FILE_EXTENSIONS.Images)[number],

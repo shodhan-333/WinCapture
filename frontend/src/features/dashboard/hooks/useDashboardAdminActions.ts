@@ -16,6 +16,7 @@ interface UseDashboardAdminActionsOptions {
   setError: (message: string | null) => void;
 }
 
+// Confirm destructive admin actions, update the visible lists, and refresh their counts.
 export function useDashboardAdminActions({
   instance,
   account,
@@ -26,6 +27,7 @@ export function useDashboardAdminActions({
   refreshContent,
   setError,
 }: UseDashboardAdminActionsOptions) {
+  // Confirm and delete an album, then refresh admin content and pagination.
   const handleDeleteAlbum = async (album: AlbumResponse): Promise<void> => {
     if (
       !account ||
@@ -50,6 +52,7 @@ export function useDashboardAdminActions({
     }
   };
 
+  // Confirm and delete a file, then refresh admin content and pagination.
   const handleDeleteFile = async (file: DashboardFile): Promise<void> => {
     if (
       !account ||

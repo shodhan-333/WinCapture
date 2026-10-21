@@ -7,5 +7,5 @@ export const environment = {
   msalTenantId: "<ENTRA_TENANT_ID>",
   msalApiScope: "api://<API_APPLICATION_ID>/access_as_user",
   redirectUri: "https://localhost:5173/redirect.html",
-  reactAlbumsUrl: "https://localhost:5173/albums",
+  reactBaseUrl: "https://localhost:5173",
 };

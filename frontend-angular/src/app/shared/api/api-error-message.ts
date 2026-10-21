@@ -1,3 +1,4 @@
+// Extract a safe display message from backend, HTTP, or MSAL errors.
 export function apiErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === "object" && error !== null && "error" in error) {
     const body: unknown = error.error;
@@ -19,6 +20,7 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+// Read a string-valued error property without assuming the response shape.
 function getStringProperty(value: object, key: string): string | undefined {
   if (!(key in value)) return undefined;
   const property: unknown = Reflect.get(value, key);

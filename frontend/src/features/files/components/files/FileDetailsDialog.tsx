@@ -9,11 +9,13 @@ interface FileDetailsDialogProps {
   onClose: () => void;
 }
 
+// Display file metadata and manage initial focus and keyboard dismissal.
 export function FileDetailsDialog({ file, onClose }: FileDetailsDialogProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     closeButtonRef.current?.focus();
+    // Let keyboard users dismiss the dialog without reaching its close button.
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };

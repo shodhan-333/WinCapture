@@ -19,8 +19,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "types": ["vite/client", "node"],
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src", "../Tests/frontend.Tests", "vite.config.ts", "vitest.config.ts"]
 }

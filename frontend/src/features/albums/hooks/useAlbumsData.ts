@@ -22,6 +22,7 @@ interface UseAlbumsDataOptions {
   setCurrentPage: Dispatch<SetStateAction<number>>;
 }
 
+// Load the selected album list and adapt the legacy shared-album route when needed.
 export function useAlbumsData({ instance, account, accountKey, userId, isAdminAllContent, currentPage, albumFilter, searchQuery, setCurrentPage }: UseAlbumsDataOptions) {
   const [localError, setLocalError] = useState<string | null>(null);
   const query = useQuery<PagedResponse<AlbumResponse>>({
@@ -36,6 +37,7 @@ export function useAlbumsData({ instance, account, accountKey, userId, isAdminAl
       try {
         return await getSharedAlbums(instance, account, currentPage, PAGE_SIZE, searchQuery, signal);
       } catch (error) {
+        // Older backends may not expose the shared route; derive shared albums from accessible results.
         if (signal.aborted || !(error instanceof ApiError) || error.status !== 404 || !userId) throw error;
         const firstPage = await getAlbums(instance, account, 1, 100, searchQuery, signal);
         const accessible = [...firstPage.items];

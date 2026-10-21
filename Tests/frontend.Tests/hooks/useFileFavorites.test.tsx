@@ -23,6 +23,7 @@ const file: FileResponse = {
   downloadUrl: "/api/albums/5/files/21/download",
   isFavorite: false,
   canManage: false,
+  canDownload: false,
 };
 const instance = {} as IPublicClientApplication;
 const account = { homeAccountId: "account" } as AccountInfo;

@@ -15,6 +15,7 @@ import { formatDate } from "@/shared/utils/formatters";
 import { getAdminContentScope } from "@/shared/utils/adminContentScope";
 import { useAlbumsData, type AlbumFilter } from "@/features/albums/hooks/useAlbumsData";
 
+// Coordinate album search, filtering, creation, pagination, and cover previews.
 export function AlbumsPage() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
@@ -57,6 +58,7 @@ export function AlbumsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [searchInput]);
 
+  // Create the requested album, clear the form, and open its detail route.
   const handleCreateAlbum = async () => {
     if (!account || !albumName.trim()) {
       setError("Album name is required.");

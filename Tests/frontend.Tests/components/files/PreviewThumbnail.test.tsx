@@ -182,7 +182,7 @@ describe("PreviewThumbnail", () => {
     expect(canvas).toHaveProperty("height", 120);
     expect(pdf.workerOptions.workerSrc).toBe("worker-url");
     expect(page.getViewport).toHaveBeenCalledWith({ scale: 0.45 });
-    expect(page.render.mock.calls[0][0]).toMatchObject({ canvas });
+    expect(page.render).toHaveBeenCalledWith(expect.objectContaining({ canvas }));
     successView.unmount();
     expect(renderTask.cancel).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();

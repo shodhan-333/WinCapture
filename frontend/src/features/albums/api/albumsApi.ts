@@ -26,7 +26,8 @@ import {
   parsePagedResponse,
   parseStorageCleanupResponse,
 } from "@/features/files/schemas/fileResponse";
-// Albums API
+// Album endpoints validate request and response data at the API boundary.
+// Fetch a page of albums visible to the signed-in account.
 export async function getAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -45,6 +46,7 @@ export async function getAlbums(
   return parsePagedAlbums(await response.json());
 }
 
+// Fetch only albums owned by the signed-in account.
 export async function getMyAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -63,6 +65,7 @@ export async function getMyAlbums(
   return parsePagedAlbums(await response.json());
 }
 
+// Fetch albums shared with the signed-in account.
 export async function getSharedAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -81,6 +84,7 @@ export async function getSharedAlbums(
   return parsePagedAlbums(await response.json());
 }
 
+// Fetch albums across users for an administrator's all-content view.
 export async function getAdminAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -99,6 +103,7 @@ export async function getAdminAlbums(
   return parsePagedAlbums(await response.json());
 }
 
+// Fetch the administrator's own albums from the admin endpoint.
 export async function getMyAdminAlbums(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -115,6 +120,7 @@ export async function getMyAdminAlbums(
   return parsePagedAlbums(await response.json());
 }
 
+// Fetch and validate one album's details.
 export async function getAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -125,6 +131,7 @@ export async function getAlbum(
   return parseAlbumResponse(await response.json());
 }
 
+// Validate and create an album for the signed-in account.
 export async function createAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -139,6 +146,7 @@ export async function createAlbum(
   return parseAlbumResponse(await response.json());
 }
 
+// Validate and save changes to an album's name.
 export async function updateAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -154,6 +162,7 @@ export async function updateAlbum(
   return parseAlbumResponse(await response.json());
 }
 
+// Delete an album through the authenticated API.
 export async function deleteAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -164,6 +173,7 @@ export async function deleteAlbum(
   });
 }
 
+// Fetch and validate member permissions, retaining the server correlation ID on errors.
 export async function getAlbumMembers(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -175,6 +185,7 @@ export async function getAlbumMembers(
   return parseAlbumMembers(await response.json(), correlationId);
 }
 
+// Validate and grant a user the requested album permissions.
 export async function addAlbumMember(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -191,6 +202,7 @@ export async function addAlbumMember(
   });
 }
 
+// Validate and update one member's album permissions.
 export async function updateAlbumMember(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -208,6 +220,7 @@ export async function updateAlbumMember(
   });
 }
 
+// Revoke one member's access to the album.
 export async function removeAlbumMember(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -219,6 +232,7 @@ export async function removeAlbumMember(
   });
 }
 // Album Files API
+// Fetch a page of album files, optionally filtered by category.
 export async function getAlbumFiles(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -237,6 +251,7 @@ export async function getAlbumFiles(
   return parsePagedResponse(await response.json(), parseFileResponse);
 }
 
+// Fetch and validate one file's album-specific metadata.
 export async function getAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -248,6 +263,7 @@ export async function getAlbumFile(
   return parseFileResponse(await response.json());
 }
 
+// Upload a new file to an album using multipart form data.
 export async function uploadAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -264,6 +280,7 @@ export async function uploadAlbumFile(
   return parseFileResponse(value);
 }
 
+// Replace an existing album file's stored content and metadata.
 export async function replaceAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -281,6 +298,7 @@ export async function replaceAlbumFile(
   return parseFileResponse(value);
 }
 
+// Download an album file and use its server filename when available.
 export async function downloadAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -296,6 +314,7 @@ export async function downloadAlbumFile(
   );
 }
 
+// Choose the preview or download route based on the caller's album permissions.
 export async function getFilePreviewUrl(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -313,6 +332,7 @@ export async function getFilePreviewUrl(
   return getFilePreviewUrlByPath(instance, account, path);
 }
 
+// Delete an album file and report whether storage cleanup is complete.
 export async function deleteAlbumFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -322,10 +342,12 @@ export async function deleteAlbumFile(
   const response = await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`, {
     method: "DELETE",
   });
+  // Older API responses use 204 to indicate deletion without cleanup metadata.
   if (response.status === 204) return { storageCleanupComplete: true };
   return parseStorageCleanupResponse(await response.json());
 }
 
+// Remove the file from this album while retaining it in its owner's library.
 export async function removeAlbumFileAssociation(
   instance: IPublicClientApplication,
   account: AccountInfo,

@@ -9,10 +9,13 @@ export const msalPostLogoutRedirectUri = environment.msalPostLogoutRedirectUri;
 export const apiScope = environment.apiScope;
 export { validateEnvironment };
 
+// Resolve the configured Angular Albums destination against the current application origin.
+// Build the Angular albums destination from its configured URL.
 export function getAngularAlbumsUrl(): string {
   return new URL(environment.angularAlbumsBaseUrl, window.location.origin).toString();
 }
 
+// Keep both frontends on the same Entra client and session-storage cache.
 export const msalConfig: Configuration = {
   auth: {
     clientId: msalClientId,

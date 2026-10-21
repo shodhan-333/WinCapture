@@ -6,9 +6,11 @@ export interface PagedResponse<T> {
   pageCount: number;
 }
 
+// Carries a safe display message plus transport metadata through API and query layers.
 export class ApiError extends Error {
   public readonly code: string;
 
+  // Preserve HTTP and correlation metadata alongside the displayable API message.
   constructor(
     message: string,
     public readonly status: number,

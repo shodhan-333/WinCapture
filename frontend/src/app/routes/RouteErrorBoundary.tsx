@@ -8,12 +8,14 @@ interface RouteErrorBoundaryState {
   hasError: boolean;
 }
 
+// Prevent a route render error from blanking the application and offer an in-place retry.
 export class RouteErrorBoundary extends Component<
   RouteErrorBoundaryProps,
   RouteErrorBoundaryState
 > {
   override state: RouteErrorBoundaryState = { hasError: false };
 
+  // Switch to the fallback view when a routed component throws during rendering.
   static getDerivedStateFromError(): RouteErrorBoundaryState {
     return { hasError: true };
   }
@@ -22,6 +24,7 @@ export class RouteErrorBoundary extends Component<
     this.setState({ hasError: false });
   };
 
+  // Render a retryable error message or the child route content.
   override render(): ReactNode {
     if (this.state.hasError) {
       return (

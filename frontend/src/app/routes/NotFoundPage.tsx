@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+// Offer a dashboard route when a requested application page does not exist.
 export function NotFoundPage() {
   return (
     <main className="mx-auto grid min-h-[50vh] max-w-xl place-content-center gap-4 p-6 text-center">

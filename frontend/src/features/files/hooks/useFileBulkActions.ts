@@ -20,6 +20,7 @@ interface UseFileBulkActionsOptions {
   clearBulkAction: () => void;
 }
 
+// Run selected file changes independently and report partial success and cleanup warnings.
 export function useFileBulkActions({
   instance,
   account,
@@ -67,6 +68,7 @@ export function useFileBulkActions({
     const failedNames = failed
       .map((result) => selectedFiles.find((file) => file.id === result.id)?.originalFileName)
       .filter(Boolean);
+    // Failed files stay selected so the user can identify and retry them.
     removeSelected(succeeded);
     const failureSummary = failed.length
       ? `${succeeded.length} completed; ${failed.length} failed (${failedNames.join(", ")}). Failed files that remain available are selected for review or retry.`

@@ -22,6 +22,7 @@ interface UseFileActionsOptions {
   setFileDetails: (file: FileResponse | null) => void;
 }
 
+// Coordinate single-file upload replacement, download, deletion, and detail actions.
 export function useFileActions({
   instance,
   account,
@@ -34,6 +35,7 @@ export function useFileActions({
   setSuccessMessage,
   setFileDetails,
 }: UseFileActionsOptions) {
+  // Validate and replace a file, then reset the native file input.
   const handleReplace = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const selectedFile = event.target.files?.[0];
     const fileId = replaceTargetIdRef.current;
@@ -61,6 +63,7 @@ export function useFileActions({
     }
   };
 
+  // Download the selected file and report request failures to the caller.
   const handleDownload = async (file: FileResponse): Promise<void> => {
     if (!account) return;
 
@@ -72,6 +75,7 @@ export function useFileActions({
     }
   };
 
+  // Delete a file and refresh the current view after the server confirms it.
   const handleDelete = async (fileId: number): Promise<void> => {
     if (!account) return;
 
@@ -94,6 +98,7 @@ export function useFileActions({
     }
   };
 
+  // Fetch current file metadata before displaying the details dialog.
   const handleShowFileDetails = async (file: FileResponse): Promise<void> => {
     if (!account) return;
 
@@ -105,6 +110,7 @@ export function useFileActions({
     }
   };
 
+  // Remember the target file before opening the hidden native file picker.
   const openReplace = (file: FileResponse): void => {
     replaceTargetIdRef.current = file.id;
     if (replaceInputRef.current) {

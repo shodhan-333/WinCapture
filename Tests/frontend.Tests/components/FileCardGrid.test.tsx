@@ -14,6 +14,7 @@ const file = (id: number): FileResponse => ({
   downloadUrl: `/api/files/${id}/download`,
   isFavorite: false,
   canManage: false,
+  canDownload: false,
 });
 
 describe("FileCardGrid", () => {
@@ -57,11 +58,12 @@ describe("FileCardGrid", () => {
     );
 
     expect(screen.getByRole("button", { name: "Add file-1.pdf to favorites" })).toBeDisabled();
-    fireEvent.click(screen.getAllByRole("button", { name: /Actions for/ })[0]);
+    const actionButtons = screen.getAllByRole("button", { name: /Actions for/ });
+    fireEvent.click(actionButtons[0]!);
     expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
-    fireEvent.click(screen.getAllByRole("button", { name: /Actions for/ })[1]);
+    fireEvent.click(actionButtons[1]!);
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(onDelete).toHaveBeenCalledWith(files[1]);
+    expect(onDelete).toHaveBeenCalledWith(files[1]!);
   });
 });

@@ -4,6 +4,7 @@ using WinCapture.Models;
 
 namespace WinCapture.Services;
 
+//MicrosoftClaimsTransformation  modifies or adds claims to the authenticated user's identity
 public sealed class MicrosoftIdentityClaimsTransformation(
     MicrosoftUserService microsoftUserService) : IClaimsTransformation
 {

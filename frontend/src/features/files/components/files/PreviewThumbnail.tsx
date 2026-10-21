@@ -14,6 +14,7 @@ import { getFileCategory, getFileExtension } from "@/features/files/constants/fi
 import { readFilePreview, type PreviewContent } from "@/features/files/utils/filePreview";
 import type { FileResponse } from "@/features/files/types/file";
 
+// Render the first PDF page to a small canvas and cancel rendering when the source changes.
 function PdfThumbnail({ src }: { src: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [failed, setFailed] = useState(false);
@@ -64,6 +65,7 @@ function PdfThumbnail({ src }: { src: string }) {
   );
 }
 
+// Display a consistent icon and label when a thumbnail is unavailable or unsupported.
 function PreviewFallback({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[linear-gradient(145deg,rgba(235,244,252,0.65),rgba(225,236,246,0.50))] text-[#467498] backdrop-blur-md">
@@ -73,6 +75,7 @@ function PreviewFallback({ icon, label }: { icon: React.ReactNode; label: string
   );
 }
 
+// Choose a lightweight thumbnail representation based on the file's supported preview type.
 export function PreviewThumbnail({ file, src }: { file: FileResponse; src?: string }) {
   const extension = getFileExtension(file.originalFileName);
   const fileCategory = getFileCategory(file.originalFileName);

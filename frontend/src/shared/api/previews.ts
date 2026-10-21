@@ -1,6 +1,7 @@
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { callApi } from "@/shared/api/request";
 
+// Fetch an authenticated preview and return a browser-managed object URL.
 export async function getFilePreviewUrlByPath(
   instance: IPublicClientApplication,
   account: AccountInfo,

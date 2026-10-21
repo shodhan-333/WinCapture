@@ -20,6 +20,7 @@ export default defineConfig({
     strictPort: true,
 
     proxy: {
+      // Route the Angular app's /angular path to its separate local dev server.
       "/angular": {
         target: process.env.ANGULAR_DEV_SERVER_URL || "http://localhost:4200",
         changeOrigin: true,

@@ -20,6 +20,7 @@ interface MenuPosition {
 const MENU_GAP = 6;
 const VIEWPORT_MARGIN = 8;
 
+// Position the portaled action menu within the viewport and restore focus on Escape.
 export function FileActionMenu({
   fileName,
   canManage,
@@ -40,6 +41,7 @@ export function FileActionMenu({
 
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // Measure the trigger and keep the portaled menu inside the visible viewport.
   const positionMenu = useCallback(() => {
     if (!triggerRef.current || !menuRef.current) {
       return;
@@ -81,10 +83,12 @@ export function FileActionMenu({
       return;
     }
 
+    // Recalculate placement when scrolling or resizing changes the viewport.
     const handleReposition = () => {
       positionMenu();
     };
 
+    // Dismiss the menu when the pointer lands outside both menu and trigger.
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target;
 
@@ -97,6 +101,7 @@ export function FileActionMenu({
       }
     };
 
+    // Support Escape dismissal and return keyboard focus to the trigger.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
@@ -123,6 +128,7 @@ export function FileActionMenu({
     };
   }, [open, positionMenu]);
 
+  // Close the popup before invoking the selected file action.
   const runAction = (action: () => void) => {
     setOpen(false);
     action();

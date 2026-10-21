@@ -15,6 +15,7 @@ const FilesPage = lazy(() =>
   import("@/features/files").then((feature) => ({ default: feature.FilesPage })),
 );
 
+// Keep the legacy React Albums URL pointed at the Angular Albums implementation.
 function AngularAlbumsRedirect() {
   useEffect(() => {
     window.location.replace(getAngularAlbumsUrl());
@@ -22,13 +23,14 @@ function AngularAlbumsRedirect() {
   return null;
 }
 
+// Lazy-load route screens and contain rendering failures at the route boundary.
 export function AppRoutes() {
   return (
     <RouteErrorBoundary>
       <Suspense
         fallback={
           <main className="p-6" role="status">
-            Loading pageâ€¦
+            Loading page...
           </main>
         }
       >

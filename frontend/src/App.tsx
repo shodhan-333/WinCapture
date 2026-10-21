@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { AppRoutes } from "@/app/routes/AppRoutes";
 import { useAuth } from "@/features/auth";
 
+// Keeps protected routes hidden until MSAL and the backend user profile are ready.
 function AuthGate() {
   const { account, user, loading, login, logout, error, refreshUser } =
     useAuth();
@@ -122,6 +123,7 @@ function AuthGate() {
   return null;
 }
 
+// Sends authenticated users to the route tree and all other users through the auth gate.
 export function App() {
   const { user, loading } = useAuth();
 

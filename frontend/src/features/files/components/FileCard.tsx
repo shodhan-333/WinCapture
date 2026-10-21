@@ -35,6 +35,7 @@ interface FileCardProps {
   focused?: boolean;
 }
 
+// Display one file's preview and expose only the actions allowed by its permissions.
 export function FileCard({
   file,
   previewUrl,
@@ -142,6 +143,7 @@ export function FileCard({
     }
   }, [focused]);
 
+  // Resolve the image preview if necessary, then open the file preview dialog.
   const openPreview = async () => {
     if (isImage) {
       onPreview(file, previewUrl);

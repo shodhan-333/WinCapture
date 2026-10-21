@@ -8,6 +8,7 @@
   </head>
   <body>
     <p>Completing Microsoft sign-in...</p>
+    <!-- Relay the MSAL redirect response to the main application window. -->
     <script src="/msal-redirect-bridge.min.js"></script>
     <script>
       const search = new URLSearchParams(window.location.search);

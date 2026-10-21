@@ -3,6 +3,7 @@ import { callApi } from "@/shared/api/request";
 import type { CurrentUser } from "@/features/auth/types/auth";
 import { parseCurrentUser } from "@/features/auth/schemas/currentUser";
 
+// Fetch and validate the signed-in user's backend profile at the API boundary.
 export async function getCurrentUser(
   instance: IPublicClientApplication,
   account: AccountInfo,

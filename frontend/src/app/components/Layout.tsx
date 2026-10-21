@@ -27,6 +27,7 @@ const navigation = [
   },
 ];
 
+// Share navigation styling between desktop/mobile links and their active state.
 const navLinkClass = (active: boolean, mobile = false) =>
   `group relative inline-flex min-h-[46px] ${
     mobile ? "w-full justify-start" : "shrink-0 justify-center"
@@ -42,6 +43,7 @@ const navLinkClass = (active: boolean, mobile = false) =>
       : "border-transparent bg-transparent text-[#44627b] hover:border-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.35)] hover:text-[#18538a]"
   }`;
 
+// Render shared navigation, account controls, and the active route outlet.
 export function Layout() {
   const { user, logout } = useAuth();
   const angularAlbumsUrl = getAngularAlbumsUrl();
@@ -50,6 +52,7 @@ export function Layout() {
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const profileTriggerRef = useRef<HTMLButtonElement | null>(null);
 
+  // Close the responsive navigation after a route is chosen.
   const closeMobileNavigation = () => {
     setMobileOpen(false);
   };
@@ -57,11 +60,13 @@ export function Layout() {
   useEffect(() => {
     if (!profileMenuOpen) return;
 
+    // Dismiss the profile menu when the pointer moves outside its panel.
     const handlePointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node && !profileMenuRef.current?.contains(event.target)) {
         setProfileMenuOpen(false);
       }
     };
+    // Close the menu and return focus to its trigger when Escape is pressed.
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setProfileMenuOpen(false);

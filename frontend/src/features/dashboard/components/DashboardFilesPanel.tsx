@@ -30,6 +30,7 @@ interface DashboardFilesPanelProps {
   onDelete: (file: DashboardFile) => void;
 }
 
+// Render recent files with previews and expose admin-only list management controls.
 export function DashboardFilesPanel({
   files,
   previewUrls,

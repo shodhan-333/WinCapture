@@ -34,6 +34,7 @@ interface UseAlbumFileActionsOptions {
   clearBulkAction: () => void;
 }
 
+// Keep album file operations and their selection, status, and message updates together.
 export function useAlbumFileActions({
   instance,
   account,
@@ -65,6 +66,7 @@ export function useAlbumFileActions({
     onError: setError,
   });
 
+  // Download a file and surface API failures in the album page.
   const handleDownload = async (file: FileResponse): Promise<void> => {
     if (!account || !Number.isFinite(albumId)) return;
 
@@ -77,6 +79,7 @@ export function useAlbumFileActions({
     }
   };
 
+  // Delete one album file, report cleanup status, and refresh the album list.
   const handleDelete = async (fileId: number): Promise<void> => {
     if (!account || !Number.isFinite(albumId)) return;
 
@@ -101,6 +104,7 @@ export function useAlbumFileActions({
     }
   };
 
+  // Run each selected file operation independently so partial success can be reported.
   const runBulkAction = async (): Promise<void> => {
     if (
       !account ||
@@ -137,6 +141,7 @@ export function useAlbumFileActions({
     const succeeded = results.filter((result) => result.ok).map((result) => result.id);
     const failedCount = results.length - succeeded.length;
     const cleanupWarnings = results.filter((result) => result.ok && !result.cleanupComplete).length;
+    // Resolve IDs to names so any partial failure can be reviewed by the user.
     const getFileName = (fileId: number) =>
       selectedFiles.find((file) => file.id === fileId)?.originalFileName;
     const failedNames = results
@@ -148,6 +153,7 @@ export function useAlbumFileActions({
       .map((result) => getFileName(result.id))
       .filter(Boolean);
 
+    // Retain failed items in the selection so the user can review or retry them.
     removeSelected(succeeded);
     const failureSummary = failedCount
       ? `${succeeded.length} completed; ${failedCount} failed (${failedNames.join(", ")}). Failed files that remain available are selected for review or retry.`
@@ -165,6 +171,7 @@ export function useAlbumFileActions({
     setBulkPending(false);
   };
 
+  // Validate replacement uploads before sending them, then always reset the file input.
   const handleReplace = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const selectedFile = event.target.files?.[0];
     const fileId = replaceTargetIdRef.current;
@@ -191,6 +198,7 @@ export function useAlbumFileActions({
     }
   };
 
+  // Fetch the latest file metadata before opening its details dialog.
   const handleShowFileDetails = async (file: FileResponse): Promise<void> => {
     if (!account) return;
 

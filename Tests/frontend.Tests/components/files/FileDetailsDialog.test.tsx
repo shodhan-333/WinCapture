@@ -14,6 +14,7 @@ const file: FileResponse = {
   downloadUrl: "",
   isFavorite: false,
   canManage: true,
+  canDownload: true,
 };
 
 describe("FileDetailsDialog", () => {

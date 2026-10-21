@@ -4,6 +4,7 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
+// Provide previous and next navigation for a paged list.
 export function Pagination({ currentPage, pageCount, onPageChange }: PaginationProps) {
   return (
     <nav

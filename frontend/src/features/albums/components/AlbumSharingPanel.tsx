@@ -23,6 +23,7 @@ const permissionToggleClass =
 const memberPermissionClass =
   "inline-flex min-h-[36px] cursor-pointer items-center justify-center gap-1 rounded-[8px] border px-[11px] !text-[11px] !font-semibold transition-[color,background,border-color,box-shadow] duration-[160ms] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#3787d4] disabled:cursor-not-allowed disabled:opacity-[0.68]";
 
+// Present current album members and permission controls for owners and administrators.
 export function AlbumSharingPanel({
   members,
   memberEmail,

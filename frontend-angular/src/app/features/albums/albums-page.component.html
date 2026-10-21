@@ -53,6 +53,7 @@
     </section>
   </main>
 } @else if (loading() && !hasLoaded()) {
+  <!-- Show placeholders only before the first album response is available. -->
   <div class="app-page">
     <section
       class="skeleton-panel flex min-h-[108px] items-center justify-between gap-4 rounded-[16px] px-6 py-4 max-[960px]:items-stretch max-[960px]:flex-col max-[760px]:px-4 max-[760px]:py-4"
@@ -233,6 +234,7 @@
           </div>
         </section>
       } @else {
+        <!-- Album selection opens the shared React detail workflow. -->
         <div
           class="grid grid-cols-4 gap-3 max-[1200px]:grid-cols-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1"
         >

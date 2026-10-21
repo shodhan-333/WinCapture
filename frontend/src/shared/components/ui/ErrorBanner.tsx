@@ -5,6 +5,7 @@ interface ErrorBannerProps {
   icon?: ReactNode;
 }
 
+// Expose a message as an accessible alert with an optional leading icon.
 export function ErrorBanner({ message, icon = "!" }: ErrorBannerProps) {
   return (
     <div

@@ -13,6 +13,7 @@ interface SearchFieldProps {
   onClear?: () => void;
 }
 
+// Render a controlled search input with an optional clear action.
 export function SearchField({
   value,
   onChange,

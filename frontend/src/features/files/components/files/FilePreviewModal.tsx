@@ -4,6 +4,7 @@ import type { FileResponse } from "@/features/files/types/file";
 import { getFileCategory, getFileExtension } from "@/features/files/constants/fileSupport";
 import { readFilePreview, type PreviewContent } from "@/features/files/utils/filePreview";
 
+// Render delimited or workbook rows in a scrollable preview table.
 function ContentTable({ rows }: { rows: string[][] }) {
   if (!rows.length) return <p className="p-5 text-sm text-[#7890a3]">No tabular content found.</p>;
   return (
@@ -31,6 +32,7 @@ function ContentTable({ rows }: { rows: string[][] }) {
   );
 }
 
+// Place extracted slide text using its original document coordinates.
 function SlidePreview({ content }: { content: Extract<PreviewContent, { kind: "slide" }> }) {
   return (
     <div
@@ -56,6 +58,7 @@ function SlidePreview({ content }: { content: Extract<PreviewContent, { kind: "s
   );
 }
 
+// List archive entry names and sizes without extracting the archive to disk.
 function ArchiveListing({
   entries,
 }: {
@@ -103,6 +106,7 @@ function ArchiveListing({
   );
 }
 
+// Render native media or parsed document previews and ignore stale async preview results.
 export function FilePreviewModal({
   file,
   src,
@@ -123,12 +127,14 @@ export function FilePreviewModal({
   const [mediaError, setMediaError] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
   useEffect(() => {
+    // Close the active preview when the user presses Escape.
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
+  // Parse document previews only; native image, media, and PDF elements render their own content.
   useEffect(() => {
     let active = true;
     setContent(null);
@@ -154,6 +160,7 @@ export function FilePreviewModal({
       active = false;
     };
   }, [src, extension, isImage, isVideo, isAudio, isPdf]);
+  // Display media duration in the compact minutes-and-seconds format.
   const formatDuration = (seconds: number) =>
     `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 

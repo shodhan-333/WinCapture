@@ -9,6 +9,7 @@ interface BulkSelectionToolbarProps {
   actions?: ReactNode;
 }
 
+// Show selection totals and expose the caller-provided bulk actions.
 export function BulkSelectionToolbar({
   selectedCount,
   visibleCount,

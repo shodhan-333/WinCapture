@@ -29,6 +29,7 @@ const dashboardRoleCapabilities: Record<UserRole, { canViewAllContent: boolean }
   Admin: { canViewAllContent: true },
 };
 
+// Combines dashboard data, previews, admin actions, and the album/file panels.
 export function Dashboard() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
@@ -131,36 +132,29 @@ export function Dashboard() {
 
   const [previewFile, setPreviewFile] = useState<DashboardFile | null>(null);
 
-  // Keep the dashboard layout stable after its initial load.
   if (loading && !hasLoaded) {
     return (
-      <div className="[width:min(1440px,_100%)] [margin:0_auto] [padding:28px_42px_64px] [display:flex] [flex-direction:column] [gap:18px] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[color:#193850] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[border:1px_solid_rgba(255,_255,_255,_0.58)] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[background-color:rgba(255,_255,_255,_0.45)] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.85),_0_2px_8px_rgba(24,_52,_78,_0.025)] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[backdrop-filter:blur(12px)] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[-webkit-backdrop-filter:blur(12px)] [&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=search])]:[transition:border-color_180ms_ease,_box-shadow_180ms_ease,_background-color_180ms_ease] [&_select]:[color:#193850] [&_select]:[border:1px_solid_rgba(255,_255,_255,_0.58)] [&_select]:[background-color:rgba(255,_255,_255,_0.45)] [&_select]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.85),_0_2px_8px_rgba(24,_52,_78,_0.025)] [&_select]:[backdrop-filter:blur(12px)] [&_select]:[-webkit-backdrop-filter:blur(12px)] [&_select]:[transition:border-color_180ms_ease,_box-shadow_180ms_ease,_background-color_180ms_ease] [&_textarea]:[color:#193850] [&_textarea]:[border:1px_solid_rgba(255,_255,_255,_0.58)] [&_textarea]:[background-color:rgba(255,_255,_255,_0.45)] [&_textarea]:[box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.85),_0_2px_8px_rgba(24,_52,_78,_0.025)] [&_textarea]:[backdrop-filter:blur(12px)] [&_textarea]:[-webkit-backdrop-filter:blur(12px)] [&_textarea]:[transition:border-color_180ms_ease,_box-shadow_180ms_ease,_background-color_180ms_ease] [&_select:focus]:[border-color:rgba(30,_120,_214,_0.65)] [&_select:focus]:[background-color:rgba(255,_255,_255,_0.72)] [&_select:focus]:[outline:2px_solid_rgba(30,_120,_214,_0.16)] [&_select:focus]:[outline-offset:1px] [&_textarea:focus]:[border-color:rgba(30,_120,_214,_0.65)] [&_textarea:focus]:[background-color:rgba(255,_255,_255,_0.72)] [&_textarea:focus]:[outline:2px_solid_rgba(30,_120,_214,_0.16)] [&_textarea:focus]:[outline-offset:1px] max-[1200px]:[padding-right:28px] max-[1200px]:[padding-left:28px] max-[760px]:[padding:24px_17px_94px] max-[760px]:[gap:17px] !gap-3">
-        <section className="[position:relative] [overflow:hidden] [border:1px_solid_rgba(255,_255,_255,_0.58)] [border-radius:18px] [background:rgba(255,_255,_255,_0.35)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(16px)_saturate(180%)] [-webkit-backdrop-filter:blur(16px)_saturate(180%)] [&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer flex min-h-[138px] items-center justify-between rounded-[20px] p-6">
-          <div className="[&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer [position:relative] [overflow:hidden] [width:min(600px,_100%)]">
-            <span className="[display:block] [position:relative] [overflow:hidden] [height:9px] [border-radius:999px] [background:rgba(200,_222,_238,_0.65)] [&+&]:[margin-top:8px] [width:26%]" />
-            <span className="[display:block] [position:relative] [overflow:hidden] [height:9px] [border-radius:999px] [background:rgba(200,_222,_238,_0.65)] [&+&]:[margin-top:8px] [width:68%] [height:19px]" />
-            <span className="[display:block] [position:relative] [overflow:hidden] [height:9px] [border-radius:999px] [background:rgba(200,_222,_238,_0.65)] [&+&]:[margin-top:8px] [width:52%]" />
-          </div>
-          <div className="flex gap-2">
-            <span className="[&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer [position:relative] [overflow:hidden] [width:100px] [height:39px] [display:inline-block] [border-radius:10px] [background:rgba(200,_222,_238,_0.65)]" />
-            <span className="[&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer [position:relative] [overflow:hidden] [width:100px] [height:39px] [display:inline-block] [border-radius:10px] [background:rgba(200,_222,_238,_0.65)] [width:138px]" />
-          </div>
-        </section>
-        <section className="grid grid-cols-2 gap-4 max-[760px]:gap-[10px]">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-6 py-7 max-[760px]:px-4">
+        <section className="animate-skeleton-shimmer min-h-[138px] overflow-hidden rounded-[20px] border border-white/60 bg-white/35 p-6 shadow-[0_8px_30px_rgba(24,52,78,0.06)]" />
+        <section className="grid grid-cols-2 gap-4 max-[760px]:gap-2">
           {[1, 2].map((item) => (
             <div
               key={item}
-              className="[position:relative] [overflow:hidden] [border:1px_solid_rgba(255,_255,_255,_0.58)] [border-radius:18px] [background:rgba(255,_255,_255,_0.35)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(16px)_saturate(180%)] [-webkit-backdrop-filter:blur(16px)_saturate(180%)] [&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer flex min-h-[76px] items-center gap-3 rounded-[17px] p-[10px]"
+              className="animate-skeleton-shimmer flex min-h-[76px] items-center gap-3 overflow-hidden rounded-[17px] border border-white/60 bg-white/35 p-3 shadow-[0_8px_30px_rgba(24,52,78,0.06)]"
             >
-              <span className="[&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer [position:relative] [overflow:hidden] [width:42px] [height:42px] [display:block] [border-radius:13px] [background:rgba(200,_222,_238,_0.65)]" />
-              <span className="[display:block] [position:relative] [overflow:hidden] [height:9px] [border-radius:999px] [background:rgba(200,_222,_238,_0.65)] [&+&]:[margin-top:8px] [width:26%]" />
-              <span className="[display:block] [position:relative] [overflow:hidden] [height:9px] [border-radius:999px] [background:rgba(200,_222,_238,_0.65)] [&+&]:[margin-top:8px] [width:30%] [height:22px]" />
+              <span className="h-[42px] w-[42px] rounded-[13px] bg-[rgba(200,222,238,0.65)]" />
+              <span className="h-[22px] w-1/3 rounded-full bg-[rgba(200,222,238,0.65)]" />
+              <span className="h-[22px] w-[30%] rounded-full bg-[rgba(200,222,238,0.65)]" />
             </div>
           ))}
         </section>
         <section className="grid grid-cols-2 gap-5 max-[960px]:grid-cols-1 max-[760px]:gap-4">
-          <div className="[position:relative] [overflow:hidden] [border:1px_solid_rgba(255,_255,_255,_0.58)] [border-radius:18px] [background:rgba(255,_255,_255,_0.35)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(16px)_saturate(180%)] [-webkit-backdrop-filter:blur(16px)_saturate(180%)] [&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer min-h-[355px] rounded-[18px]" />
-          <div className="[position:relative] [overflow:hidden] [border:1px_solid_rgba(255,_255,_255,_0.58)] [border-radius:18px] [background:rgba(255,_255,_255,_0.35)] [box-shadow:0_8px_30px_rgba(24,_52,_78,_0.06),_inset_0_1px_1px_0_rgba(255,_255,_255,_0.88),_inset_0_-1px_1px_0_rgba(255,_255,_255,_0.2)] [backdrop-filter:blur(16px)_saturate(180%)] [-webkit-backdrop-filter:blur(16px)_saturate(180%)] [&::after]:[content:''] [&::after]:[position:absolute] [&::after]:[top:0] [&::after]:[bottom:0] [&::after]:[width:35%] [&::after]:[transform:translateX(-130%)] [&::after]:[background:linear-gradient(90deg,_transparent,_rgba(255,_255,_255,_0.5),_transparent)] animate-skeleton-shimmer min-h-[355px] rounded-[18px]" />
+          {[1, 2].map((item) => (
+            <div
+              key={item}
+              className="animate-skeleton-shimmer min-h-[355px] overflow-hidden rounded-[18px] border border-white/60 bg-white/35 shadow-[0_8px_30px_rgba(24,52,78,0.06)]"
+            />
+          ))}
         </section>
       </div>
     );

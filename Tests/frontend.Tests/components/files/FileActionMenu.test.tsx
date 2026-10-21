@@ -81,7 +81,9 @@ describe("FileActionMenu", () => {
       y: 750,
       toJSON: () => ({}),
     });
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
       return this.getAttribute("role") === "menu"
         ? {
             top: 0,

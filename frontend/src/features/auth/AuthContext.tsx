@@ -34,6 +34,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const PICK_ACCOUNT_AFTER_LOGOUT_KEY = "wincapture.pick-account-after-logout";
 
+// Check whether sign-out requested an account picker for the next React session.
 function accountPickerPending(): boolean {
   try {
     return sessionStorage.getItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY) === "true";
@@ -42,6 +43,7 @@ function accountPickerPending(): boolean {
   }
 }
 
+// Persist or clear the next-session account picker request when storage is available.
 function setAccountPickerPending(pending: boolean): void {
   try {
     if (pending) sessionStorage.setItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY, "true");
@@ -51,6 +53,7 @@ function setAccountPickerPending(pending: boolean): void {
   }
 }
 
+// Shares the active MSAL account and validated backend profile with the React tree.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { instance, accounts, inProgress } = useMsal();
 
@@ -73,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const account = instance.getActiveAccount() ?? accounts[0] ?? null;
 
+  // Ignore stale profile requests when the account changes or a newer refresh completes first.
   const refreshUser = useCallback(async () => {
     const version = ++requestVersion.current;
     if (!account) {
@@ -130,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   refreshUserRef.current = refreshUser;
 
   useEffect(() => {
+    // Wait for MSAL interactions, honor a requested account picker, then load the profile.
     if (inProgress !== InteractionStatus.None || logoutStarted.current) return;
 
     if (accountPickerPending()) {
@@ -153,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await instance.loginRedirect(loginRequest);
     } catch {
+      // Keep the error user-facing; MSAL may include internal details that are not actionable here.
       setError("Microsoft sign-in could not be started. Check your connection and retry.");
     }
   }, [instance]);
@@ -171,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         postLogoutRedirectUri: msalPostLogoutRedirectUri,
       });
     } catch {
+      // Restore the local auth flow if MSAL cannot start the logout redirect.
       setAccountPickerPending(false);
       logoutStarted.current = false;
       setError("Microsoft logout could not be completed.");
@@ -193,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Fail early when a consumer is rendered outside the authentication provider.
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
 

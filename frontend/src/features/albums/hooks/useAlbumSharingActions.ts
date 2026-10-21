@@ -17,6 +17,7 @@ interface UseAlbumSharingActionsOptions {
   setMemberAccessError: (message: string | null) => void;
 }
 
+// Manage member access and keep the local sharing state aligned with API results.
 export function useAlbumSharingActions({
   instance,
   account,
@@ -28,6 +29,7 @@ export function useAlbumSharingActions({
   const [canView, setCanView] = useState(true);
   const [canDownload, setCanDownload] = useState(true);
 
+  // Grant the entered email the selected permissions and refresh the member list.
   const handleAddMember = async (): Promise<void> => {
     if (!account || !Number.isFinite(albumId) || !memberEmail.trim()) {
       setMemberAccessError("An email address is required to share the album.");
@@ -45,6 +47,7 @@ export function useAlbumSharingActions({
       setMemberEmail("");
       setCanView(true);
       setCanDownload(true);
+      // Reload the server list so newly granted access uses its canonical member record.
       setMembers(await getAlbumMembers(instance, account, albumId));
     } catch (caughtError) {
       setMemberAccessError(
@@ -53,6 +56,7 @@ export function useAlbumSharingActions({
     }
   };
 
+  // Persist a member's view/download permissions and update the local member state.
   const handleUpdateMember = async (
     userId: number,
     nextView: boolean,
@@ -86,6 +90,7 @@ export function useAlbumSharingActions({
     }
   };
 
+  // Revoke member access and remove the member from the displayed list.
   const handleRemoveMember = async (userId: number): Promise<void> => {
     if (!account || !Number.isFinite(albumId)) return;
 

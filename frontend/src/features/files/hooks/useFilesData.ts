@@ -22,6 +22,7 @@ interface UseFilesDataOptions {
   setCurrentPage: Dispatch<SetStateAction<number>>;
 }
 
+// Load the active file view and ignore responses from superseded requests.
 export function useFilesData({
   instance,
   account,
@@ -44,7 +45,9 @@ export function useFilesData({
   const loadRequestVersion = useRef(0);
   const focusedFileResolved = useRef(false);
 
+  // Adapt admin rows to the common file shape expected by shared file components.
   const fetchAdminPage = useCallback(
+    // Convert admin-specific rows into the shared file shape used by the list UI.
     async (page: number): Promise<PagedResponse<FileResponse>> => {
       if (!account) throw new Error("An authenticated account is required.");
       const result = await getAdminFiles(
@@ -109,6 +112,7 @@ export function useFilesData({
                   requestedCategory,
                 );
 
+        // A direct file link may point to an item on a later page, so locate it before focusing.
         if (
           nextView === "all" &&
           routeFileId &&
@@ -116,6 +120,7 @@ export function useFilesData({
           requestedPage === 1
         ) {
           let targetPage = nextPage;
+          // Reuse the active endpoint while searching later pages for a deep-linked file.
           const fetchTargetPage = (page: number) =>
             isAdminAllContent
               ? fetchAdminPage(page)
@@ -134,6 +139,7 @@ export function useFilesData({
           focusedFileResolved.current = true;
         }
 
+        // Prevent a slower, older request from replacing newer page or filter results.
         if (requestVersion !== loadRequestVersion.current) return;
         setFiles(nextPage.items);
         retain(

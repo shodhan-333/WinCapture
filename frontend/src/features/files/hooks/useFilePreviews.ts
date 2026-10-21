@@ -12,6 +12,7 @@ interface UseFilePreviewsResult {
   loading: boolean;
 }
 
+// Cache image previews by file version and revoke blob URLs when their source changes.
 export function useFilePreviews<TFile extends FileResponse>(
   files: TFile[],
   loadPreview: FilePreviewLoader<TFile>,
@@ -30,6 +31,8 @@ export function useFilePreviews<TFile extends FileResponse>(
         file.contentType.startsWith("image/") && isImagePreviewableFile(file.originalFileName),
     );
 
+    // File metadata distinguishes a replacement upload that keeps the same file ID.
+    // Use content metadata to distinguish a replacement that keeps the same ID.
     const signatureFor = (file: FileResponse) =>
       `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
     currentSignatures.current = new Map(imageFiles.map((file) => [file.id, signatureFor(file)]));
@@ -56,6 +59,7 @@ export function useFilePreviews<TFile extends FileResponse>(
       };
     }
 
+    // Load or reuse one preview per visible image, ignoring stale results.
     const load = async () => {
       const results = await Promise.all(
         imageFiles.map(async (file) => {

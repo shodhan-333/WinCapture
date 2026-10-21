@@ -39,6 +39,7 @@ const viewButtonClass =
 const searchFieldClass =
   "[border:1px_solid_rgba(255,_255,_255,_0.58)] [background:rgba(255,_255,_255,_0.28)] [box-shadow:inset_0_1px_1px_rgba(255,_255,_255,_0.85),_0_4px_16px_rgba(24,_52,_78,_0.03)] [backdrop-filter:blur(16px)_saturate(160%)] [-webkit-backdrop-filter:blur(16px)_saturate(160%)] [transition:background-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_border-color_240ms_cubic-bezier(0.16,_1,_0.3,_1),_box-shadow_240ms_cubic-bezier(0.16,_1,_0.3,_1),_color_160ms_cubic-bezier(0.16,_1,_0.3,_1),_transform_160ms_cubic-bezier(0.16,_1,_0.3,_1)] flex min-h-10 w-[min(280px,100%)] items-center gap-2 rounded-[12px] px-[11px] text-[#71879a] focus-within:border-[rgba(30,120,214,0.65)] focus-within:shadow-[0_0_0_3px_rgba(30,120,214,0.14)] max-[760px]:w-full";
 
+// Compose the file views, selection workflows, preview cache, and file dialogs.
 export function FilesPage() {
   const { instance } = useMsal();
   const { account, user } = useAuth();
@@ -152,6 +153,7 @@ export function FilesPage() {
     clearBulkAction: () => setBulkAction(null),
   });
 
+  // Update the active list after a favorite change and refresh favorite totals when needed.
   const handleFavoriteSuccess = useCallback(
     (file: FileResponse, nextFavorite: boolean) => {
       setFiles((previous) => {
@@ -179,6 +181,7 @@ export function FilesPage() {
     [view, currentPage, remove, loadFiles, setFiles],
   );
 
+  // Route favorite mutation errors into the page's shared error banner.
   const handleFavoriteError = useCallback((message: string) => setError(message), [setError]);
 
   const { pendingIds: favoritePendingIds, toggleFavorite } = useFileFavorites({

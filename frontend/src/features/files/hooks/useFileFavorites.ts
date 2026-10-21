@@ -12,6 +12,7 @@ interface UseFileFavoritesOptions {
   onError: (message: string) => void;
 }
 
+// Prevent duplicate favorite requests per file and report the confirmed state to the caller.
 export function useFileFavorites({
   instance,
   account,

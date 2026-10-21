@@ -13,6 +13,7 @@ import { msalConfig, apiScopes } from "./core/auth/msal.config";
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
+// Initialize MSAL before routed components read the account shared with the React application.
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),

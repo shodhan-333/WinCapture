@@ -5,6 +5,7 @@ using WinCapture.Repositories;
 
 namespace WinCapture.Services;
 
+//MicrosoftUserService handles the WinCapture database user
 public sealed class MicrosoftUserService(IUserRepository userRepository)
 {
     // Validates the Microsoft account details and creates or updates the local user.

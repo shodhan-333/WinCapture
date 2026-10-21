@@ -34,6 +34,7 @@ interface AlbumFilesSectionProps {
   onPageChange: (page: number) => void;
 }
 
+// Render album category filters, file selection actions, cards, and pagination.
 export function AlbumFilesSection({
   files,
   previewUrls,

@@ -23,6 +23,7 @@ interface MultiFileUploadDialogProps {
   onClose: () => void;
 }
 
+// Give common API failures actionable messages while keeping unexpected errors generic.
 function getFailureMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 401) {
     return "Your session expired. Sign in again, then retry this file.";
@@ -39,10 +40,12 @@ function getFailureMessage(error: unknown): string {
   return "Upload failed. Check your connection and try again.";
 }
 
+// Build a stable key to avoid adding the same selected file more than once.
 function fileKey(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
 
+// Validate a batch, upload valid files one at a time, and retain per-file outcomes.
 export function MultiFileUploadDialog({
   title,
   description,
@@ -57,6 +60,7 @@ export function MultiFileUploadDialog({
   const [isDragging, setIsDragging] = useState(false);
   const [finished, setFinished] = useState(false);
 
+  // Validate new selections and append files that are not already queued.
   const addFiles = (selected: FileList | File[]) => {
     const incoming = Array.from(selected);
     if (incoming.length === 0) return;
@@ -81,12 +85,14 @@ export function MultiFileUploadDialog({
     });
   };
 
+  // Add dropped files unless an upload is already in progress.
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDragging(false);
     if (!isUploading) addFiles(event.dataTransfer.files);
   };
 
+  // Upload queued files independently and report the final success/failure counts.
   const handleUpload = async () => {
     if (isUploading) return;
     const queued = items.filter((item) => item.status === "queued");
@@ -98,6 +104,7 @@ export function MultiFileUploadDialog({
     let failureCount = items.filter((item) => item.status === "invalid").length;
 
     try {
+      // Sequential requests keep each file's progress and failure independent.
       for (const item of queued) {
         setItems((current) =>
           current.map((entry) =>

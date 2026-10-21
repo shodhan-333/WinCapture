@@ -1,5 +1,6 @@
 <div class="app-shell relative isolate flex min-h-screen overflow-x-clip">
   <div class="relative z-[1] flex min-h-screen w-full flex-col">
+    <!-- Render navigation only after the shared profile is available. -->
     @if (auth.user()) {
       <header
         class="glass-chrome sticky top-0 z-40 w-full border-b border-[rgba(255,255,255,0.55)]"

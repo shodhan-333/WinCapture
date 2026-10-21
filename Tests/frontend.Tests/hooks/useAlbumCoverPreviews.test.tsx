@@ -36,6 +36,7 @@ const image: FileResponse = {
   downloadUrl: "",
   isFavorite: false,
   canManage: false,
+  canDownload: false,
 };
 
 describe("useAlbumCoverPreviews", () => {

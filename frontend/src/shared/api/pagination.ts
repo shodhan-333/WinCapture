@@ -1,3 +1,4 @@
+// Build a consistent API URL from paging, search, and optional category filters.
 export function buildPagePath(
   path: string,
   page: number,

@@ -10,6 +10,7 @@ export const CurrentUserSchema = z.object({
   authenticationType: z.string().refine((value) => value.trim().length > 0),
 });
 
+// Validate the current-user profile returned by the authenticated API.
 export function parseCurrentUser(value: unknown, correlationId?: string): CurrentUser {
   const result = CurrentUserSchema.safeParse(value);
   if (!result.success) {

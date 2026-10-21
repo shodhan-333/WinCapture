@@ -8,6 +8,7 @@ import { apiErrorMessage } from "../../shared/api/api-error-message";
 import { environment } from "../../../environments/environment";
 
 @Injectable({ providedIn: "root" })
+// Reuses the React MSAL session and loads the backend profile for the active account.
 export class AuthService {
   private readonly msal = inject(MsalService);
   private readonly api = inject(ApiService);
@@ -17,6 +18,7 @@ export class AuthService {
   readonly error = signal<string | null>(null);
   private initialized = false;
 
+  // Resolve the cached account once, then map it to the WinCapture user profile.
   async initialize(): Promise<void> {
     if (this.initialized) return;
     this.initialized = true;
@@ -51,6 +53,7 @@ export class AuthService {
     }
   }
 
+  // Clear local identity state, sign out through MSAL, and return to the React entry point.
   async signOut(): Promise<void> {
     const account = this.account();
     this.user.set(null);
@@ -68,12 +71,13 @@ export class AuthService {
       } catch {
         // The React app will still open if session storage is unavailable.
       }
-      window.location.assign(new URL("/", environment.reactAlbumsUrl).toString());
+      window.location.assign(environment.reactBaseUrl);
     } catch (error: unknown) {
       this.error.set(apiErrorMessage(error, "Microsoft sign-out could not be completed."));
     }
   }
 
+  // Keep backend profile errors separate from the MSAL account lookup so the UI can report them.
   private async loadProfile(account: AccountInfo): Promise<void> {
     try {
       const user = await this.api.getCurrentUser(account);

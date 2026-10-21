@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 
+// Manage immutable selection state shared by bulk-action toolbars and item lists.
 export function useBulkSelection<T extends string | number>() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<T>>(() => new Set());

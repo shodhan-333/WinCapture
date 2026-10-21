@@ -8,6 +8,7 @@ import { ApiError } from "@/shared/types/api";
 
 const interactiveTokenRequests = new WeakMap<IPublicClientApplication, Promise<void>>();
 
+// Deduplicate interactive token prompts so concurrent failed requests share one redirect.
 function beginInteractiveTokenAcquisition(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -29,6 +30,7 @@ function beginInteractiveTokenAcquisition(
   return request;
 }
 
+// Try silent MSAL token acquisition first and redirect only when interaction is required.
 async function acquireAccessToken(
   instance: IPublicClientApplication,
   account: AccountInfo,
@@ -65,6 +67,7 @@ async function acquireAccessToken(
   }
 }
 
+// Map common HTTP failures to concise messages suitable for frontend views.
 function getUserErrorMessage(status: number): string {
   if (status === 400)
     return "Some of the submitted information is invalid. Review it and try again.";
@@ -77,6 +80,7 @@ function getUserErrorMessage(status: number): string {
   return "The request could not be completed. Please try again.";
 }
 
+// Add the bearer token, send the request, and map transport/API failures to a safe AppError.
 export async function callApi(
   instance: IPublicClientApplication,
   account: AccountInfo,

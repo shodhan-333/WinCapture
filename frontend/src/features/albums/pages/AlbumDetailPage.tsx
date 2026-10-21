@@ -38,6 +38,7 @@ import { useAlbumSharingActions } from "@/features/albums/hooks/useAlbumSharingA
 
 const PAGE_SIZE = 12;
 
+// Coordinate album metadata, member permissions, file actions, and preview dialogs.
 export function AlbumDetailPage() {
   const { instance } = useMsal();
   const navigate = useNavigate();
@@ -146,6 +147,7 @@ export function AlbumDetailPage() {
     albumCoverFile && previewUrls[albumCoverFile.id] ? albumCoverFile : undefined;
 
   // Loads album details, the selected file page, and sharing settings for managers.
+  // Load album data and permissions while ignoring stale route requests.
   const loadAlbumData = useCallback(async () => {
     const requestVersion = ++loadRequestVersion.current;
     if (!account || !Number.isFinite(numericAlbumId)) {
@@ -268,6 +270,7 @@ export function AlbumDetailPage() {
     setSuccessMessage,
     clearBulkAction: () => setBulkAction(null),
   });
+  // Save the edited album name and update the displayed album from the response.
   const handleUpdateAlbum = async () => {
     if (!account || !Number.isFinite(numericAlbumId) || !albumNameDraft.trim()) {
       setError("Album name is required.");
@@ -289,6 +292,7 @@ export function AlbumDetailPage() {
     }
   };
 
+  // Confirm album deletion, then return to the albums list on success.
   const handleDeleteAlbum = async () => {
     if (!account || !album || deletingAlbum) {
       return;

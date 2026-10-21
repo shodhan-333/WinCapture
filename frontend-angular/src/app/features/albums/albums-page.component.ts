@@ -15,6 +15,7 @@ const PAGE_SIZE = 9;
   imports: [FormsModule],
   templateUrl: "./albums-page.component.html",
 })
+// Coordinates album filtering, paging, creation, and optional cover previews for the Albums route.
 export class AlbumsPageComponent implements OnInit {
   readonly auth = inject(AuthService);
   private readonly api = inject(ApiService);
@@ -36,12 +37,13 @@ export class AlbumsPageComponent implements OnInit {
     Array.from({ length: this.pageCount() }, (_, index) => index + 1),
   );
   readonly formatDate = formatDate;
-  readonly reactAlbumsUrl = environment.reactAlbumsUrl;
-  readonly reactDashboardUrl = new URL("/dashboard", environment.reactAlbumsUrl).toString();
+  readonly reactAlbumsUrl =new URL("/albums", environment.reactBaseUrl).toString();
+readonly reactDashboardUrl =new URL("/dashboard", environment.reactBaseUrl).toString();
   private debounceId: number | undefined;
   private requestVersion = 0;
   private readonly objectUrls = new Set<string>();
 
+  // Cancel pending searches and release preview URLs when the page is destroyed.
   constructor() {
     this.destroyRef.onDestroy(() => {
       if (this.debounceId !== undefined) window.clearTimeout(this.debounceId);
@@ -51,10 +53,12 @@ export class AlbumsPageComponent implements OnInit {
     });
   }
 
+  // Start shared-session initialization when the route component is created.
   ngOnInit(): void {
     void this.initializePage();
   }
 
+  // Wait for the shared account and profile before requesting album data.
   private async initializePage(): Promise<void> {
     await this.auth.initialize();
     const account = this.auth.account();
@@ -62,6 +66,7 @@ export class AlbumsPageComponent implements OnInit {
     else this.loading.set(false);
   }
 
+  // Fetch the selected album page and ignore results from superseded requests.
   async loadAlbums(): Promise<void> {
     const account = this.auth.account();
     if (!account) return;
@@ -90,6 +95,7 @@ export class AlbumsPageComponent implements OnInit {
     }
   }
 
+  // Reset paging and reload when the ownership filter changes.
   setFilter(filter: AlbumFilter): void {
     if (this.filter() === filter) return;
     this.filter.set(filter);
@@ -97,6 +103,7 @@ export class AlbumsPageComponent implements OnInit {
     void this.loadAlbums();
   }
 
+  // Debounce search input before requesting a fresh first page.
   setSearch(value: string): void {
     this.searchInput.set(value);
     if (this.debounceId !== undefined) window.clearTimeout(this.debounceId);
@@ -106,16 +113,19 @@ export class AlbumsPageComponent implements OnInit {
     }, 300);
   }
 
+  // Load a requested page only when it falls within the current page range.
   setPage(page: number): void {
     if (page < 1 || page > this.pageCount() || page === this.currentPage()) return;
     this.currentPage.set(page);
     void this.loadAlbums();
   }
 
+  // Move focus to the album name input from the empty-state action.
   focusCreateField(): void {
     document.getElementById("new-album-name")?.focus();
   }
 
+  // Return the active or inactive styling for an album filter button.
   filterButtonClass(filter: AlbumFilter): string {
     const base =
       "min-h-[33px] rounded-[8px] border px-3 text-[10px] font-semibold transition-[color,background,box-shadow,border-color]";
@@ -124,6 +134,7 @@ export class AlbumsPageComponent implements OnInit {
       : `${base} border-transparent bg-transparent text-[#557086] hover:bg-white/30 hover:text-[#194b75]`;
   }
 
+  // Validate and create an album, then open its detail page in React.
   async createAlbum(): Promise<void> {
     const account = this.auth.account();
     const albumName = this.albumName().trim();
@@ -148,6 +159,7 @@ export class AlbumsPageComponent implements OnInit {
     }
   }
 
+  // Navigate to React's album detail route for the selected album.
   openReactAlbum(album: AlbumResponse): void {
     const destination = new URL(
       `/albums/${encodeURIComponent(String(album.id))}`,
@@ -156,6 +168,7 @@ export class AlbumsPageComponent implements OnInit {
     window.location.assign(destination.toString());
   }
 
+  // Copy the server page and totals into the component's reactive state.
   private applyPage(page: PagedResponse<AlbumResponse>): void {
     this.albums.set(page.items);
     this.currentPage.set(page.page);
@@ -163,6 +176,7 @@ export class AlbumsPageComponent implements OnInit {
     this.totalItems.set(page.totalItems);
   }
 
+  // Load optional cover images and revoke object URLs when their results become stale.
   private async loadCovers(albums: AlbumResponse[], version: number): Promise<void> {
     const account = this.auth.account();
     if (!account) return;

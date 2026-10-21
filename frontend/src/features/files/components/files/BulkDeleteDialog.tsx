@@ -12,6 +12,7 @@ interface BulkDeleteDialogProps {
   onConfirm: () => void;
 }
 
+// Confirm a destructive batch action and prevent dismissal while it is pending.
 export function BulkDeleteDialog({
   count,
   description,

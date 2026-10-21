@@ -14,6 +14,7 @@ const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
   downloadUrl: `/api/files/${id}/download`,
   isFavorite: false,
   canManage: true,
+  canDownload: true,
 });
 
 describe("useFilePreviews", () => {

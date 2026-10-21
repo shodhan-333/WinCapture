@@ -29,6 +29,7 @@ interface DashboardAlbumsPanelProps {
   onDelete: (album: AlbumResponse) => void;
 }
 
+// Render the recent album list and admin search, paging, management, and deletion controls.
 export function DashboardAlbumsPanel({
   albums,
   coverUrls,

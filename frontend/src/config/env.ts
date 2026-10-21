@@ -8,6 +8,7 @@ type Environment = {
   angularAlbumsBaseUrl: string;
 };
 
+// Read Vite's public values once so application code uses a typed configuration object.
 const rawEnvironment = import.meta.env;
 
 export const environment: Environment = {
@@ -29,6 +30,8 @@ const REQUIRED_ENVIRONMENT_KEYS = [
   ["VITE_MSAL_API_SCOPE", environment.apiScope],
 ] as const;
 
+// Return missing required settings for the startup screen instead of failing later in a request.
+// Return missing required public settings so startup can explain configuration problems.
 export function validateEnvironment(): string[] {
   return REQUIRED_ENVIRONMENT_KEYS.filter(([, value]) => !value).map(([key]) => key);
 }

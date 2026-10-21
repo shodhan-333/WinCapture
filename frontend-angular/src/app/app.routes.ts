@@ -1,6 +1,7 @@
 import { Routes } from "@angular/router";
 import { AppShellComponent } from "./app-shell.component";
 
+// Load the Albums experience and fallback page only when their routes are requested.
 export const routes: Routes = [
   {
     path: "",

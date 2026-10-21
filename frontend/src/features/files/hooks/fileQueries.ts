@@ -14,6 +14,7 @@ export const fileKeys = {
 
 interface FileQueryContext { instance: IPublicClientApplication; account: AccountInfo | null; accountKey: string | null }
 
+// Include account and every list filter in the cache key to keep views isolated.
 export function useFileListQuery(context: FileQueryContext & { view: "all" | "favorites"; page: number; pageSize: number; search?: string; category?: string; adminAll?: boolean }) {
   const { instance, account, accountKey, view, page, pageSize, search, category, adminAll } = context;
   return useQuery({
@@ -28,6 +29,7 @@ export function useFileListQuery(context: FileQueryContext & { view: "all" | "fa
   });
 }
 
+// Persist a favorite change and roll back the optimistic list update on failure.
 export function useToggleFavoriteMutation(context: FileQueryContext) {
   return useMutation({
     mutationFn: ({ fileId, favorite }: { fileId: number; favorite: boolean }) => {

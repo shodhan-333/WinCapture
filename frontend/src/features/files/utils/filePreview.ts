@@ -23,6 +23,7 @@ export type PreviewContent =
 const MAX_ARCHIVE_ENTRIES = 2000;
 const MAX_PREVIEW_XML_BYTES = 8 * 1024 * 1024;
 
+// JSZip keeps the expanded size on its entry object; read it defensively before extraction.
 function uncompressedSize(file: JSZip.JSZipObject): number | undefined {
   const data: unknown = Reflect.get(file, "_data");
   if (typeof data !== "object" || data === null) return undefined;
@@ -30,6 +31,7 @@ function uncompressedSize(file: JSZip.JSZipObject): number | undefined {
   return typeof size === "number" && Number.isSafeInteger(size) && size >= 0 ? size : undefined;
 }
 
+// Read a ZIP text entry only when its expanded size stays below the preview limit.
 async function readZipText(
   zip: JSZip,
   path: string,
@@ -43,6 +45,7 @@ async function readZipText(
   return file.async("string");
 }
 
+// Parse quoted delimited rows, including escaped quote characters and embedded line breaks.
 export function parseDelimitedText(text: string, delimiter = ","): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -73,18 +76,21 @@ export function parseDelimitedText(text: string, delimiter = ","): string[][] {
   return rows;
 }
 
+// Fetch preview bytes and turn unsuccessful responses into a user-facing preview error.
 async function getArrayBuffer(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url);
   if (!response.ok) throw new Error("The preview content could not be read.");
   return response.arrayBuffer();
 }
 
+// Collect text nodes for a local XML element name across namespace variants.
 function xmlText(element: Element, localName: string): string {
   return Array.from(element.getElementsByTagNameNS("*", localName))
     .map((item) => item.textContent ?? "")
     .join("");
 }
 
+// Extract text and shape bounds from the first PowerPoint slide.
 async function parsePowerPoint(buffer: ArrayBuffer): Promise<PreviewContent> {
   const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(buffer, { checkCRC32: false });
@@ -120,6 +126,7 @@ async function parsePowerPoint(buffer: ArrayBuffer): Promise<PreviewContent> {
   return { kind: "slide", width, height, shapes };
 }
 
+// Resolve a workbook relationship path without allowing parent segments to escape its archive root.
 function resolveZipPath(base: string, target: string): string {
   const parts = (target.startsWith("/") ? target.slice(1) : `${base}/${target}`).split("/");
   const resolved: string[] = [];
@@ -131,6 +138,7 @@ function resolveZipPath(base: string, target: string): string {
   return resolved.join("/");
 }
 
+// Read the first workbook sheet and convert its cells into rows for the preview table.
 async function parseWorkbook(buffer: ArrayBuffer): Promise<PreviewContent> {
   const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(buffer, { checkCRC32: false });
@@ -160,6 +168,7 @@ async function parseWorkbook(buffer: ArrayBuffer): Promise<PreviewContent> {
   const sharedStrings = shared
     ? Array.from(shared.getElementsByTagNameNS("*", "si"), (item) => xmlText(item, "t"))
     : [];
+  // Convert spreadsheet column letters such as A or AB to zero-based indexes.
   const columnIndex = (reference: string) => {
     let value = 0;
     for (const character of reference.match(/^[A-Z]+/i)?.[0]?.toUpperCase() ?? "")
@@ -200,6 +209,7 @@ async function parseWorkbook(buffer: ArrayBuffer): Promise<PreviewContent> {
   };
 }
 
+// Read supported document formats in the browser, limiting expanded archive content.
 export async function readFilePreview(url: string, extension: string): Promise<PreviewContent> {
   const buffer = await getArrayBuffer(url);
   if (extension === ".txt") return { kind: "text", text: new TextDecoder().decode(buffer) };

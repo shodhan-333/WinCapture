@@ -11,6 +11,7 @@ interface AppProvidersProps {
   msalInstance: IPublicClientApplication;
 }
 
+// Supplies the router, MSAL session, auth context, and shared query cache to the application.
 export function AppProviders({ children, msalInstance }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>

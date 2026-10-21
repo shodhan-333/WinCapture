@@ -9,18 +9,21 @@ import { environment } from "../environments/environment";
   imports: [RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: "./app-shell.component.html",
 })
+// Hosts Angular navigation and profile controls while routing the other sections back to React.
 export class AppShellComponent {
   @ViewChild("profileContainer") private profileElement?: ElementRef<HTMLElement>;
   @ViewChild("profileTrigger") private profileTrigger?: ElementRef<HTMLButtonElement>;
   readonly auth = inject(AuthService);
   readonly mobileOpen = signal(false);
   readonly profileOpen = signal(false);
-  private readonly reactOrigin = new URL(environment.reactAlbumsUrl).origin;
+  private readonly reactOrigin = environment.reactBaseUrl;
 
+  // Build links against React's configured origin so both applications share the same browser session.
   reactPage(path: string): string {
     return new URL(path, this.reactOrigin).toString();
   }
 
+  // Derive an avatar label from the active user's first two name parts.
   initials(name: string | undefined): string {
     const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
     return parts.length === 0
@@ -32,18 +35,22 @@ export class AppShellComponent {
           .toUpperCase();
   }
 
+  // Hide the mobile navigation after a route has been selected.
   closeMobileNavigation(): void {
     this.mobileOpen.set(false);
   }
 
+  // Toggle the responsive navigation panel.
   toggleMobileNavigation(): void {
     this.mobileOpen.update((open) => !open);
   }
 
+  // Toggle the account menu from its profile button.
   toggleProfileMenu(): void {
     this.profileOpen.update((open) => !open);
   }
 
+  // Close the profile menu when a pointer event lands outside its trigger and panel.
   @HostListener("document:pointerdown", ["$event"])
   closeProfileOnOutsideClick(event: PointerEvent): void {
     const target = event.target;
@@ -52,6 +59,7 @@ export class AppShellComponent {
     }
   }
 
+  // Restore focus to the trigger after Escape closes the profile menu.
   @HostListener("document:keydown.escape")
   closeProfileOnEscape(): void {
     if (!this.profileOpen()) return;
