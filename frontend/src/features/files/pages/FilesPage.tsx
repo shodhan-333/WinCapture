@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FilePlus2, FolderOpen, ListChecks, Search, Star, Upload } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { useLocation } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 
 import { uploadFile } from "../api/filesApi";
 import { getFilePreviewUrlByPath } from "@/shared/api/previews";
@@ -30,6 +31,7 @@ import {
 } from "@/features/files/constants/fileSupport";
 import { useFileActions } from "@/features/files/hooks/useFileActions";
 import { useFilesData } from "@/features/files/hooks/useFilesData";
+import { useFileDetailQuery } from "@/features/files/hooks/fileQueries";
 
 const fileToolbarClass =
   "flex flex-wrap items-center justify-end gap-2 max-[960px]:w-full max-[960px]:justify-start max-[760px]:grid max-[760px]:grid-cols-1";
@@ -50,6 +52,12 @@ export function FilesPage() {
     (routeParams.get("scope") === "all" || getAdminContentScope() === "all");
   const routeFileId = Number(routeParams.get("fileId")) || null;
   const accountKey = getAccountKey(account);
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => {
+      if (!account) throw new Error("Your session is unavailable. Sign in again.");
+      return uploadFile(instance, account, file);
+    },
+  });
 
   // Hidden replacement input opens the native file picker from a file card.
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -79,7 +87,7 @@ export function FilesPage() {
   } = useBulkSelection<number>();
   const [bulkAction, setBulkAction] = useState<BulkAction>(null);
 
-  const { files, setFiles, totalItems, pageCount, loading, hasLoaded, error, setError, loadFiles } =
+  const { files, totalItems, pageCount, loading, hasLoaded, error: listError, setError, loadFiles } =
     useFilesData({
       instance,
       account,
@@ -93,6 +101,8 @@ export function FilesPage() {
       setFocusedFileId,
       setCurrentPage,
     });
+  const fileDetailsQuery = useFileDetailQuery({ instance, account, accountKey, fileId: fileDetails?.id ?? 0, enabled: !!fileDetails });
+  const error = listError ?? (fileDetailsQuery.error instanceof Error ? fileDetailsQuery.error.message : null);
 
   const loadPreview = useCallback(
     async (file: FileResponse) => {
@@ -113,7 +123,7 @@ export function FilesPage() {
     [accountKey, instance],
   );
 
-  const { previewUrls } = useFilePreviews(files, loadPreview);
+  const { previewUrls } = useFilePreviews(files, loadPreview, accountKey);
 
   useEffect(() => {
     cancelSelection();
@@ -156,29 +166,11 @@ export function FilesPage() {
   // Update the active list after a favorite change and refresh favorite totals when needed.
   const handleFavoriteSuccess = useCallback(
     (file: FileResponse, nextFavorite: boolean) => {
-      setFiles((previous) => {
-        // Unfavoriting a file removes it immediately from the Favorites view.
-        if (view === "favorites" && !nextFavorite) {
-          return previous.filter((item) => item.id !== file.id);
-        }
-
-        return previous.map((item) =>
-          item.id === file.id
-            ? {
-                ...item,
-                isFavorite: nextFavorite,
-              }
-            : item,
-        );
-      });
-
       if (view === "favorites" && !nextFavorite) {
         remove([file.id]);
-        // Refresh the list and pagination totals after removing the favorite.
-        void loadFiles(view, currentPage);
       }
     },
-    [view, currentPage, remove, loadFiles, setFiles],
+    [view, remove],
   );
 
   // Route favorite mutation errors into the page's shared error banner.
@@ -482,6 +474,7 @@ export function FilesPage() {
             previewUrls={previewUrls}
             favoritePendingIds={favoritePendingIds}
             loadPreview={loadPreview}
+            previewCacheKey={accountKey}
             canManage={(file) => file.canManage}
             onFavoriteToggle={(file) => void toggleFavorite(file)}
             onReplace={openReplace}
@@ -513,7 +506,7 @@ export function FilesPage() {
         )}
       </section>
 
-      {fileDetails && <FileDetailsDialog file={fileDetails} onClose={() => setFileDetails(null)} />}
+      {fileDetails && <FileDetailsDialog file={fileDetailsQuery.data ?? fileDetails} onClose={() => setFileDetails(null)} />}
 
       {bulkAction && (
         <BulkDeleteDialog
@@ -553,10 +546,7 @@ export function FilesPage() {
         <MultiFileUploadDialog
           title="Upload files"
           description="Add multiple supported files to your personal library"
-          onUpload={(file) => {
-            if (!account) throw new Error("Your session is unavailable. Sign in again.");
-            return uploadFile(instance, account, file);
-          }}
+          onUpload={(file) => uploadMutation.mutateAsync(file)}
           onUploadingChange={setUploading}
           onComplete={async (successCount, failureCount) => {
             setError(null);

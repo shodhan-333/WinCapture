@@ -1,24 +1,11 @@
-import {
-  createContext,
-  useContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-
+import { createContext, useContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AccountInfo } from "@azure/msal-browser";
-
 import { InteractionStatus } from "@azure/msal-browser";
-
 import { useMsal } from "@azure/msal-react";
-
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser } from "./api/authApi";
 import { ApiError } from "@/shared/types/api";
 import type { CurrentUser } from "@/features/auth/types/auth";
-
 import { loginRequest, msalPostLogoutRedirectUri } from "@/config/auth";
 
 interface AuthContextValue {
@@ -34,7 +21,6 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const PICK_ACCOUNT_AFTER_LOGOUT_KEY = "wincapture.pick-account-after-logout";
 
-// Check whether sign-out requested an account picker for the next React session.
 function accountPickerPending(): boolean {
   try {
     return sessionStorage.getItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY) === "true";
@@ -43,7 +29,6 @@ function accountPickerPending(): boolean {
   }
 }
 
-// Persist or clear the next-session account picker request when storage is available.
 function setAccountPickerPending(pending: boolean): void {
   try {
     if (pending) sessionStorage.setItem(PICK_ACCOUNT_AFTER_LOGOUT_KEY, "true");
@@ -53,160 +38,110 @@ function setAccountPickerPending(pending: boolean): void {
   }
 }
 
-// Shares the active MSAL account and validated backend profile with the React tree.
+// Keep Entra interaction state local and let TanStack Query own the backend profile request.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { instance, accounts, inProgress } = useMsal();
-
-  const [user, setUser] = useState<CurrentUser | null>(null);
-
-  const [loading, setLoading] = useState(true);
-
-  const [error, setError] = useState<string | null>(null);
-  const requestVersion = useRef(0);
-  const logoutStarted = useRef(false);
-  const profileAccountId = useRef<string | null>(null);
-  const refreshUserRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const queryClient = useQueryClient();
+  const [interactionError, setInteractionError] = useState<string | null>(null);
+  const [logoutStarted, setLogoutStarted] = useState(false);
 
   useEffect(() => {
-    if (!instance.getActiveAccount() && accounts.length > 0) {
-      const firstAccount = accounts[0];
-      if (firstAccount) instance.setActiveAccount(firstAccount);
+    if (!instance.getActiveAccount() && accounts.length > 0 && accounts[0]) {
+      instance.setActiveAccount(accounts[0]);
     }
   }, [instance, accounts]);
 
   const account = instance.getActiveAccount() ?? accounts[0] ?? null;
-
-  // Ignore stale profile requests when the account changes or a newer refresh completes first.
-  const refreshUser = useCallback(async () => {
-    const version = ++requestVersion.current;
-    if (!account) {
-      profileAccountId.current = null;
-      setUser(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (profileAccountId.current !== account.homeAccountId) {
-      profileAccountId.current = null;
-      setUser(null);
-    }
-    setLoading(true);
-    setError(null);
-
-    let profileTimeout: number | undefined;
-    try {
-      const currentUser = await Promise.race([
-        getCurrentUser(instance, account),
-        new Promise<never>((_, reject) => {
-          profileTimeout = window.setTimeout(
-            () =>
-              reject(
-                new Error(
-                  "WinCapture sign-in took too long. Check that the backend is running, then retry.",
-                ),
-              ),
-            15_000,
-          );
-        }),
-      ]);
-
-      if (requestVersion.current === version) {
-        profileAccountId.current = account.homeAccountId;
-        setUser(currentUser);
+  const profileKey = useMemo(() => ["auth", "profile", account?.homeAccountId ?? null] as const, [account?.homeAccountId]);
+  const profileQuery = useQuery({
+    queryKey: profileKey,
+    enabled: !!account && inProgress === InteractionStatus.None && !logoutStarted,
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      let timeoutId: number | undefined;
+      try {
+        return await Promise.race([
+          getCurrentUser(instance, account, signal),
+          new Promise<never>((_, reject) => {
+            timeoutId = window.setTimeout(
+              () => reject(new Error("WinCapture sign-in took too long. Check that the backend is running, then retry.")),
+              15_000,
+            );
+          }),
+        ]);
+      } finally {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       }
-    } catch (caughtError) {
-      if (requestVersion.current === version) {
-        profileAccountId.current = null;
-        setUser(null);
-        setError(
-          caughtError instanceof ApiError
-            ? caughtError.message
-            : "Microsoft authentication succeeded, but WinCapture could not load your profile. Retry the request.",
-        );
-      }
-    } finally {
-      if (profileTimeout !== undefined) window.clearTimeout(profileTimeout);
-      if (requestVersion.current === version) setLoading(false);
-    }
-  }, [account, instance]);
-
-  refreshUserRef.current = refreshUser;
+    },
+  });
 
   useEffect(() => {
-    // Wait for MSAL interactions, honor a requested account picker, then load the profile.
-    if (inProgress !== InteractionStatus.None || logoutStarted.current) return;
+    if (inProgress !== InteractionStatus.None || logoutStarted) return;
+    if (!accountPickerPending()) return;
+    setAccountPickerPending(false);
+    setInteractionError(null);
+    void instance.loginRedirect({ ...loginRequest, prompt: "select_account" }).catch(() => {
+      setInteractionError("Microsoft account selection could not be started.");
+    });
+  }, [account?.homeAccountId, inProgress, instance, logoutStarted]);
 
-    if (accountPickerPending()) {
-      setAccountPickerPending(false);
-      setError(null);
-      setLoading(true);
-      void instance.loginRedirect({ ...loginRequest, prompt: "select_account" }).catch(() => {
-        setError("Microsoft account selection could not be started.");
-        setLoading(false);
-      });
-      return;
-    }
-
-    void refreshUserRef.current();
-  }, [account?.homeAccountId, inProgress, instance]);
+  const refreshUser = useCallback(async () => {
+    if (!account) return;
+    await queryClient.invalidateQueries({ queryKey: profileKey, exact: true });
+  }, [account, profileKey, queryClient]);
 
   const login = useCallback(async () => {
     setAccountPickerPending(false);
-    setError(null);
-
+    setInteractionError(null);
     try {
       await instance.loginRedirect(loginRequest);
     } catch {
-      // Keep the error user-facing; MSAL may include internal details that are not actionable here.
-      setError("Microsoft sign-in could not be started. Check your connection and retry.");
+      setInteractionError("Microsoft sign-in could not be started. Check your connection and retry.");
     }
   }, [instance]);
 
   const logout = useCallback(async () => {
     setAccountPickerPending(true);
-    logoutStarted.current = true;
-    requestVersion.current += 1;
-    profileAccountId.current = null;
-    setUser(null);
-    setError(null);
-
+    setLogoutStarted(true);
+    setInteractionError(null);
+    if (account) queryClient.removeQueries({ queryKey: ["auth", "profile", account.homeAccountId] });
     try {
       await instance.logoutRedirect({
         account: account ?? undefined,
         postLogoutRedirectUri: msalPostLogoutRedirectUri,
       });
     } catch {
-      // Restore the local auth flow if MSAL cannot start the logout redirect.
       setAccountPickerPending(false);
-      logoutStarted.current = false;
-      setError("Microsoft logout could not be completed.");
+      setLogoutStarted(false);
+      setInteractionError("Microsoft logout could not be completed.");
     }
-  }, [account, instance]);
+  }, [account, instance, queryClient]);
 
+  const queryError = profileQuery.error instanceof ApiError
+    ? profileQuery.error.message
+    : profileQuery.error
+      ? "Microsoft authentication succeeded, but WinCapture could not load your profile. Retry the request."
+      : null;
   const value = useMemo<AuthContextValue>(
     () => ({
       account,
-      user,
-      loading: loading || inProgress !== InteractionStatus.None,
-      error,
+      user: profileQuery.data ?? null,
+      loading: inProgress !== InteractionStatus.None || (!!account && profileQuery.isPending),
+      error: interactionError ?? queryError,
       login,
       logout,
       refreshUser,
     }),
-    [account, user, loading, inProgress, error, login, logout, refreshUser],
+    [account, inProgress, interactionError, login, logout, profileQuery.data, profileQuery.isPending, queryError, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Fail early when a consumer is rendered outside the authentication provider.
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider.");
-  }
-
+  if (!context) throw new Error("useAuth must be used inside AuthProvider.");
   return context;
 }

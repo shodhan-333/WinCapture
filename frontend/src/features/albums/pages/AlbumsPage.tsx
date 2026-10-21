@@ -28,9 +28,9 @@ export function AlbumsPage() {
   const [albumFilter, setAlbumFilter] = useState<AlbumFilter>("all");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [creating, setCreating] = useState(false);
   const [albumName, setAlbumName] = useState("");
-  const { albums, pageCount, totalItems, loading, hasLoaded, error, setError } = useAlbumsData({
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const { albums, pageCount, totalItems, loading, hasLoaded, error: queryError } = useAlbumsData({
     instance,
     account,
     accountKey,
@@ -48,6 +48,8 @@ export function AlbumsPage() {
     user?.userId,
     user?.role === "Admin",
   );
+  const creating = createAlbumMutation.isPending;
+  const error = validationError ?? queryError ?? (createAlbumMutation.error instanceof Error ? createAlbumMutation.error.message : null);
 
   useEffect(() => {
     // Debounce search so each keystroke does not trigger a separate API request.
@@ -61,13 +63,13 @@ export function AlbumsPage() {
   // Create the requested album, clear the form, and open its detail route.
   const handleCreateAlbum = async () => {
     if (!account || !albumName.trim()) {
-      setError("Album name is required.");
+      setValidationError("Album name is required.");
       return;
     }
 
     try {
-      setCreating(true);
-      setError(null);
+      setValidationError(null);
+      createAlbumMutation.reset();
 
       const created = await createAlbumMutation.mutateAsync({
         albumName: albumName.trim(),
@@ -76,10 +78,8 @@ export function AlbumsPage() {
       setAlbumName("");
 
       navigate(`/albums/${created.id}`);
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to create album.");
-    } finally {
-      setCreating(false);
+    } catch {
+      // The mutation retains its request error for the shared error banner.
     }
   };
 

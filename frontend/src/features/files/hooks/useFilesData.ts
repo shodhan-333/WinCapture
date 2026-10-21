@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
-import { getAdminFiles, getFavorites, getFiles } from "@/features/files/api/filesApi";
+import { useQueryClient } from "@tanstack/react-query";
+import { useFileListQuery, fileKeys } from "@/features/files/hooks/fileQueries";
 import type { FileCategoryFilter } from "@/features/files/constants/fileSupport";
-import type { AdminFileResponse, FileResponse, FileView } from "@/features/files/types/file";
-import type { PagedResponse } from "@/shared/types/api";
+import type { FileView } from "@/features/files/types/file";
+import { getAccountKey } from "@/shared/utils/accountKey";
 
 const PAGE_SIZE = 12;
 
@@ -22,7 +23,7 @@ interface UseFilesDataOptions {
   setCurrentPage: Dispatch<SetStateAction<number>>;
 }
 
-// Load the active file view and ignore responses from superseded requests.
+// Keep the active file page in TanStack Query; leave selection and dialogs to the component.
 export function useFilesData({
   instance,
   account,
@@ -36,156 +37,49 @@ export function useFilesData({
   setFocusedFileId,
   setCurrentPage,
 }: UseFilesDataOptions) {
-  const [files, setFiles] = useState<FileResponse[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [pageCount, setPageCount] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const loadRequestVersion = useRef(0);
-  const focusedFileResolved = useRef(false);
-
-  // Adapt admin rows to the common file shape expected by shared file components.
-  const fetchAdminPage = useCallback(
-    // Convert admin-specific rows into the shared file shape used by the list UI.
-    async (page: number): Promise<PagedResponse<FileResponse>> => {
-      if (!account) throw new Error("An authenticated account is required.");
-      const result = await getAdminFiles(
-        instance,
-        account,
-        page,
-        PAGE_SIZE,
-        searchQuery,
-        categoryFilter,
-      );
-      return {
-        ...result,
-        items: result.items.map((file: AdminFileResponse): FileResponse => ({
-          ...file,
-          url: "",
-          downloadUrl:
-            file.albumId === null
-              ? `/api/files/${file.id}/download`
-              : `/api/albums/${file.albumId}/files/${file.id}/download`,
-          isFavorite: false,
-          canManage: true,
-          canDownload: true,
-        })),
-      };
-    },
-    [account, categoryFilter, instance, searchQuery],
-  );
-
-  const loadFiles = useCallback(
-    async (
-      nextView: FileView = view,
-      requestedPage: number = currentPage,
-      requestedCategory: FileCategoryFilter = categoryFilter,
-    ): Promise<void> => {
-      const requestVersion = ++loadRequestVersion.current;
-      if (!account) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        const nextPage =
-          nextView === "favorites"
-            ? await getFavorites(
-                instance,
-                account,
-                requestedPage,
-                PAGE_SIZE,
-                searchQuery,
-                requestedCategory,
-              )
-            : isAdminAllContent
-              ? await fetchAdminPage(requestedPage)
-              : await getFiles(
-                  instance,
-                  account,
-                  requestedPage,
-                  PAGE_SIZE,
-                  searchQuery,
-                  requestedCategory,
-                );
-
-        // A direct file link may point to an item on a later page, so locate it before focusing.
-        if (
-          nextView === "all" &&
-          routeFileId &&
-          !focusedFileResolved.current &&
-          requestedPage === 1
-        ) {
-          let targetPage = nextPage;
-          // Reuse the active endpoint while searching later pages for a deep-linked file.
-          const fetchTargetPage = (page: number) =>
-            isAdminAllContent
-              ? fetchAdminPage(page)
-              : getFiles(instance, account, page, PAGE_SIZE, searchQuery, requestedCategory);
-          while (
-            !targetPage.items.some((file) => file.id === routeFileId) &&
-            targetPage.page < targetPage.pageCount
-          ) {
-            targetPage = await fetchTargetPage(targetPage.page + 1);
-          }
-          if (targetPage.items.some((file) => file.id === routeFileId)) {
-            nextPage.items = targetPage.items;
-            nextPage.page = targetPage.page;
-            setFocusedFileId(routeFileId);
-          }
-          focusedFileResolved.current = true;
-        }
-
-        // Prevent a slower, older request from replacing newer page or filter results.
-        if (requestVersion !== loadRequestVersion.current) return;
-        setFiles(nextPage.items);
-        retain(
-          nextPage.items
-            .filter((file) => nextView === "favorites" || file.canManage)
-            .map((file) => file.id),
-        );
-        setTotalItems(nextPage.totalItems);
-        setPageCount(nextPage.pageCount);
-        setCurrentPage(nextPage.page);
-      } catch (caughtError) {
-        if (requestVersion !== loadRequestVersion.current) return;
-        setFiles([]);
-        retain([]);
-        setTotalItems(0);
-        setPageCount(1);
-        setError(caughtError instanceof Error ? caughtError.message : "Unable to load files.");
-      } finally {
-        if (requestVersion === loadRequestVersion.current) {
-          setLoading(false);
-          setHasLoaded(true);
-        }
-      }
-    },
-    [
-      account,
-      categoryFilter,
-      currentPage,
-      fetchAdminPage,
-      instance,
-      isAdminAllContent,
-      retain,
-      routeFileId,
-      searchQuery,
-      setCurrentPage,
-      setFocusedFileId,
-      view,
-    ],
-  );
+  const queryClient = useQueryClient();
+  const accountKey = getAccountKey(account);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const routeLookupId = view === "all" && currentPage === 1 ? routeFileId : null;
+  const query = useFileListQuery({
+    instance,
+    account,
+    accountKey,
+    view,
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    search: searchQuery,
+    category: categoryFilter,
+    adminAll: isAdminAllContent && view === "all",
+    routeFileId: routeLookupId,
+  });
 
   useEffect(() => {
-    void loadFiles(view, currentPage);
-    return () => {
-      loadRequestVersion.current += 1;
-    };
-  }, [loadFiles, view, currentPage]);
+    const page = query.data;
+    if (!page) return;
+    retain(page.items.filter((file) => view === "favorites" || file.canManage).map((file) => file.id));
+    if (page.page !== currentPage) setCurrentPage(page.page);
+    if (routeFileId && page.items.some((file) => file.id === routeFileId)) {
+      setFocusedFileId(routeFileId);
+    }
+  }, [currentPage, query.data, retain, routeFileId, setCurrentPage, setFocusedFileId, view]);
 
-  return { files, setFiles, totalItems, pageCount, loading, hasLoaded, error, setError, loadFiles };
+  const loadFiles = useCallback(async (_view?: FileView, _page?: number, _category?: FileCategoryFilter): Promise<void> => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: fileKeys.lists() }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["album-cover-preview"] }),
+    ]);
+  }, [queryClient]);
+
+  return {
+    files: query.data?.items ?? [],
+    totalItems: query.data?.totalItems ?? 0,
+    pageCount: query.data?.pageCount ?? 1,
+    loading: query.isFetching,
+    hasLoaded: query.isFetched,
+    error: actionError ?? (query.error instanceof Error ? query.error.message : null),
+    setError: setActionError,
+    loadFiles,
+  };
 }

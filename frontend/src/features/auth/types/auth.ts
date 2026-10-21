@@ -1,9 +1,4 @@
-export type UserRole = "User" | "Admin";
+import type { CurrentUser } from "@/features/auth/schemas/currentUser";
 
-export interface CurrentUser {
-  userId: number;
-  name: string;
-  email: string;
-  role: UserRole;
-  authenticationType: string;
-}
+export type { CurrentUser };
+export type UserRole = CurrentUser["role"];

@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useMemo } from "react";
+import { useMutationState } from "@tanstack/react-query";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 
 import { useToggleFavoriteMutation } from "@/features/files/hooks/fileQueries";
@@ -12,56 +13,25 @@ interface UseFileFavoritesOptions {
   onError: (message: string) => void;
 }
 
-// Prevent duplicate favorite requests per file and report the confirmed state to the caller.
-export function useFileFavorites({
-  instance,
-  account,
-  accountKey = account?.homeAccountId ?? null,
-  onSuccess,
-  onError,
-}: UseFileFavoritesOptions) {
-  const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+// Derive pending file IDs from Query mutations; the mutation updates and invalidates cached lists.
+export function useFileFavorites({ instance, account, accountKey = account?.homeAccountId ?? null, onSuccess, onError }: UseFileFavoritesOptions) {
   const favoriteMutation = useToggleFavoriteMutation({ instance, account, accountKey });
+  const pendingIds = useMutationState({
+    filters: { mutationKey: ["files", "favorite"], status: "pending" },
+    select: (mutation) => (mutation.state.variables as { fileId?: number } | undefined)?.fileId,
+  });
+  const pendingSet = useMemo(() => new Set(pendingIds.filter((id): id is number => typeof id === "number")), [pendingIds]);
 
-  const setPending = useCallback((fileId: number, pending: boolean) => {
-    setPendingIds((previous) => {
-      const next = new Set(previous);
-
-      if (pending) {
-        next.add(fileId);
-      } else {
-        next.delete(fileId);
-      }
-
-      return next;
-    });
-  }, []);
-
-  const toggleFavorite = useCallback(
-    async (file: FileResponse) => {
-      if (!account || pendingIds.has(file.id)) {
-        return;
-      }
-
-      const nextFavorite = !file.isFavorite;
-
-      setPending(file.id, true);
-
-      try {
-        await favoriteMutation.mutateAsync({ fileId: file.id, favorite: nextFavorite });
-
-        onSuccess(file, nextFavorite);
-      } catch (caughtError) {
-        onError(caughtError instanceof Error ? caughtError.message : "Unable to update favorite.");
-      } finally {
-        setPending(file.id, false);
-      }
-    },
-    [account, favoriteMutation, onError, onSuccess, pendingIds, setPending],
-  );
-
-  return {
-    pendingIds,
-    toggleFavorite,
+  const toggleFavorite = async (file: FileResponse): Promise<void> => {
+    if (!account || pendingSet.has(file.id)) return;
+    const nextFavorite = !file.isFavorite;
+    try {
+      await favoriteMutation.mutateAsync({ fileId: file.id, favorite: nextFavorite });
+      onSuccess(file, nextFavorite);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "Unable to update favorite.");
+    }
   };
+
+  return { pendingIds: pendingSet, toggleFavorite };
 }

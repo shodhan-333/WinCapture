@@ -36,8 +36,9 @@ export async function getFile(
   instance: IPublicClientApplication,
   account: AccountInfo,
   fileId: number,
+  signal?: AbortSignal,
 ): Promise<FileResponse> {
-  const response = await callApi(instance, account, `/api/files/${fileId}`);
+  const response = await callApi(instance, account, `/api/files/${fileId}`, { signal });
 
   return parseFileResponse(await response.json());
 }

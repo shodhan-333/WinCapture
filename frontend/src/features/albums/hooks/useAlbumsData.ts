@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { useQuery } from "@tanstack/react-query";
@@ -24,11 +24,11 @@ interface UseAlbumsDataOptions {
 
 // Load the selected album list and adapt the legacy shared-album route when needed.
 export function useAlbumsData({ instance, account, accountKey, userId, isAdminAllContent, currentPage, albumFilter, searchQuery, setCurrentPage }: UseAlbumsDataOptions) {
-  const [localError, setLocalError] = useState<string | null>(null);
   const query = useQuery<PagedResponse<AlbumResponse>>({
     queryKey: albumKeys.list(accountKey, albumFilter, currentPage, PAGE_SIZE, searchQuery, isAdminAllContent),
     enabled: !!account,
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[2] === accountKey ? previousData : undefined,
     queryFn: async ({ signal }) => {
       if (!account) throw new Error("An authenticated account is required.");
       if (isAdminAllContent) return getAdminAlbums(instance, account, currentPage, PAGE_SIZE, searchQuery, signal);
@@ -49,8 +49,8 @@ export function useAlbumsData({ instance, account, accountKey, userId, isAdminAl
     },
   });
   useEffect(() => {
-    if (query.data && query.data.page !== currentPage) setCurrentPage(query.data.page);
-  }, [currentPage, query.data, setCurrentPage]);
+    if (!query.isPlaceholderData && query.data && query.data.page !== currentPage) setCurrentPage(query.data.page);
+  }, [currentPage, query.data, query.isPlaceholderData, setCurrentPage]);
   const data = query.data;
   return {
     albums: data?.items ?? [],
@@ -58,7 +58,6 @@ export function useAlbumsData({ instance, account, accountKey, userId, isAdminAl
     totalItems: data?.totalItems ?? 0,
     loading: query.isPending || query.isFetching,
     hasLoaded: query.isSuccess || query.isError,
-    error: localError ?? (query.error instanceof Error ? query.error.message : null),
-    setError: setLocalError,
+    error: query.error instanceof Error ? query.error.message : null,
   };
 }

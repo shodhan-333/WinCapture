@@ -13,6 +13,7 @@ interface FileCardGridProps {
   onDetails: (file: FileResponse) => void;
   onPreview: (file: FileResponse, previewUrl?: string) => void;
   loadPreview?: (file: FileResponse) => Promise<string>;
+  previewCacheKey?: string | null;
   onDownload: (file: FileResponse) => void;
   onDelete: (file: FileResponse) => void;
   empty?: ReactNode;
@@ -35,6 +36,7 @@ export function FileCardGrid({
   onDetails,
   onPreview,
   loadPreview,
+  previewCacheKey,
   onDownload,
   onDelete,
   empty,
@@ -60,6 +62,7 @@ export function FileCardGrid({
             file={file}
             previewUrl={previewUrls[file.id]}
             loadPreview={loadPreview}
+            previewCacheKey={previewCacheKey}
             canManage={effectiveCanManage}
             favoritePending={favoritePendingIds.has(file.id)}
             onFavoriteToggle={() => onFavoriteToggle(file)}

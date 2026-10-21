@@ -125,8 +125,9 @@ export async function getAlbum(
   instance: IPublicClientApplication,
   account: AccountInfo,
   albumId: number,
+  signal?: AbortSignal,
 ): Promise<AlbumResponse> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}`);
+  const response = await callApi(instance, account, `/api/albums/${albumId}`, { signal });
 
   return parseAlbumResponse(await response.json());
 }
@@ -178,8 +179,9 @@ export async function getAlbumMembers(
   instance: IPublicClientApplication,
   account: AccountInfo,
   albumId: number,
+  signal?: AbortSignal,
 ): Promise<AlbumMemberResponse[]> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/members`);
+  const response = await callApi(instance, account, `/api/albums/${albumId}/members`, { signal });
   const correlationId =
     response.headers.get("x-correlation-id") ?? response.headers.get("request-id") ?? undefined;
   return parseAlbumMembers(await response.json(), correlationId);
@@ -240,12 +242,13 @@ export async function getAlbumFiles(
   page: number,
   pageSize: number,
   category?: string,
+  signal?: AbortSignal,
 ): Promise<PagedResponse<FileResponse>> {
   const response = await callApi(
     instance,
     account,
     buildPagePath(`/api/albums/${albumId}/files`, page, pageSize, undefined, category),
-    { cache: "no-store" },
+    { cache: "no-store", signal },
   );
 
   return parsePagedResponse(await response.json(), parseFileResponse);
@@ -257,8 +260,9 @@ export async function getAlbumFile(
   account: AccountInfo,
   albumId: number,
   fileId: number,
+  signal?: AbortSignal,
 ): Promise<FileResponse> {
-  const response = await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`);
+  const response = await callApi(instance, account, `/api/albums/${albumId}/files/${fileId}`, { signal });
 
   return parseFileResponse(await response.json());
 }

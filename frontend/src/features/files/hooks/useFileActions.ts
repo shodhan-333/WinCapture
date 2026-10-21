@@ -1,9 +1,9 @@
 import type { ChangeEvent, RefObject } from "react";
+import { useMutation } from "@tanstack/react-query";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import {
   deleteFile,
   downloadFileByPath,
-  getFile,
   replaceFile,
 } from "@/features/files/api/filesApi";
 import { validateUploadFile } from "@/features/files/constants/fileSupport";
@@ -35,6 +35,25 @@ export function useFileActions({
   setSuccessMessage,
   setFileDetails,
 }: UseFileActionsOptions) {
+  const replaceMutation = useMutation({
+    mutationFn: ({ fileId, file }: { fileId: number; file: File }) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return replaceFile(instance, account, fileId, file);
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (fileId: number) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return deleteFile(instance, account, fileId);
+    },
+  });
+  const downloadMutation = useMutation({
+    mutationFn: (file: FileResponse) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return downloadFileByPath(instance, account, file.downloadUrl, file.originalFileName);
+    },
+  });
+
   // Validate and replace a file, then reset the native file input.
   const handleReplace = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const selectedFile = event.target.files?.[0];
@@ -52,7 +71,7 @@ export function useFileActions({
     try {
       setError(null);
       setSuccessMessage(null);
-      await replaceFile(instance, account, fileId, selectedFile);
+      await replaceMutation.mutateAsync({ fileId, file: selectedFile });
       setSuccessMessage(`${selectedFile.name} replaced successfully.`);
       await loadFiles(view);
     } catch (caughtError) {
@@ -69,7 +88,7 @@ export function useFileActions({
 
     try {
       setError(null);
-      await downloadFileByPath(instance, account, file.downloadUrl, file.originalFileName);
+      await downloadMutation.mutateAsync(file);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Download failed.");
     }
@@ -81,7 +100,7 @@ export function useFileActions({
 
     try {
       setError(null);
-      const result = await deleteFile(instance, account, fileId);
+      const result = await deleteMutation.mutateAsync(fileId);
       removeSelected([fileId]);
       if (result?.storageCleanupComplete === false) {
         setSuccessMessage(
@@ -98,16 +117,9 @@ export function useFileActions({
     }
   };
 
-  // Fetch current file metadata before displaying the details dialog.
+  // Select the item; the page's file-detail query loads canonical server metadata.
   const handleShowFileDetails = async (file: FileResponse): Promise<void> => {
-    if (!account) return;
-
-    try {
-      setError(null);
-      setFileDetails(await getFile(instance, account, file.id));
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to load file details.");
-    }
+    setFileDetails(file);
   };
 
   // Remember the target file before opening the hidden native file picker.

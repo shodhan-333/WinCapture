@@ -8,7 +8,7 @@ import { getFilePreviewUrlByPath } from "@/shared/api/previews";
 import { FilePreviewModal, useFilePreviews } from "@/features/files";
 import { ErrorBanner } from "@/shared/components/ui/ErrorBanner";
 import { useAuth } from "@/features/auth";
-import { useAlbumCoverPreviews, type AlbumResponse } from "@/features/albums";
+import { useAlbumCoverPreviews } from "@/features/albums";
 import type { UserRole } from "@/features/auth";
 import { getAccountKey } from "@/shared/utils/accountKey";
 import { getAdminContentScope, setAdminContentScope } from "@/shared/utils/adminContentScope";
@@ -38,42 +38,38 @@ export function Dashboard() {
     ? (dashboardRoleCapabilities[user.role]?.canViewAllContent ?? false)
     : false;
 
-  const [albums, setAlbums] = useState<AlbumResponse[]>([]);
-  const [files, setFiles] = useState<DashboardFile[]>([]);
   const [contentScope, setContentScope] = useState<"mine" | "all">(() => getAdminContentScope());
-  const [contentVersion, setContentVersion] = useState(0);
   const [allAlbumsPage, setAllAlbumsPage] = useState(1);
   const [allFilesPage, setAllFilesPage] = useState(1);
   const [allAlbumsSearch, setAllAlbumsSearch] = useState("");
   const [allFilesSearch, setAllFilesSearch] = useState("");
-  const [allAlbumsPageCount, setAllAlbumsPageCount] = useState(1);
-  const [allFilesPageCount, setAllFilesPageCount] = useState(1);
-  const [allAlbumsCount, setAllAlbumsCount] = useState(0);
-  const [allFilesCount, setAllFilesCount] = useState(0);
-  const { fileCategoryCounts, loading, hasLoaded, error, setError } = useDashboardData({
+  const {
+    albums,
+    files,
+    fileCategoryCounts,
+    loading,
+    hasLoaded,
+    error: queryError,
+    allAlbumsCount,
+    allFilesCount,
+    allAlbumsPageCount,
+    allFilesPageCount,
+  } = useDashboardData({
     instance,
     account,
     accountKey,
     canViewAllContent,
     contentScope,
-    contentVersion,
     allAlbumsPage,
     allFilesPage,
     allAlbumsSearch,
     allFilesSearch,
-    setAlbums,
-    setFiles,
     setAllAlbumsPage,
     setAllFilesPage,
-    setAllAlbumsPageCount,
-    setAllFilesPageCount,
-    setAllAlbumsCount,
-    setAllFilesCount,
   });
 
-  // Keep these arrays stable while their source data is unchanged. The preview
-  // hooks use the array reference as an effect dependency and should not restart
-  // their network requests after unrelated dashboard state updates.
+  // Keep these arrays stable while their source data is unchanged; preview query keys
+  // reuse cached blobs when unrelated dashboard controls change.
   const recentAlbums = useMemo(
     () =>
       [...albums].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
@@ -114,21 +110,18 @@ export function Dashboard() {
     [accountKey, canViewAllContent, contentScope, instance],
   );
 
-  const { previewUrls: recentFilePreviewUrls } = useFilePreviews(recentFiles, loadFilePreview);
+  const { previewUrls: recentFilePreviewUrls } = useFilePreviews(recentFiles, loadFilePreview, accountKey);
 
-  const { handleDeleteAlbum, handleDeleteFile } = useDashboardAdminActions({
+  const { handleDeleteAlbum, handleDeleteFile, error: adminActionError } = useDashboardAdminActions({
     instance,
     account,
     canManageContent: canViewAllContent,
-    setAlbums,
-    setFiles,
     resetAdminPages: () => {
       setAllAlbumsPage(1);
       setAllFilesPage(1);
     },
-    refreshContent: () => setContentVersion((version) => version + 1),
-    setError,
   });
+  const error = adminActionError ?? queryError;
 
   const [previewFile, setPreviewFile] = useState<DashboardFile | null>(null);
 

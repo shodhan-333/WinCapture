@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Images, Users } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
-  deleteAlbum,
-  getAlbum,
-  getAlbumFiles,
-  getAlbumMembers,
   getFilePreviewUrl,
-  updateAlbum,
   uploadAlbumFile,
 } from "../api/albumsApi";
 import { ErrorBanner } from "@/shared/components/ui/ErrorBanner";
@@ -23,11 +20,9 @@ import {
   MultiFileUploadDialog,
   useFilePreviews,
 } from "@/features/files";
-import type { AlbumMemberResponse } from "@/features/albums";
 import { useBulkSelection } from "@/shared/hooks/useBulkSelection";
 import { useAuth } from "@/features/auth";
 
-import type { AlbumResponse } from "@/features/albums";
 import type { FileCategoryFilter, FileResponse } from "@/features/files";
 import { getAccountKey } from "@/shared/utils/accountKey";
 import {
@@ -35,12 +30,22 @@ import {
   type AlbumBulkAction,
 } from "@/features/albums/hooks/useAlbumFileActions";
 import { useAlbumSharingActions } from "@/features/albums/hooks/useAlbumSharingActions";
+import {
+  albumKeys,
+  useAlbumFileDetailQuery,
+  useAlbumDetailQuery,
+  useAlbumFilesQuery,
+  useAlbumMembersQuery,
+  useDeleteAlbumMutation,
+  useUpdateAlbumMutation,
+} from "@/features/albums/hooks/albumQueries";
 
 const PAGE_SIZE = 12;
 
 // Coordinate album metadata, member permissions, file actions, and preview dialogs.
 export function AlbumDetailPage() {
   const { instance } = useMsal();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { account, user } = useAuth();
@@ -49,14 +54,9 @@ export function AlbumDetailPage() {
 
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
   const albumNameInputRef = useRef<HTMLInputElement | null>(null);
-  const loadRequestVersion = useRef(0);
   // Stores the file selected for replacement while the hidden file picker is open.
   const replaceTargetIdRef = useRef<number | null>(null);
 
-  const [album, setAlbum] = useState<AlbumResponse | null>(null);
-  const [files, setFiles] = useState<FileResponse[]>([]);
-  const [totalFiles, setTotalFiles] = useState(0);
-  const [pageCount, setPageCount] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState<FileCategoryFilter>("All");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -64,15 +64,10 @@ export function AlbumDetailPage() {
   const [previewFile, setPreviewFile] = useState<FileResponse | null>(null);
   const [previewSource, setPreviewSource] = useState<string | undefined>();
 
-  const [members, setMembers] = useState<AlbumMemberResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [memberAccessError, setMemberAccessError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [deletingAlbum, setDeletingAlbum] = useState(false);
   const {
     selectionMode,
     selectedIds,
@@ -92,6 +87,69 @@ export function AlbumDetailPage() {
   }, [editingName]);
 
   const numericAlbumId = Number(albumId ?? "0");
+  const validAlbumId = Number.isSafeInteger(numericAlbumId) && numericAlbumId > 0;
+  const albumQuery = useAlbumDetailQuery({ instance, account, accountKey, albumId: numericAlbumId });
+  const filesQuery = useAlbumFilesQuery({
+    instance,
+    account,
+    accountKey,
+    albumId: numericAlbumId,
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    category: categoryFilter,
+  });
+  const album = albumQuery.data ?? null;
+  const files = filesQuery.data?.items ?? [];
+  const totalFiles = filesQuery.data?.totalItems ?? 0;
+  const pageCount = filesQuery.data?.pageCount ?? 1;
+  const membersQuery = useAlbumMembersQuery({
+    instance,
+    account,
+    accountKey,
+    albumId: numericAlbumId,
+    enabled: !!album && (user?.role === "Admin" || album.ownerId === user?.userId),
+  });
+  const members = membersQuery.data ?? [];
+  const fileDetailsQuery = useAlbumFileDetailQuery({
+    instance,
+    account,
+    accountKey,
+    albumId: numericAlbumId,
+    fileId: fileDetails?.id ?? 0,
+    enabled: !!fileDetails,
+  });
+  const loading = validAlbumId && (albumQuery.isPending || filesQuery.isPending);
+  const hasLoaded = (albumQuery.isFetched || albumQuery.isError) && (filesQuery.isFetched || filesQuery.isError);
+  const queryError = !validAlbumId
+    ? "The album ID is invalid."
+    : albumQuery.error instanceof Error
+      ? albumQuery.error.message
+      : filesQuery.error instanceof Error
+        ? filesQuery.error.message
+        : null;
+  const updateAlbumMutation = useUpdateAlbumMutation({ instance, account, accountKey, albumId: numericAlbumId });
+  const deleteAlbumMutation = useDeleteAlbumMutation({ instance, account, accountKey });
+  const uploadAlbumMutation = useMutation({
+    mutationFn: (file: File) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return uploadAlbumFile(instance, account, numericAlbumId, file);
+    },
+  });
+  const deletingAlbum = deleteAlbumMutation.isPending;
+  const error = actionError
+    ?? (updateAlbumMutation.error instanceof Error ? updateAlbumMutation.error.message : null)
+    ?? (deleteAlbumMutation.error instanceof Error ? deleteAlbumMutation.error.message : null)
+    ?? queryError
+    ?? (fileDetailsQuery.error instanceof Error ? fileDetailsQuery.error.message : null);
+  useEffect(() => {
+    if (album && !editingName) setAlbumNameDraft(album.albumName);
+  }, [album, editingName]);
+  useEffect(() => {
+    const page = filesQuery.data;
+    if (!page || filesQuery.isPlaceholderData) return;
+    retain(page.items.filter((file) => file.canManage).map((file) => file.id));
+    if (page.page !== currentPage) setCurrentPage(page.page);
+  }, [currentPage, filesQuery.data, filesQuery.isPlaceholderData, retain]);
   const {
     memberEmail,
     setMemberEmail,
@@ -102,12 +160,13 @@ export function AlbumDetailPage() {
     handleAddMember,
     handleUpdateMember,
     handleRemoveMember,
+    error: sharingActionError,
   } = useAlbumSharingActions({
     instance,
     account,
+    accountKey,
     albumId: numericAlbumId,
-    setMembers,
-    setMemberAccessError,
+    members,
   });
 
   const canManageAlbum = Boolean(
@@ -141,83 +200,22 @@ export function AlbumDetailPage() {
     [files, albumCoverFile],
   );
 
-  const { previewUrls } = useFilePreviews(previewFiles, loadPreview);
+  const { previewUrls } = useFilePreviews(previewFiles, loadPreview, accountKey);
 
   const albumCoverPreview =
     albumCoverFile && previewUrls[albumCoverFile.id] ? albumCoverFile : undefined;
 
-  // Loads album details, the selected file page, and sharing settings for managers.
-  // Load album data and permissions while ignoring stale route requests.
+  // Refresh the keyed album queries after upload, delete, or replacement operations.
   const loadAlbumData = useCallback(async () => {
-    const requestVersion = ++loadRequestVersion.current;
-    if (!account || !Number.isFinite(numericAlbumId)) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const albumResult = await getAlbum(instance, account, numericAlbumId);
-      if (requestVersion !== loadRequestVersion.current) return;
-
-      setAlbum(albumResult);
-      setAlbumNameDraft(albumResult.albumName);
-
-      const nextCanManageAlbum = user?.role === "Admin" || albumResult.ownerId === user?.userId;
-
-      const fileResult = await getAlbumFiles(
-        instance,
-        account,
-        numericAlbumId,
-        currentPage,
-        PAGE_SIZE,
-        categoryFilter,
-      );
-      if (requestVersion !== loadRequestVersion.current) return;
-
-      setFiles(fileResult.items);
-      retain(fileResult.items.filter((file) => file.canManage).map((file) => file.id));
-      setTotalFiles(fileResult.totalItems);
-      setPageCount(fileResult.pageCount);
-      setCurrentPage(fileResult.page);
-
-      if (nextCanManageAlbum) {
-        try {
-          const albumMembers = await getAlbumMembers(instance, account, numericAlbumId);
-          if (requestVersion !== loadRequestVersion.current) return;
-          setMembers(albumMembers);
-        } catch {
-          if (requestVersion !== loadRequestVersion.current) return;
-          setMembers([]);
-          setError("Album opened, but sharing settings could not be loaded.");
-        }
-      } else {
-        setMembers([]);
-      }
-    } catch (caughtError) {
-      if (requestVersion !== loadRequestVersion.current) return;
-      setError(
-        caughtError instanceof Error ? caughtError.message : "Unable to load album details.",
-      );
-    } finally {
-      if (requestVersion === loadRequestVersion.current) {
-        setLoading(false);
-        setHasLoaded(true);
-      }
-    }
-    // accountKey changes only when the signed-in identity changes; token refreshes reuse data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    accountKey,
-    instance,
-    numericAlbumId,
-    currentPage,
-    categoryFilter,
-    user?.role,
-    user?.userId,
-    retain,
-  ]);
+    if (!validAlbumId) return;
+    setActionError(null);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: albumKeys.detail(accountKey, numericAlbumId) }),
+      queryClient.invalidateQueries({ queryKey: albumKeys.files(accountKey, numericAlbumId, currentPage, PAGE_SIZE, categoryFilter) }),
+      queryClient.invalidateQueries({ queryKey: albumKeys.members(accountKey, numericAlbumId) }),
+      queryClient.invalidateQueries({ queryKey: ["album-cover-preview", accountKey, numericAlbumId] }),
+    ]);
+  }, [accountKey, categoryFilter, currentPage, numericAlbumId, queryClient, validAlbumId]);
 
   useEffect(() => {
     cancelSelection();
@@ -226,23 +224,6 @@ export function AlbumDetailPage() {
   useEffect(() => {
     if (!canManageAlbum) cancelSelection();
   }, [canManageAlbum, cancelSelection]);
-
-  useEffect(() => {
-    if (!Number.isSafeInteger(numericAlbumId) || numericAlbumId <= 0) {
-      setAlbum(null);
-      setFiles([]);
-      setTotalFiles(0);
-      setMembers([]);
-      setError("The album ID is invalid.");
-      setLoading(false);
-      return;
-    }
-
-    void loadAlbumData();
-    return () => {
-      loadRequestVersion.current += 1;
-    };
-  }, [loadAlbumData, numericAlbumId]);
 
   const selectedFiles = files.filter((file) => selectedIds.has(file.id));
   const {
@@ -264,32 +245,28 @@ export function AlbumDetailPage() {
     reloadAlbum: loadAlbumData,
     removeSelected: remove,
     cancelSelection,
-    setFiles,
     setFileDetails,
-    setError,
+    setError: setActionError,
     setSuccessMessage,
     clearBulkAction: () => setBulkAction(null),
   });
   // Save the edited album name and update the displayed album from the response.
   const handleUpdateAlbum = async () => {
     if (!account || !Number.isFinite(numericAlbumId) || !albumNameDraft.trim()) {
-      setError("Album name is required.");
+      setActionError("Album name is required.");
       return;
     }
 
     try {
-      setError(null);
-
-      const updated = await updateAlbum(instance, account, numericAlbumId, {
+      setActionError(null);
+      updateAlbumMutation.reset();
+      const updated = await updateAlbumMutation.mutateAsync({
         albumName: albumNameDraft.trim(),
       });
 
-      setAlbum(updated);
       setAlbumNameDraft(updated.albumName);
       setEditingName(false);
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to update album.");
-    }
+    } catch { /* The mutation retains its request error for the banner. */ }
   };
 
   // Confirm album deletion, then return to the albums list on success.
@@ -303,20 +280,11 @@ export function AlbumDetailPage() {
     }
 
     try {
-      setDeletingAlbum(true);
-      setError(null);
-
-      await deleteAlbum(instance, account, album.id);
+      setActionError(null);
+      deleteAlbumMutation.reset();
+      await deleteAlbumMutation.mutateAsync(album.id);
       navigate("/albums", { replace: true });
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? `${caughtError.message} The album remains listed, so you can retry after resolving the issue.`
-          : "Unable to delete album. You can retry after resolving the issue.",
-      );
-    } finally {
-      setDeletingAlbum(false);
-    }
+    } catch { /* The mutation retains its request error for the banner. */ }
   };
 
   if (loading && !hasLoaded) {
@@ -458,7 +426,7 @@ export function AlbumDetailPage() {
           memberEmail={memberEmail}
           canView={canView}
           canDownload={canDownload}
-          memberAccessError={memberAccessError}
+          memberAccessError={sharingActionError ?? (membersQuery.error instanceof Error ? membersQuery.error.message : null)}
           onMemberEmailChange={setMemberEmail}
           onCanViewChange={setCanView}
           onCanDownloadChange={setCanDownload}
@@ -484,7 +452,7 @@ export function AlbumDetailPage() {
         </section>
       )}
 
-      {fileDetails && <FileDetailsDialog file={fileDetails} onClose={() => setFileDetails(null)} />}
+      {fileDetails && <FileDetailsDialog file={fileDetailsQuery.data ?? fileDetails} onClose={() => setFileDetails(null)} />}
 
       {bulkAction && (
         <BulkDeleteDialog
@@ -527,12 +495,12 @@ export function AlbumDetailPage() {
             if (!account || !canManageAlbum || !Number.isFinite(numericAlbumId)) {
               throw new Error("You do not have permission to upload to this album.");
             }
-            return uploadAlbumFile(instance, account, numericAlbumId, file);
+            return uploadAlbumMutation.mutateAsync(file);
           }}
           onUploadingChange={(isActive) => {
             setUploading(isActive);
             if (isActive) {
-              setError(null);
+              setActionError(null);
               setSuccessMessage(null);
             }
           }}

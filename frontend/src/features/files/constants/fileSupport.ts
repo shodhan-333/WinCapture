@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 export const FILE_EXTENSIONS = {
@@ -22,6 +24,22 @@ export const FILE_CATEGORY_FILTERS: FileCategoryFilter[] = [
 
 export const SUPPORTED_FILE_ACCEPT = Object.values(FILE_EXTENSIONS).flat().join(",");
 
+export const UploadFileSchema = z.custom<File>(
+  (value) => typeof File !== "undefined" && value instanceof File,
+  "Select a valid file.",
+).superRefine((file, context) => {
+  if (typeof File === "undefined" || !(file instanceof File)) return;
+  if (!getFileCategory(file.name)) {
+    context.addIssue({ code: "custom", message: "Unsupported file format." });
+  }
+  if (file.size <= 0) {
+    context.addIssue({ code: "custom", message: "The selected file is empty." });
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    context.addIssue({ code: "custom", message: "Files must be 10 MB or smaller." });
+  }
+});
+
 // Normalize and return the suffix used to classify a file.
 export function getFileExtension(fileName: string): string {
   const lastDot = fileName.lastIndexOf(".");
@@ -39,19 +57,8 @@ export function getFileCategory(fileName: string): FileCategory | undefined {
 
 // Reject unsupported, empty, or oversized files before upload requests are sent.
 export function validateUploadFile(file: File): string | undefined {
-  if (!getFileCategory(file.name)) {
-    return "Unsupported file format.";
-  }
-
-  if (file.size <= 0) {
-    return "The selected file is empty.";
-  }
-
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return "Files must be 10 MB or smaller.";
-  }
-
-  return undefined;
+  const result = UploadFileSchema.safeParse(file);
+  return result.success ? undefined : result.error.issues[0]?.message ?? "Select a valid file.";
 }
 
 // Check whether a file extension belongs to any supported preview category.

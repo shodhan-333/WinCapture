@@ -1,137 +1,41 @@
-import { useEffect, useRef, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 
 import type { FileResponse } from "@/features/files/types/file";
 import { isImagePreviewableFile } from "@/features/files/constants/fileSupport";
 
-export type FilePreviewLoader<TFile extends FileResponse = FileResponse> = (
-  file: TFile,
-) => Promise<string>;
+export type FilePreviewLoader<TFile extends FileResponse = FileResponse> = (file: TFile) => Promise<string>;
 
 interface UseFilePreviewsResult {
   previewUrls: Record<number, string>;
   loading: boolean;
 }
 
-// Cache image previews by file version and revoke blob URLs when their source changes.
+// Cache authenticated blob previews by account and file version in TanStack Query.
 export function useFilePreviews<TFile extends FileResponse>(
   files: TFile[],
   loadPreview: FilePreviewLoader<TFile>,
+  accountKey: string | null = null,
 ): UseFilePreviewsResult {
-  const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
-  const [loading, setLoading] = useState(false);
-  const cache = useRef(new Map<number, { signature: string; url: string }>());
-  const pending = useRef(new Map<string, Promise<string>>());
-  const currentSignatures = useRef(new Map<number, string>());
-
-  useEffect(() => {
-    let active = true;
-
-    const imageFiles = files.filter(
-      (file) =>
-        file.contentType.startsWith("image/") && isImagePreviewableFile(file.originalFileName),
-    );
-
-    // File metadata distinguishes a replacement upload that keeps the same file ID.
-    // Use content metadata to distinguish a replacement that keeps the same ID.
-    const signatureFor = (file: FileResponse) =>
-      `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
-    currentSignatures.current = new Map(imageFiles.map((file) => [file.id, signatureFor(file)]));
-    cache.current.forEach((entry, id) => {
-      const currentFile = imageFiles.find((file) => file.id === id);
-      if (!currentFile || entry.signature !== signatureFor(currentFile)) {
-        URL.revokeObjectURL(entry.url);
-        cache.current.delete(id);
-      }
-    });
-    setPreviewUrls(
-      Object.fromEntries(
-        imageFiles.flatMap((file) => {
-          const entry = cache.current.get(file.id);
-          return entry?.signature === signatureFor(file) ? [[file.id, entry.url]] : [];
-        }),
-      ),
-    );
-    setLoading(imageFiles.length > 0);
-
-    if (imageFiles.length === 0) {
-      return () => {
-        active = false;
-      };
-    }
-
-    // Load or reuse one preview per visible image, ignoring stale results.
-    const load = async () => {
-      const results = await Promise.all(
-        imageFiles.map(async (file) => {
-          try {
-            const signature = signatureFor(file);
-            const pendingKey = `${file.id}:${signature}`;
-            const cached = cache.current.get(file.id);
-            let url: string;
-            if (cached?.signature === signature) {
-              url = cached.url;
-            } else {
-              let request = pending.current.get(pendingKey);
-              if (!request) {
-                request = loadPreview(file);
-                pending.current.set(pendingKey, request);
-              }
-              url = await request;
-            }
-            const isCurrent = active && currentSignatures.current.get(file.id) === signature;
-            if (!isCurrent) {
-              // Requests shared with a newer effect may still be consumed there.
-              if (currentSignatures.current.get(file.id) !== signature) {
-                URL.revokeObjectURL(url);
-              }
-              return null;
-            }
-
-            const previous = cache.current.get(file.id);
-            if (previous && previous.url !== url && previous.signature !== signature) {
-              URL.revokeObjectURL(previous.url);
-            }
-            cache.current.set(file.id, { signature, url });
-
-            return [file.id, url] as const;
-          } catch {
-            return null;
-          } finally {
-            pending.current.delete(`${file.id}:${signatureFor(file)}`);
-          }
-        }),
-      );
-
-      if (!active) {
-        return;
-      }
-
-      setPreviewUrls(
-        Object.fromEntries(
-          results.filter((entry): entry is readonly [number, string] => entry !== null),
-        ),
-      );
-      setLoading(false);
-    };
-
-    void load();
-
-    return () => {
-      active = false;
-    };
-  }, [files, loadPreview]);
-
-  useEffect(
-    () => () => {
-      currentSignatures.current.clear();
-      cache.current.forEach((entry) => URL.revokeObjectURL(entry.url));
-      cache.current.clear();
-    },
-    [],
+  const imageFiles = files.filter(
+    (file) => file.contentType.startsWith("image/") && isImagePreviewableFile(file.originalFileName),
   );
-
-  return {
-    previewUrls,
-    loading,
-  };
+  const queries = useQueries({
+    queries: imageFiles.map((file) => {
+      const signature = `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
+      return {
+        queryKey: ["file-preview", accountKey, file.id, signature, file.downloadUrl, file.canManage],
+        queryFn: () => loadPreview(file).catch(() => null),
+        staleTime: Infinity,
+        gcTime: 60_000,
+        retry: false,
+      };
+    }),
+  });
+  const previewUrls = Object.fromEntries(
+    imageFiles.flatMap((file, index) => {
+      const url = queries[index]?.data;
+      return typeof url === "string" ? [[file.id, url]] : [];
+    }),
+  );
+  return { previewUrls, loading: queries.some((query) => query.isFetching) };
 }

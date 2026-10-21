@@ -7,8 +7,9 @@ import { parseCurrentUser } from "@/features/auth/schemas/currentUser";
 export async function getCurrentUser(
   instance: IPublicClientApplication,
   account: AccountInfo,
+  signal?: AbortSignal,
 ): Promise<CurrentUser> {
-  const response = await callApi(instance, account, "/api/auth/me");
+  const response = await callApi(instance, account, "/api/auth/me", { signal });
 
   const correlationId =
     response.headers.get("x-correlation-id") ?? response.headers.get("request-id") ?? undefined;

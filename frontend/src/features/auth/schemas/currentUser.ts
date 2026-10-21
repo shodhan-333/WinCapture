@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ApiError } from "@/shared/types/api";
-import type { CurrentUser } from "@/features/auth/types/auth";
 
 export const CurrentUserSchema = z.object({
   userId: z.number().int().safe().positive(),
@@ -9,6 +8,8 @@ export const CurrentUserSchema = z.object({
   role: z.enum(["User", "Admin"]),
   authenticationType: z.string().refine((value) => value.trim().length > 0),
 });
+
+export type CurrentUser = z.infer<typeof CurrentUserSchema>;
 
 // Validate the current-user profile returned by the authenticated API.
 export function parseCurrentUser(value: unknown, correlationId?: string): CurrentUser {

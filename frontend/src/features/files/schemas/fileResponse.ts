@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ApiError, type PagedResponse } from "@/shared/types/api";
-import type { AdminFileResponse, FileResponse } from "@/features/files/types/file";
 
 // Validate file metadata at the API boundary before it reaches file views.
 const positiveId = z.number().int().safe().positive();
@@ -30,6 +29,9 @@ export const AdminFileResponseSchema = z.object({
   albumId: positiveId.nullable(),
   albumName: z.string().nullable(),
 });
+
+export type FileResponse = z.infer<typeof FileResponseSchema>;
+export type AdminFileResponse = z.infer<typeof AdminFileResponseSchema>;
 
 export const StorageCleanupResponseSchema = z.object({ storageCleanupComplete: z.boolean() });
 export const PaginationMetadataSchema = z.object({

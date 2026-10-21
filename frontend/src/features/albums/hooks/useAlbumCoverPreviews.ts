@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 
 import { getAlbumFiles, getFilePreviewUrl } from "../api/albumsApi";
 import type { AlbumResponse } from "@/features/albums/types/album";
 import { getAccountKey } from "@/shared/utils/accountKey";
 
-// Fetch album cover blobs and release their object URLs when the account or list changes.
+// Cache optional album cover previews with the account and album query data.
 export function useAlbumCoverPreviews(
   albums: AlbumResponse[],
   instance: IPublicClientApplication,
@@ -13,69 +13,33 @@ export function useAlbumCoverPreviews(
   userId?: number,
   isAdmin = false,
 ): Record<number, string> {
-  const [coverUrls, setCoverUrls] = useState<Record<number, string>>({});
   const accountKey = getAccountKey(account);
-
-  useEffect(() => {
-    let active = true;
-    let cleanupRequested = false;
-    const createdUrls: string[] = [];
-
-    // Revoke URLs immediately if an async preview completes after cleanup.
-    const registerUrl = (url: string) => {
-      if (cleanupRequested) {
-        URL.revokeObjectURL(url);
-      } else {
-        createdUrls.push(url);
-      }
-    };
-
-    setCoverUrls({});
-
-    if (!account || albums.length === 0) {
-      return () => {
-        cleanupRequested = true;
-      };
-    }
-
-    // Load the first image from each album and keep unavailable covers optional.
-    const load = async () => {
-      const entries = await Promise.all(
-        albums.map(async (album) => {
+  const queries = useQueries({
+    queries: albums.map((album) => {
+      const canManage = isAdmin || album.ownerId === userId;
+      return {
+        queryKey: ["album-cover-preview", accountKey, album.id, canManage, album.updatedAt],
+        enabled: !!account,
+        queryFn: async () => {
+          if (!account) return null;
           try {
             const page = await getAlbumFiles(instance, account, album.id, 1, 100, "Images");
             const image = page.items[0];
-            if (!image) return null;
-
-            const canManage = isAdmin || album.ownerId === userId;
-            const url = await getFilePreviewUrl(instance, account, image.id, album.id, canManage);
-            registerUrl(url);
-            return [album.id, url] as const;
+            return image ? await getFilePreviewUrl(instance, account, image.id, album.id, canManage) : null;
           } catch {
-            // A cover is optional, so an unavailable preview should not fail the album list.
             return null;
           }
-        }),
-      );
-
-      if (!active) return;
-      setCoverUrls(
-        Object.fromEntries(
-          entries.filter((entry): entry is readonly [number, string] => entry !== null),
-        ),
-      );
-    };
-
-    void load();
-
-    return () => {
-      active = false;
-      cleanupRequested = true;
-      createdUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-    // Account object refreshes with an unchanged homeAccountId do not require refetching.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountKey, albums, instance, isAdmin, userId]);
-
-  return coverUrls;
+        },
+        staleTime: Infinity,
+        gcTime: 60_000,
+        retry: false,
+      };
+    }),
+  });
+  return Object.fromEntries(
+    albums.flatMap((album, index) => {
+      const url = queries[index]?.data;
+      return typeof url === "string" ? [[album.id, url]] : [];
+    }),
+  );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   FileArchive,
   FileAudio,
@@ -27,6 +28,7 @@ interface FileCardProps {
   onDetails: () => void;
   onPreview: (file: FileResponse, previewUrl?: string) => void;
   loadPreview?: (file: FileResponse) => Promise<string>;
+  previewCacheKey?: string | null;
   onDownload: () => void;
   onDelete: () => void;
   selected?: boolean;
@@ -46,6 +48,7 @@ export function FileCard({
   onDetails,
   onPreview,
   loadPreview,
+  previewCacheKey = null,
   onDownload,
   onDelete,
   selected = false,
@@ -76,48 +79,35 @@ export function FileCard({
                 : FileText;
 
   const cardRef = useRef<HTMLElement | null>(null);
-  const [contentUrl, setContentUrl] = useState<string>();
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const loadingRef = useRef<Promise<string> | null>(null);
-  const mountedRef = useRef(true);
-  const fetchPreview = useCallback(() => {
+  const [shouldLoadPreview, setShouldLoadPreview] = useState(false);
+  const signature = `${file.contentType}:${file.fileSize}:${file.uploadedAt}`;
+  const previewQuery = useQuery({
+    queryKey: ["file-preview", previewCacheKey, file.id, signature, file.downloadUrl, file.canManage],
+    enabled: shouldLoadPreview && !!loadPreview,
+    queryFn: () => loadPreview!(file),
+    staleTime: Infinity,
+    gcTime: 60_000,
+    retry: false,
+  });
+  const contentUrl = previewUrl ?? previewQuery.data;
+  const fetchPreview = useCallback(async () => {
     if (!loadPreview) return Promise.reject(new Error("Preview is unavailable."));
     if (contentUrl) return Promise.resolve(contentUrl);
-    if (loadingRef.current) return loadingRef.current;
-    setPreviewLoading(true);
-    const request = loadPreview(file)
-      .then((url) => {
-        if (mountedRef.current) setContentUrl(url);
-        else URL.revokeObjectURL(url);
-        return url;
-      })
-      .finally(() => {
-        loadingRef.current = null;
-        if (mountedRef.current) setPreviewLoading(false);
-      });
-    loadingRef.current = request;
-    return request;
-  }, [contentUrl, file, loadPreview]);
+    setShouldLoadPreview(true);
+    const result = await previewQuery.refetch();
+    if (result.error) throw result.error;
+    if (!result.data) throw new Error("Preview is unavailable.");
+    return result.data;
+  }, [contentUrl, loadPreview, previewQuery.refetch]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    if (isImage || !loadPreview)
-      return () => {
-        mountedRef.current = false;
-      };
+    if (isImage || !loadPreview) return;
     const element = cardRef.current;
-    if (!element)
-      return () => {
-        mountedRef.current = false;
-      };
-    if (typeof IntersectionObserver === "undefined")
-      return () => {
-        mountedRef.current = false;
-      };
+    if (!element || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          void fetchPreview().catch(() => undefined);
+          setShouldLoadPreview(true);
           observer.disconnect();
         }
       },
@@ -126,16 +116,8 @@ export function FileCard({
     observer.observe(element);
     return () => {
       observer.disconnect();
-      mountedRef.current = false;
     };
-  }, [fetchPreview, isImage, loadPreview]);
-
-  useEffect(
-    () => () => {
-      if (contentUrl) URL.revokeObjectURL(contentUrl);
-    },
-    [contentUrl],
-  );
+  }, [isImage, loadPreview]);
 
   useEffect(() => {
     if (focused) {
@@ -183,11 +165,11 @@ export function FileCard({
         <button
           type="button"
           onClick={() => void openPreview()}
-          disabled={previewLoading}
+          disabled={previewQuery.isFetching}
           aria-label={`Open preview of ${file.originalFileName}`}
           className="absolute inset-0 z-[1] grid cursor-pointer place-items-center border-0 bg-transparent text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#3787d4] disabled:cursor-wait"
         >
-          {previewLoading && (
+          {previewQuery.isFetching && (
             <span className="grid h-10 w-10 place-items-center rounded-full border border-white/75 bg-[#153b59]/55 shadow-lg backdrop-blur-sm">
               <span
                 className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"

@@ -1,11 +1,11 @@
-import { useState, type ChangeEvent } from "react";
+import { type ChangeEvent } from "react";
+import { useMutation, useMutationState } from "@tanstack/react-query";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import type { FileResponse } from "@/features/files/types/file";
 import { useFileFavorites } from "@/features/files";
 import {
   deleteAlbumFile,
   downloadAlbumFile,
-  getAlbumFile,
   removeAlbumFileAssociation,
   replaceAlbumFile,
 } from "@/features/albums/api/albumsApi";
@@ -27,7 +27,6 @@ interface UseAlbumFileActionsOptions {
   reloadAlbum: () => Promise<void>;
   removeSelected: (ids: readonly number[]) => void;
   cancelSelection: () => void;
-  setFiles: (update: (files: FileResponse[]) => FileResponse[]) => void;
   setFileDetails: (file: FileResponse | null) => void;
   setError: (message: string | null) => void;
   setSuccessMessage: (message: string | null) => void;
@@ -45,24 +44,48 @@ export function useAlbumFileActions({
   reloadAlbum,
   removeSelected,
   cancelSelection,
-  setFiles,
   setFileDetails,
   setError,
   setSuccessMessage,
   clearBulkAction,
 }: UseAlbumFileActionsOptions) {
-  const [bulkPending, setBulkPending] = useState(false);
+  const deleteMutation = useMutation({
+    mutationKey: ["albums", "file-delete"],
+    mutationFn: (fileId: number) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return deleteAlbumFile(instance, account, albumId, fileId);
+    },
+  });
+  const removeMutation = useMutation({
+    mutationKey: ["albums", "file-remove"],
+    mutationFn: (fileId: number) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return removeAlbumFileAssociation(instance, account, albumId, fileId);
+    },
+  });
+  const replaceMutation = useMutation({
+    mutationFn: ({ fileId, file }: { fileId: number; file: File }) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return replaceAlbumFile(instance, account, albumId, fileId, file);
+    },
+  });
+  const downloadMutation = useMutation({
+    mutationFn: ({ fileId, fileName }: { fileId: number; fileName: string }) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      return downloadAlbumFile(instance, account, albumId, fileId, fileName);
+    },
+  });
+  const pendingFileMutations = useMutationState({
+    filters: { status: "pending" },
+    select: (mutation) => mutation.options.mutationKey?.[0] === "albums"
+      && (mutation.options.mutationKey?.[1] === "file-delete" || mutation.options.mutationKey?.[1] === "file-remove"),
+  });
+  const bulkPending = pendingFileMutations.some(Boolean);
 
   const { pendingIds: favoritePendingIds, toggleFavorite } = useFileFavorites({
     instance,
     account,
-    onSuccess: (file, nextFavorite) => {
-      setFiles((previous) =>
-        previous.map((currentFile) =>
-          currentFile.id === file.id ? { ...currentFile, isFavorite: nextFavorite } : currentFile,
-        ),
-      );
-    },
+    onSuccess: () => undefined,
     onError: setError,
   });
 
@@ -73,7 +96,7 @@ export function useAlbumFileActions({
     try {
       setError(null);
       setSuccessMessage(null);
-      await downloadAlbumFile(instance, account, albumId, file.id, file.originalFileName);
+      await downloadMutation.mutateAsync({ fileId: file.id, fileName: file.originalFileName });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Download failed.");
     }
@@ -85,7 +108,7 @@ export function useAlbumFileActions({
 
     try {
       setError(null);
-      const result = await deleteAlbumFile(instance, account, albumId, fileId);
+      const result = await deleteMutation.mutateAsync(fileId);
       removeSelected([fileId]);
 
       if (result?.storageCleanupComplete === false) {
@@ -116,17 +139,16 @@ export function useAlbumFileActions({
       return;
     }
 
-    setBulkPending(true);
     setError(null);
     const results = await Promise.all(
       selectedFiles.map(async (file) => {
         try {
           if (bulkAction === "remove") {
-            await removeAlbumFileAssociation(instance, account, albumId, file.id);
+            await removeMutation.mutateAsync(file.id);
             return { id: file.id, ok: true as const, cleanupComplete: true };
           }
 
-          const deletion = await deleteAlbumFile(instance, account, albumId, file.id);
+          const deletion = await deleteMutation.mutateAsync(file.id);
           return {
             id: file.id,
             ok: true as const,
@@ -168,7 +190,6 @@ export function useAlbumFileActions({
     if (!failedCount) cancelSelection();
     await reloadAlbum();
     if (failureSummary) setError(failureSummary);
-    setBulkPending(false);
   };
 
   // Validate replacement uploads before sending them, then always reset the file input.
@@ -187,7 +208,7 @@ export function useAlbumFileActions({
 
     try {
       setError(null);
-      await replaceAlbumFile(instance, account, albumId, fileId, selectedFile);
+      await replaceMutation.mutateAsync({ fileId, file: selectedFile });
       setSuccessMessage(`${selectedFile.name} replaced successfully.`);
       await reloadAlbum();
     } catch (caughtError) {
@@ -198,16 +219,9 @@ export function useAlbumFileActions({
     }
   };
 
-  // Fetch the latest file metadata before opening its details dialog.
+  // Select the row; the page's file-detail query fetches canonical metadata.
   const handleShowFileDetails = async (file: FileResponse): Promise<void> => {
-    if (!account) return;
-
-    try {
-      setError(null);
-      setFileDetails(await getAlbumFile(instance, account, albumId, file.id));
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to load file details.");
-    }
+    setFileDetails(file);
   };
 
   return {

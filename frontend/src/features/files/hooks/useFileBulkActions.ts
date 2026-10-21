@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMutation, useMutationState } from "@tanstack/react-query";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { deleteFile, removeFavorite } from "@/features/files/api/filesApi";
 import type { FileResponse, FileView } from "@/features/files/types/file";
@@ -35,23 +35,34 @@ export function useFileBulkActions({
   setSuccessMessage,
   clearBulkAction,
 }: UseFileBulkActionsOptions) {
-  const [bulkPending, setBulkPending] = useState(false);
+  const bulkMutation = useMutation({
+    mutationKey: ["files", "bulk-action"],
+    mutationFn: async ({ fileId, action }: { fileId: number; action: BulkAction }) => {
+      if (!account) throw new Error("An authenticated account is required.");
+      if (action === "unfavorite") {
+        await removeFavorite(instance, account, fileId);
+        return { storageCleanupComplete: true };
+      }
+      return deleteFile(instance, account, fileId);
+    },
+  });
+  const pendingMutations = useMutationState({
+    filters: { mutationKey: ["files", "bulk-action"], status: "pending" },
+  });
+  const bulkPending = pendingMutations.length > 0;
 
   const runBulkAction = async (): Promise<void> => {
     if (!account || bulkPending || !selectedFiles.length || !bulkAction) return;
 
-    setBulkPending(true);
     setError(null);
     const results = await Promise.all(
       selectedFiles.map(async (file) => {
         try {
-          const deletion =
-            bulkAction === "unfavorite" ? undefined : await deleteFile(instance, account, file.id);
-          if (bulkAction === "unfavorite") await removeFavorite(instance, account, file.id);
+          const deletion = await bulkMutation.mutateAsync({ fileId: file.id, action: bulkAction });
           return {
             id: file.id,
             ok: true as const,
-            cleanupComplete: deletion?.storageCleanupComplete !== false,
+            cleanupComplete: deletion.storageCleanupComplete !== false,
           };
         } catch (failure) {
           return {
@@ -86,7 +97,6 @@ export function useFileBulkActions({
     if (!failed.length) cancelSelection();
     await loadFiles(view, currentPage);
     if (failureSummary) setError(failureSummary);
-    setBulkPending(false);
   };
 
   return { bulkPending, runBulkAction };
