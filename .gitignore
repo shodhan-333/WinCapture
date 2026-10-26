@@ -118,3 +118,5 @@ ehthumbs.db
 
 *.patch
 *.rej
+
+**/bin-tests/

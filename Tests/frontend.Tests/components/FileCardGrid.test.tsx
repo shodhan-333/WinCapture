@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FileCardGrid } from "../../../frontend/src/features/files/components/files/FileCardGrid";
 import type { FileResponse } from "../../../frontend/src/features/files/types/file";
+import { renderWithQueryClient as render } from "../utils/queryTestUtils";
 
 const file = (id: number): FileResponse => ({
   id,

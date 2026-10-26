@@ -41,6 +41,7 @@ import {
 } from "@/features/albums/hooks/albumQueries";
 
 const PAGE_SIZE = 12;
+const EMPTY_ALBUM_FILES: FileResponse[] = [];
 
 // Coordinate album metadata, member permissions, file actions, and preview dialogs.
 export function AlbumDetailPage() {
@@ -99,7 +100,7 @@ export function AlbumDetailPage() {
     category: categoryFilter,
   });
   const album = albumQuery.data ?? null;
-  const files = filesQuery.data?.items ?? [];
+  const files = filesQuery.data?.items ?? EMPTY_ALBUM_FILES;
   const totalFiles = filesQuery.data?.totalItems ?? 0;
   const pageCount = filesQuery.data?.pageCount ?? 1;
   const membersQuery = useAlbumMembersQuery({

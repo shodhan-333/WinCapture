@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser";
 import { describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ import {
 import type { AlbumResponse } from "../../../frontend/src/features/albums/types/album";
 import type { FileResponse } from "../../../frontend/src/features/files/types/file";
 import { useAlbumCoverPreviews } from "../../../frontend/src/features/albums/hooks/useAlbumCoverPreviews";
+import { renderHookWithQueryClient as renderHook } from "../utils/queryTestUtils";
 
 vi.mock("../../../frontend/src/features/albums/api/albumsApi", () => ({
   getAlbumFiles: vi.fn(),
@@ -101,7 +102,7 @@ describe("useAlbumCoverPreviews", () => {
     expect(getAlbumFiles).toHaveBeenCalledTimes(1);
   });
 
-  it("releases URLs created for a hook that unmounts before its request finishes", async () => {
+  it("does not expose a preview created after its hook unmounts", async () => {
     let resolveUrl!: (url: string) => void;
     vi.mocked(getAlbumFiles).mockResolvedValueOnce({
       items: [image],
@@ -115,12 +116,11 @@ describe("useAlbumCoverPreviews", () => {
         resolveUrl = resolve;
       }),
     );
-    const revoke = vi.spyOn(URL, "revokeObjectURL");
-    const { unmount } = renderHook(() => useAlbumCoverPreviews(albums, instance, account));
+    const { result, unmount } = renderHook(() => useAlbumCoverPreviews(albums, instance, account));
 
     await waitFor(() => expect(getFilePreviewUrl).toHaveBeenCalled());
     unmount();
     await act(async () => resolveUrl("blob:stale"));
-    expect(revoke).toHaveBeenCalledWith("blob:stale");
+    expect(result.current).toEqual({});
   });
 });

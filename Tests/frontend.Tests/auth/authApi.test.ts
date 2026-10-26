@@ -26,7 +26,7 @@ describe("getCurrentUser", () => {
     );
 
     await expect(getCurrentUser(instance, account)).resolves.toEqual(profile);
-    expect(callApiMock).toHaveBeenCalledWith(instance, account, "/api/auth/me");
+    expect(callApiMock).toHaveBeenCalledWith(instance, account, "/api/auth/me", { signal: undefined });
   });
 
   it("rejects malformed profiles without accepting an unknown role", async () => {

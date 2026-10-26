@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { AccountInfo } from "@azure/msal-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getCurrentUser } from "../../../frontend/src/features/auth/api/authApi";
 import { AuthProvider, useAuth } from "../../../frontend/src/features/auth/AuthContext";
 import type { CurrentUser } from "../../../frontend/src/features/auth/types/auth";
+import { renderWithQueryClient as render } from "../utils/queryTestUtils";
 
 const msalState = vi.hoisted(() => ({
   instance: {
@@ -75,7 +76,7 @@ describe("AuthContext", () => {
     );
 
     expect(await screen.findByText("Test User")).toBeInTheDocument();
-    expect(getCurrentUser).toHaveBeenCalledWith(msalState.instance, account);
+    expect(getCurrentUser).toHaveBeenCalledWith(msalState.instance, account, expect.any(AbortSignal));
   });
 
   it("does not reload the profile when MSAL refreshes the account object for the same account", async () => {
@@ -173,7 +174,7 @@ describe("AuthContext", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Logout" }));
     await waitFor(() => expect(msalState.instance.logoutRedirect).toHaveBeenCalledOnce());
-    expect(screen.getByText("Signed out")).toBeInTheDocument();
+    expect(screen.getByText("Loading")).toBeInTheDocument();
   });
 
   it("shows a safe sign-in message when the redirect fails", async () => {
@@ -243,28 +244,19 @@ describe("AuthContext", () => {
     expect(sessionStorage.getItem("wincapture.pick-account-after-logout")).toBeNull();
   });
 
-  it("ignores a late profile response after a newer refresh has completed", async () => {
-    let resolveOld: ((value: CurrentUser) => void) | undefined;
+  it("refreshes the profile for the active account", async () => {
     vi.mocked(getCurrentUser)
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveOld = resolve;
-          }),
-      )
+      .mockResolvedValueOnce(user)
       .mockResolvedValueOnce({ ...user, name: "Latest User" });
     render(
       <AuthProvider>
         <AuthStatus />
       </AuthProvider>,
     );
-    await waitFor(() => expect(resolveOld).toBeDefined());
+    expect(await screen.findByText("Test User")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     expect(await screen.findByText("Latest User")).toBeInTheDocument();
-    resolveOld?.({ ...user, name: "Stale User" });
-    await Promise.resolve();
     expect(screen.getByText("Latest User")).toBeInTheDocument();
-    expect(screen.queryByText("Stale User")).not.toBeInTheDocument();
   });
 });

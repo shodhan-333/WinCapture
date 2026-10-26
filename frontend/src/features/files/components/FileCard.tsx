@@ -89,16 +89,17 @@ export function FileCard({
     gcTime: 60_000,
     retry: false,
   });
+  const refetchPreview = previewQuery.refetch;
   const contentUrl = previewUrl ?? previewQuery.data;
   const fetchPreview = useCallback(async () => {
     if (!loadPreview) return Promise.reject(new Error("Preview is unavailable."));
     if (contentUrl) return Promise.resolve(contentUrl);
     setShouldLoadPreview(true);
-    const result = await previewQuery.refetch();
+    const result = await refetchPreview();
     if (result.error) throw result.error;
     if (!result.data) throw new Error("Preview is unavailable.");
     return result.data;
-  }, [contentUrl, loadPreview, previewQuery.refetch]);
+  }, [contentUrl, loadPreview, refetchPreview]);
 
   useEffect(() => {
     if (isImage || !loadPreview) return;

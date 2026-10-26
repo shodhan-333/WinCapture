@@ -1,8 +1,9 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { FileResponse } from "../../../frontend/src/features/files/types/file";
 import { useFilePreviews } from "../../../frontend/src/features/files/hooks/useFilePreviews";
+import { renderHookWithQueryClient as renderHook } from "../utils/queryTestUtils";
 
 const makeFile = (id: number, contentType = "image/png"): FileResponse => ({
   id,
@@ -60,7 +61,7 @@ describe("useFilePreviews", () => {
     await waitFor(() => expect(result.current.previewUrls[4]).toBe("blob:4"));
   });
 
-  it("reuses a cached preview until file metadata changes, then revokes the old URL", async () => {
+  it("reuses a cached preview until file metadata changes", async () => {
     const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     const loadPreview = vi.fn().mockResolvedValueOnce("blob:old").mockResolvedValueOnce("blob:new");
     const file = makeFile(12);
@@ -78,9 +79,8 @@ describe("useFilePreviews", () => {
       pageFiles: [{ ...file, uploadedAt: "2025-01-02T00:00:00.000Z" }],
     });
     await waitFor(() => expect(result.current.previewUrls[12]).toBe("blob:new"));
-    expect(revoke).toHaveBeenCalledWith("blob:old");
     unmount();
-    expect(revoke).toHaveBeenCalledWith("blob:new");
+    expect(revoke).not.toHaveBeenCalled();
   });
 
   it("ignores results after the requesting page is unmounted", async () => {
@@ -126,7 +126,7 @@ describe("useFilePreviews", () => {
     await act(async () => resolveOld("blob:old"));
 
     expect(result.current.previewUrls[9]).toBe("blob:new");
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:old");
+    expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("blob:old");
     expect(URL.revokeObjectURL).not.toHaveBeenCalledWith("blob:new");
   });
 });

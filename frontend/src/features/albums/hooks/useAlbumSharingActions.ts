@@ -13,6 +13,11 @@ interface UseAlbumSharingActionsOptions {
   members: AlbumMemberResponse[];
 }
 
+function getMutationErrorMessage(error: unknown, fallback: string): string | null {
+  if (!error) return null;
+  return error instanceof Error ? error.message : fallback;
+}
+
 // Keep editable sharing controls local and member records in TanStack Query.
 export function useAlbumSharingActions({
   instance,
@@ -111,9 +116,9 @@ export function useAlbumSharingActions({
   };
 
   const error = validationError
-    ?? (addMutation.error instanceof Error ? addMutation.error.message : null)
-    ?? (updateMutation.error instanceof Error ? updateMutation.error.message : null)
-    ?? (removeMutation.error instanceof Error ? removeMutation.error.message : null);
+    ?? getMutationErrorMessage(addMutation.error, "Unable to share the album.")
+    ?? getMutationErrorMessage(updateMutation.error, "Unable to update album permissions.")
+    ?? getMutationErrorMessage(removeMutation.error, "Unable to revoke access.");
 
   return { memberEmail, setMemberEmail, canView, setCanView, canDownload, setCanDownload, error, handleAddMember, handleUpdateMember, handleRemoveMember };
 }

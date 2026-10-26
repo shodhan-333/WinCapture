@@ -4,10 +4,11 @@ import type { AccountInfo, IPublicClientApplication } from "@azure/msal-browser"
 import { useQueryClient } from "@tanstack/react-query";
 import { useFileListQuery, fileKeys } from "@/features/files/hooks/fileQueries";
 import type { FileCategoryFilter } from "@/features/files/constants/fileSupport";
-import type { FileView } from "@/features/files/types/file";
+import type { FileResponse, FileView } from "@/features/files/types/file";
 import { getAccountKey } from "@/shared/utils/accountKey";
 
 const PAGE_SIZE = 12;
+const EMPTY_FILES: FileResponse[] = [];
 
 interface UseFilesDataOptions {
   instance: IPublicClientApplication;
@@ -64,7 +65,8 @@ export function useFilesData({
     }
   }, [currentPage, query.data, retain, routeFileId, setCurrentPage, setFocusedFileId, view]);
 
-  const loadFiles = useCallback(async (_view?: FileView, _page?: number, _category?: FileCategoryFilter): Promise<void> => {
+  const loadFiles = useCallback(async (...args: [view?: FileView, page?: number, category?: FileCategoryFilter]): Promise<void> => {
+    void args;
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: fileKeys.lists() }),
       queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
@@ -73,7 +75,7 @@ export function useFilesData({
   }, [queryClient]);
 
   return {
-    files: query.data?.items ?? [],
+    files: query.data?.items ?? EMPTY_FILES,
     totalItems: query.data?.totalItems ?? 0,
     pageCount: query.data?.pageCount ?? 1,
     loading: query.isFetching,

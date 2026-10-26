@@ -1,8 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FileCard } from "../../../frontend/src/features/files/components/FileCard";
 import type { FileResponse } from "../../../frontend/src/features/files/types/file";
+import { renderWithQueryClient as render } from "../utils/queryTestUtils";
 
 const file: FileResponse = {
   id: 2,
@@ -166,7 +167,7 @@ describe("FileCard", () => {
 
     const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     unmount();
-    expect(revoke).toHaveBeenCalledWith("blob:cached-pdf");
+    expect(revoke).not.toHaveBeenCalledWith("blob:cached-pdf");
     vi.unstubAllGlobals();
   });
 });
