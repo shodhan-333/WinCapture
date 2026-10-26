@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "@angular/core/testing": ["node_modules/@angular/core/types/testing.d.ts"],
+      "@angular/common/http/testing": ["node_modules/@angular/common/types/http-testing.d.ts"],
+      "@angular/common/http": ["node_modules/@angular/common/types/http.d.ts"],
+      "@angular/*": ["node_modules/@angular/*"],
+      "@azure/*": ["node_modules/@azure/*"],
+      "rxjs": ["node_modules/rxjs"],
+      "vitest": ["node_modules/vitest"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "../Tests/angular.Tests/**/*.ts"]
+}

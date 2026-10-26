@@ -7,7 +7,7 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
       const upperMessage = getStringProperty(body, "Message");
       const errorMessage = getStringProperty(body, "error");
       if (message || upperMessage || errorMessage) {
-        return message ?? upperMessage ?? errorMessage ?? fallback;
+        return message ?? upperMessage ?? errorMessage!;
       }
     }
   }

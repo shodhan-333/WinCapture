@@ -44,6 +44,16 @@ The backend's development CORS policy allows the React origin `https://localhost
 npm run typecheck
 npm run build
 npm run build:production
+npm test
+npm run test:coverage
+```
+
+Angular tests live in `../Tests/angular.Tests`, organized to match the `src/app` feature and shared-code layout. Coverage output is written to `../Tests/angular.Tests/TestResults`.
+
+After `npm run test:coverage`, open the HTML report from this directory with:
+
+```powershell
+Start-Process ..\Tests\angular.Tests\TestResults\index.html
 ```
 
 ## Frontend conventions

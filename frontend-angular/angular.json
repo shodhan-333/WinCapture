@@ -51,7 +51,22 @@
                 }
               ]
             },
-            "development": { "optimization": false, "sourceMap": true }
+            "development": { "optimization": false, "sourceMap": true },
+            "testing": {
+              "optimization": false,
+              "sourceMap": true,
+              "polyfills": ["node_modules/zone.js/fesm2015/zone.js"],
+              "externalDependencies": [
+                "@angular/common",
+                "@angular/core",
+                "@angular/forms",
+                "@angular/platform-browser",
+                "@angular/router",
+                "@azure/msal-angular",
+                "@azure/msal-browser",
+                "rxjs"
+              ]
+            }
           },
           "defaultConfiguration": "production"
         },
@@ -67,6 +82,23 @@
             "development": { "buildTarget": "wincapture-angular:build:development" }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "include": ["../../Tests/angular.Tests/**/*.spec.ts"],
+            "runnerConfig": "vitest-base.config.ts",
+            "coverageInclude": ["src/**/*.ts"],
+            "coverageExclude": [
+              "src/main.ts",
+              "src/environments/**",
+              "src/app/app.config.ts"
+            ],
+            "coverageThresholds": { "branches": 98, "lines": 98 },
+            "coverageReporters": ["text", "html"],
+            "buildTarget": "wincapture-angular:build:testing"
+          }
         }
       }
     }
@@ -75,3 +107,5 @@
     "analytics": false
   }
 }
+
+
