@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
+using WinCapture.DTOs.Common;
 using WinCapture.Exceptions;
 using WinCapture.Models;
 using WinCapture.Repositories;
@@ -45,6 +46,20 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task GetAsync_AllowsAlbumOwnerToManageAlbumFile()
+    {
+        var file = AlbumFile();
+        _files.Setup(repository => repository.GetByIdAsync(file.Id)).ReturnsAsync(file);
+        _files.Setup(repository => repository.GetFavoriteAsync(31, file.Id)).ReturnsAsync((Favorite?)null);
+        _albums.Setup(repository => repository.GetByIdAsync(file.AlbumId!.Value)).ReturnsAsync(Album());
+
+        var response = await _service.GetAsync(file.Id, 31, UserRole.User);
+
+        Assert.True(response.CanManage);
+        _albums.Verify(repository => repository.GetAccessAsync(It.IsAny<long>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetAsync_HidesAlbumFileWhenAlbumIsMissing()
     {
         var file = AlbumFile();
@@ -81,6 +96,18 @@ public sealed class FileServiceTests
 
         await Assert.ThrowsAsync<ForbiddenException>(
             () => _service.GetAsync(file.Id, UserId, UserRole.User));
+    }
+
+    [Fact]
+    public async Task GetAsync_RejectsSharedMemberWithoutAnAccessEntry()
+    {
+        var file = AlbumFile();
+        _files.Setup(repository => repository.GetByIdAsync(file.Id)).ReturnsAsync(file);
+        _albums.Setup(repository => repository.GetByIdAsync(file.AlbumId!.Value)).ReturnsAsync(Album());
+        _albums.Setup(repository => repository.GetAccessAsync(file.AlbumId!.Value, UserId))
+            .ReturnsAsync((AlbumAccess?)null);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.GetAsync(file.Id, UserId, UserRole.User));
     }
 
     [Fact]
@@ -143,6 +170,40 @@ public sealed class FileServiceTests
         await Assert.ThrowsAsync<ForbiddenException>(
             () => _service.DownloadAsync(file.Id, UserId, UserRole.User));
 
+        _storage.Verify(storage => storage.GetAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_ThrowsForMissingAlbumAndAllowsOwnerAndAdmin()
+    {
+        var file = AlbumFile();
+        _files.Setup(repository => repository.GetByIdAsync(file.Id)).ReturnsAsync(file);
+        _albums.Setup(repository => repository.GetByIdAsync(file.AlbumId!.Value))
+            .ReturnsAsync((Album?)null);
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.DownloadAsync(file.Id, 31, UserRole.User));
+
+        var album = Album();
+        _albums.Setup(repository => repository.GetByIdAsync(file.AlbumId!.Value)).ReturnsAsync(album);
+        _storage.Setup(storage => storage.GetAsync(file.StoredFileName)).ReturnsAsync(new MemoryStream([1]));
+        var ownerResult = await _service.DownloadAsync(file.Id, album.CreatedBy, UserRole.User);
+        var adminResult = await _service.DownloadAsync(file.Id, 99, UserRole.Admin);
+
+        Assert.Equal(file.OriginalFileName, ownerResult.DownloadName);
+        Assert.Equal(file.OriginalFileName, adminResult.DownloadName);
+        _albums.Verify(repository => repository.GetAccessAsync(It.IsAny<long>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_RejectsWhenAccessIsRevokedBetweenViewAndDownloadChecks()
+    {
+        var file = AlbumFile();
+        _files.Setup(repository => repository.GetByIdAsync(file.Id)).ReturnsAsync(file);
+        _albums.Setup(repository => repository.GetByIdAsync(file.AlbumId!.Value)).ReturnsAsync(Album());
+        _albums.SetupSequence(repository => repository.GetAccessAsync(file.AlbumId!.Value, UserId))
+            .ReturnsAsync(new AlbumAccess { CanView = true, CanDownload = true })
+            .ReturnsAsync((AlbumAccess?)null);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.DownloadAsync(file.Id, UserId, UserRole.User));
         _storage.Verify(storage => storage.GetAsync(It.IsAny<string>()), Times.Never);
     }
 
@@ -223,6 +284,31 @@ public sealed class FileServiceTests
         Assert.True(response.IsFavorite);
         Assert.True(response.CanManage);
         _files.Verify(repository => repository.UpdateAsync(file), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReplaceAsync_CleansUpNewBlobWhenMetadataUpdateFails()
+    {
+        var file = new FileMetadata
+        {
+            Id = 52,
+            UploadedBy = UserId,
+            StoredFileName = "old.txt",
+            OriginalFileName = "old.txt",
+            ContentType = "text/plain",
+            FileSize = 3
+        };
+        _files.Setup(repository => repository.GetByIdAsync(file.Id)).ReturnsAsync(file);
+        _files.Setup(repository => repository.UpdateAsync(file))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+        _storage.Setup(storage => storage.SaveAsync(It.IsAny<IFormFile>())).ReturnsAsync("new.txt");
+        _storage.Setup(storage => storage.DeleteAsync("new.txt")).Returns(Task.CompletedTask);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ReplaceAsync(
+            file.Id, TextFile(), UserId, UserRole.User));
+
+        _storage.Verify(storage => storage.DeleteAsync("new.txt"), Times.Once);
+        _storage.Verify(storage => storage.DeleteAsync("old.txt"), Times.Never);
     }
 
     [Fact]
@@ -478,9 +564,15 @@ public sealed class FileServiceTests
             .ReturnsAsync(new[] { personalFile, albumFile });
         _files.Setup(repository => repository.GetAdminFilesByUploaderIdAsync(UserId))
             .ReturnsAsync(new[] { personalFile });
+        var page = new PagedResponse<FileMetadata>([personalFile, albumFile], 4, 2, 1, 4);
+        _files.Setup(repository => repository.GetPagedAllAsync(It.IsAny<PaginationQuery>())).ReturnsAsync(page);
+        _files.Setup(repository => repository.GetPagedAdminFilesByUploaderIdAsync(UserId, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(page);
 
         var all = await _service.GetAllAsync();
         var uploaded = await _service.GetAdminFilesByUploaderIdAsync(UserId);
+        var allPage = await _service.GetAllPageAsync(new PaginationQuery());
+        var uploadedPage = await _service.GetAdminFilesByUploaderIdPageAsync(UserId, new PaginationQuery());
 
         Assert.Equal(2, all.Count);
         Assert.Null(all[0].AlbumName);
@@ -488,7 +580,78 @@ public sealed class FileServiceTests
         Assert.Equal("Admin album", all[1].AlbumName);
         Assert.Equal(album.Id, all[1].AlbumId);
         Assert.Equal("personal.txt", Assert.Single(uploaded).OriginalFileName);
+        Assert.Equal(page.Page, allPage.Page);
+        Assert.Equal("Admin album", allPage.Items[1].AlbumName);
+        Assert.Equal(page.TotalItems, uploadedPage.TotalItems);
     }
+
+    [Fact]
+    public async Task PagedAndFavoriteQueries_MapPagingAndLoadedPermissions()
+    {
+        var ownedPersonal = FavoriteFile(41, null, 20, null);
+        var otherPersonal = FavoriteFile(42, null, 99, null);
+        var missingAlbum = FavoriteFile(43, 30, 99, null);
+        var ownerAlbum = FavoriteFile(44, 31, 99, new Album { CreatedBy = 20, AlbumName = "Owned" });
+        var sharedAlbum = FavoriteFile(45, 32, 99, new Album
+        {
+            CreatedBy = 99,
+            AlbumName = "Shared",
+            Access = [new AlbumAccess { UserId = 20, CanView = true }]
+        });
+        var hiddenAlbum = FavoriteFile(46, 33, 99, new Album { CreatedBy = 99, Access = [] });
+        var page = new PagedResponse<FileMetadata>([ownedPersonal], 8, 2, 1, 8);
+        _files.Setup(repository => repository.GetPagedByUserIdAsync(20, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(page);
+        _files.Setup(repository => repository.GetFavoriteFileIdsByUserIdAsync(20, It.IsAny<IReadOnlyCollection<long>>()))
+            .ReturnsAsync([ownedPersonal.Id]);
+        _files.Setup(repository => repository.GetPagedFavoriteFilesByUserIdAsync(
+                20, UserRole.User, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(new PagedResponse<FileMetadata>(
+                [ownedPersonal, otherPersonal, missingAlbum, ownerAlbum, sharedAlbum], 6, 1, 5, 2));
+        _files.Setup(repository => repository.GetFavoriteFilesByUserIdAsync(20))
+            .ReturnsAsync([ownedPersonal, otherPersonal, missingAlbum, ownerAlbum, sharedAlbum, hiddenAlbum]);
+
+        var galleryPage = await _service.GetGalleryPageAsync(20, new PaginationQuery());
+        var favorites = await _service.GetFavoritesAsync(20, UserRole.User);
+        var favoritesPage = await _service.GetFavoritesPageAsync(20, UserRole.User, new PaginationQuery());
+
+        Assert.Equal(page.TotalItems, galleryPage.TotalItems);
+        Assert.Equal(page.Page, galleryPage.Page);
+        Assert.True(Assert.Single(galleryPage.Items).IsFavorite);
+        Assert.Equal(3, favorites.Count);
+        Assert.Equal(new long[] { 41, 44, 45 }, favorites.Select(file => file.Id));
+        Assert.Equal(6, favoritesPage.TotalItems);
+        Assert.Equal(5, favoritesPage.Items.Count);
+    }
+
+    [Fact]
+    public async Task FavoriteQueriesGiveAdminsAccessAndManagementToAllLoadedFiles()
+    {
+        var file = FavoriteFile(51, null, 99, null);
+        _files.Setup(repository => repository.GetFavoriteFilesByUserIdAsync(20)).ReturnsAsync([file]);
+        _files.Setup(repository => repository.GetPagedFavoriteFilesByUserIdAsync(
+                20, UserRole.Admin, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(new PagedResponse<FileMetadata>([file], 1, 1, 10, 1));
+
+        var favorites = await _service.GetFavoritesAsync(20, UserRole.Admin);
+        var page = await _service.GetFavoritesPageAsync(20, UserRole.Admin, new PaginationQuery());
+
+        Assert.True(Assert.Single(favorites).CanManage);
+        Assert.True(Assert.Single(page.Items).CanManage);
+    }
+
+    private static FileMetadata FavoriteFile(long id, long? albumId, int uploadedBy, Album? album) => new()
+    {
+        Id = id,
+        AlbumId = albumId,
+        UploadedBy = uploadedBy,
+        StoredFileName = $"{id}.txt",
+        OriginalFileName = $"{id}.txt",
+        ContentType = "text/plain",
+        FileSize = 1,
+        User = new User { Id = uploadedBy, Name = "Uploader" },
+        Album = album
+    };
 
     private static FileMetadata AlbumFile() => new()
     {

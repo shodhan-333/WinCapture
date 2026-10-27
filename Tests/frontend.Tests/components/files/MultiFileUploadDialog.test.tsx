@@ -34,6 +34,25 @@ describe("MultiFileUploadDialog", () => {
     expect(screen.getByText("Selected files (1)")).toBeInTheDocument();
   });
 
+  it("opens the file picker and clears the queued files as a batch", () => {
+    const onClose = vi.fn();
+    const pickerClick = vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    render(
+      <MultiFileUploadDialog title="Upload" description="Choose files" onUpload={vi.fn()} onComplete={vi.fn()} onClose={onClose} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Choose files" }));
+    expect(pickerClick).toHaveBeenCalledOnce();
+
+    fireEvent.change(screen.getByLabelText("Choose files to upload"), {
+      target: { files: [file("one.pdf"), file("two.pdf")] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(screen.queryByText("Selected files (2)")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close upload dialog" }));
+    expect(onClose).toHaveBeenCalledOnce();
+    pickerClick.mockRestore();
+  });
+
   it("continues after individual failures and reports successful and failed uploads", async () => {
     const onUpload = vi.fn().mockImplementation(async (selectedFile: File) => {
       if (selectedFile.name === "bad.pdf") throw new Error("network failure");

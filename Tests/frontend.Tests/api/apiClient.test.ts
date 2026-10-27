@@ -160,6 +160,59 @@ describe("API client security and error handling", () => {
     });
   });
 
+  it("keeps aborted requests cancellable and sends JSON headers for JSON bodies", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await callApi(makeClient(), account, "/api/files", { method: "POST", body: JSON.stringify({ name: "file" }) });
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(request.headers).get("Content-Type")).toBe("application/json");
+
+    const abortController = new AbortController();
+    abortController.abort();
+    const abortError = new DOMException("Request aborted", "AbortError");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
+    await expect(callApi(makeClient(), account, "/api/files", { signal: abortController.signal })).rejects.toBe(abortError);
+  });
+
+  it("uses request IDs as correlation fallback and maps common server statuses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", {
+      status: 404,
+      headers: { "request-id": "fallback-id" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(callApi(makeClient(), account, "/api/files/404")).rejects.toMatchObject({
+      status: 404, correlationId: "fallback-id", message: "The requested item could not be found.",
+    });
+
+    for (const [status, message] of [
+      [409, "This change conflicts with the current data. Refresh and try again."],
+      [413, "The selected file is too large to upload."],
+      [503, "The service encountered a problem. Please try again later."],
+      [418, "The request could not be completed. Please try again."],
+    ] as const) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status })));
+      await expect(callApi(makeClient(), account, "/api/files")).rejects.toMatchObject({ status, message });
+    }
+  });
+
+  it("converts redirect failures into actionable sign-in errors", async () => {
+    const errorClient = {
+      acquireTokenSilent: vi.fn().mockRejectedValue(new InteractionRequiredAuthError("interaction_required")),
+      acquireTokenRedirect: vi.fn().mockRejectedValue(new Error("popup blocked")),
+    } as unknown as IPublicClientApplication;
+    await expect(callApi(errorClient, account, "/api/files")).rejects.toMatchObject({
+      message: "Microsoft sign-in could not be completed: popup blocked",
+    });
+
+    const nonErrorClient = {
+      acquireTokenSilent: vi.fn().mockRejectedValue(new InteractionRequiredAuthError("interaction_required")),
+      acquireTokenRedirect: vi.fn().mockRejectedValue("redirect failed"),
+    } as unknown as IPublicClientApplication;
+    await expect(callApi(nonErrorClient, account, "/api/files")).rejects.toMatchObject({
+      message: "Microsoft sign-in could not be completed. Please try signing in again.",
+    });
+  });
+
   it("maps backend failures without exposing raw response details", async () => {
     vi.stubGlobal(
       "fetch",

@@ -170,4 +170,93 @@ describe("FileCard", () => {
     expect(revoke).not.toHaveBeenCalledWith("blob:cached-pdf");
     vi.unstubAllGlobals();
   });
+
+  it("shows a generic preview for unsupported files and falls back when preview loading fails", async () => {
+    const onPreview = vi.fn();
+    const unsupported = { ...file, id: 90, originalFileName: "readme.md", contentType: "text/markdown" };
+    const loadPreview = vi.fn().mockRejectedValue(new Error("preview failed"));
+    render(
+      <>
+        <FileCard
+          file={unsupported}
+          onFavoriteToggle={vi.fn()}
+          onReplace={vi.fn()}
+          onDetails={vi.fn()}
+          onPreview={onPreview}
+          onDownload={vi.fn()}
+          onDelete={vi.fn()}
+        />
+        <FileCard
+          file={{ ...file, id: 91, originalFileName: "document.pdf", contentType: "application/pdf" }}
+          loadPreview={loadPreview}
+          onFavoriteToggle={vi.fn()}
+          onReplace={vi.fn()}
+          onDetails={vi.fn()}
+          onPreview={onPreview}
+          onDownload={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Open preview of readme.md" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("MARKDOWN")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Open preview of document.pdf" }));
+    await waitFor(() => expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ id: 91 })));
+  });
+
+  it("handles image keyboard Space and selection toggles while honoring focus and disabled state", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+    const onPreview = vi.fn();
+    const onSelectionToggle = vi.fn();
+    render(
+      <FileCard
+        file={file}
+        previewUrl="blob:photo"
+        selected
+        onSelectionToggle={onSelectionToggle}
+        selectionDisabled
+        focused
+        onFavoriteToggle={vi.fn()}
+        onReplace={vi.fn()}
+        onDetails={vi.fn()}
+        onPreview={onPreview}
+        onDownload={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const checkbox = screen.getByRole("checkbox", { name: "Select photo.png" });
+    expect(checkbox).toBeChecked();
+    expect(checkbox).toBeDisabled();
+    fireEvent.change(checkbox);
+    expect(onSelectionToggle).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Open full-screen preview of photo.png" }), { key: " " });
+    expect(onPreview).toHaveBeenCalledWith(file, "blob:photo");
+    expect(screen.getByRole("article").className).toContain("!border-[#3787d4]");
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+    delete (HTMLElement.prototype as HTMLElement & { scrollIntoView?: () => void }).scrollIntoView;
+  });
+
+  it("falls back to the base preview when preview loading is unavailable and renders unknown types", async () => {
+    const onPreview = vi.fn();
+    const { rerender } = render(
+      <FileCard
+        file={{ ...file, originalFileName: "report.pdf", contentType: "application/pdf" }}
+        onFavoriteToggle={vi.fn()} onReplace={vi.fn()} onDetails={vi.fn()}
+        onPreview={onPreview} onDownload={vi.fn()} onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open preview of report.pdf" }));
+    await waitFor(() => expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ originalFileName: "report.pdf" })));
+
+    rerender(
+      <FileCard
+        file={{ ...file, originalFileName: "page.html", contentType: "text/html" }}
+        onFavoriteToggle={vi.fn()} onReplace={vi.fn()} onDetails={vi.fn()}
+        onPreview={onPreview} onDownload={vi.fn()} onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByText("HTML")).toHaveLength(2);
+  });
 });

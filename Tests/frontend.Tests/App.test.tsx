@@ -58,6 +58,15 @@ describe("application route authorization", () => {
     await waitFor(() => expect(auth.login).toHaveBeenCalledOnce());
   });
 
+  it("keeps routes hidden while an account profile is still unavailable", () => {
+    auth.account = { username: "user@example.com" };
+    auth.user = null as never;
+    auth.loading = false;
+    const { container } = render(<MemoryRouter><App /></MemoryRouter>);
+    expect(container).toBeEmptyDOMElement();
+    expect(auth.login).not.toHaveBeenCalled();
+  });
+
   it("shows authentication errors and routes retry to the session-aware action", async () => {
     auth.loading = true;
     auth.user = null as never;

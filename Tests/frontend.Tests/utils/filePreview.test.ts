@@ -35,6 +35,7 @@ describe("file preview parsing", () => {
     ]);
     expect(parseDelimitedText("")).toEqual([]);
     expect(parseDelimitedText("\n,,x\n")).toEqual([["", "", "x"]]);
+    expect(parseDelimitedText("a;b", ";")).toEqual([["a", "b"]]);
   });
 
   it("reports unreadable network responses and unsupported preview formats", async () => {
@@ -142,6 +143,86 @@ describe("file preview parsing", () => {
       shapes: [{ text: "Quarterly results", x: 100, y: 50, width: 600, height: 100 }],
     });
   });
+
+  it("uses safe PowerPoint defaults, drops empty shapes, and reports missing slides", async () => {
+    serve(await zipBuffer({
+      "ppt/slides/slide1.xml": '<p:sld xmlns:p="urn:p" xmlns:a="urn:a"><p:sp><p:txBody><a:t> Fallback shape </a:t></p:txBody></p:sp><p:sp><p:txBody><a:t> </a:t></p:txBody></p:sp></p:sld>',
+    }));
+    await expect(readFilePreview("blob:pptx", ".pptx")).resolves.toEqual({
+      kind: "slide",
+      width: 9144000,
+      height: 5143500,
+      shapes: [{ text: "Fallback shape", x: 0, y: 0, width: 9144000, height: 5143500 }],
+    });
+
+    serve(await zipBuffer({ "ppt/presentation.xml": "<presentation/>" }));
+    await expect(readFilePreview("blob:missing-slide", ".pptx")).rejects.toThrow(
+      "The first slide could not be found.",
+    );
+  });
+
+  it("rejects workbooks without worksheets or worksheet content and resolves relative targets", async () => {
+    serve(await zipBuffer({ "xl/workbook.xml": '<workbook xmlns="urn:sheet"><sheets/></workbook>' }));
+    await expect(readFilePreview("blob:no-sheets", ".xlsx")).rejects.toThrow(
+      "This workbook contains no worksheets.",
+    );
+
+    serve(await zipBuffer({
+      "xl/workbook.xml": '<workbook xmlns="urn:sheet" xmlns:r="urn:rel"><sheets><sheet r:id="r1"/></sheets></workbook>',
+      "xl/_rels/workbook.xml.rels": '<Relationships xmlns="urn:package"><Relationship Id="r1" Target="../worksheets/absent.xml"/></Relationships>',
+    }));
+    await expect(readFilePreview("blob:no-sheet-file", ".xlsx")).rejects.toThrow(
+      "The first worksheet could not be found.",
+    );
+
+    serve(await zipBuffer({
+      "xl/workbook.xml": '<workbook xmlns="urn:sheet" xmlns:r="urn:rel"><sheets><sheet name="Data" r:id="r1"/></sheets></workbook>',
+      "xl/_rels/workbook.xml.rels": '<Relationships xmlns="urn:package"><Relationship Id="r1" Target="../worksheets/sheet1.xml"/></Relationships>',
+      "worksheets/sheet1.xml": '<worksheet xmlns="urn:sheet"><sheetData><row><c r="1"><v>row-only</v></c><c r="AD1"><v>edge-column</v></c></row></sheetData></worksheet>',
+    }));
+    await expect(readFilePreview("blob:relative-sheet", ".xlsx")).resolves.toMatchObject({
+      kind: "table",
+      sheetName: "Data",
+      rows: [["row-only", ...Array(28).fill(""), "edge-column"]],
+    });
+  });
+
+  it("rejects missing or empty DOCX content and oversized compressed documents", async () => {
+    serve(await zipBuffer({ "word/styles.xml": "<styles/>" }));
+    await expect(readFilePreview("blob:no-document", ".docx")).rejects.toThrow(
+      "The main document content could not be found.",
+    );
+
+    serve(await zipBuffer({
+      "word/document.xml": '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>',
+    }));
+    await expect(readFilePreview("blob:empty-document", ".docx")).rejects.toThrow(
+      "This document contains no readable text.",
+    );
+
+    const oversized = new JSZip();
+    oversized.file("word/document.xml", "x".repeat(32 * 1024 * 1024 + 1));
+    serve(await oversized.generateAsync({ type: "arraybuffer", compression: "DEFLATE" }));
+    await expect(readFilePreview("blob:large-document", ".docx")).rejects.toThrow(
+      "This document expands beyond the safe preview limit.",
+    );
+  }, 30000);
+
+  it("rejects oversized preview XML and limits archive entry listings", async () => {
+    const largeWorkbook = new JSZip();
+    largeWorkbook.file("xl/workbook.xml", "x".repeat(1024 * 1024 + 1));
+    serve(await largeWorkbook.generateAsync({ type: "arraybuffer", compression: "DEFLATE" }));
+    await expect(readFilePreview("blob:large-workbook", ".xlsx")).rejects.toThrow(
+      "This file contains an oversized preview section.",
+    );
+
+    const manyEntries = new JSZip();
+    for (let index = 0; index < 2001; index += 1) manyEntries.file(`entry-${index}.txt`, "x");
+    serve(await manyEntries.generateAsync({ type: "arraybuffer", compression: "DEFLATE" }));
+    const result = await readFilePreview("blob:many-entries", ".zip");
+    expect(result.kind).toBe("archive");
+    if (result.kind === "archive") expect(result.entries).toHaveLength(2000);
+  }, 30000);
 
   it("lists archive paths and uncompressed sizes without extracting entries", async () => {
     serve(await zipBuffer({ "docs/readme.txt": "hello", "images/": "" }));

@@ -201,6 +201,23 @@ public sealed class AlbumFileServiceTests
     }
 
     [Fact]
+    public async Task GetAsync_DoesNotGrantManagementToAnotherAlbumMember()
+    {
+        _albums.Setup(service => service.GetAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(new AlbumResponse(AlbumId, "Trips", OwnerId, "Owner", DateTime.UtcNow, null));
+        _albums.Setup(service => service.CanDownloadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(true);
+        _files.Setup(repository => repository.GetByAlbumIdAsync(AlbumId)).ReturnsAsync([ExistingFile()]);
+        _files.Setup(repository => repository.GetFavoriteFileIdsByUserIdAsync(20)).ReturnsAsync(Array.Empty<long>());
+
+        var result = await _service.GetAsync(AlbumId, new User { Id = 20 }, UserRole.User);
+
+        var file = Assert.Single(result);
+        Assert.False(file.CanManage);
+        Assert.True(file.CanDownload);
+    }
+
+    [Fact]
     public async Task GetPageAsync_MapsFavoritesAndAlbumPermissionsForPageItems()
     {
         var page = new PagedResponse<FileMetadata>([ExistingFile()], 11, 2, 1, 11);
@@ -258,6 +275,39 @@ public sealed class AlbumFileServiceTests
             AlbumId, FileId, new User { Id = OwnerId }, UserRole.User));
 
         _files.Verify(repository => repository.GetFavoriteAsync(It.IsAny<int>(), It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetOneAsync_MapsFavoriteAndPermissionsForSharedMember()
+    {
+        var file = ExistingFile();
+        _albums.Setup(service => service.GetAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(new AlbumResponse(AlbumId, "Trips", OwnerId, "Owner", DateTime.UtcNow, null));
+        _albums.Setup(service => service.CanDownloadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(false);
+        _files.Setup(repository => repository.GetByIdAsync(FileId)).ReturnsAsync(file);
+        _files.Setup(repository => repository.GetFavoriteAsync(20, FileId))
+            .ReturnsAsync(new Favorite { UserId = 20, FileId = FileId });
+
+        var result = await _service.GetOneAsync(AlbumId, FileId, new User { Id = 20 }, UserRole.User);
+
+        Assert.True(result.IsFavorite);
+        Assert.False(result.CanManage);
+        Assert.False(result.CanDownload);
+    }
+
+    [Fact]
+    public async Task UploadAsync_AllowsAdminToManageAlbumFiles()
+    {
+        _albums.Setup(service => service.GetForUploadAsync(AlbumId, It.IsAny<User>(), UserRole.Admin))
+            .ReturnsAsync(new Album { Id = AlbumId, CreatedBy = OwnerId });
+        _storage.Setup(service => service.SaveAsync(It.IsAny<IFormFile>())).ReturnsAsync("admin.txt");
+        _files.Setup(repository => repository.AddAsync(It.IsAny<FileMetadata>())).Returns(Task.CompletedTask);
+
+        var result = await _service.UploadAsync(AlbumId, TextFile(), new User { Id = 99 }, UserRole.Admin);
+
+        Assert.True(result.CanManage);
+        Assert.False(result.IsFavorite);
     }
 
     [Fact]
@@ -320,6 +370,18 @@ public sealed class AlbumFileServiceTests
 
         Assert.Same(stream, result.Content);
         Assert.Equal("text/plain", result.ContentType);
+    }
+
+    [Fact]
+    public async Task DownloadAsync_ThrowsWhenAuthorizedAlbumFileIsMissing()
+    {
+        _albums.Setup(service => service.CanDownloadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(true);
+        _files.Setup(repository => repository.GetByIdAsync(FileId)).ReturnsAsync((FileMetadata?)null);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.DownloadAsync(
+            AlbumId, FileId, new User { Id = OwnerId }, UserRole.User));
+        _storage.Verify(service => service.GetAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -386,6 +448,29 @@ public sealed class AlbumFileServiceTests
             _service.RemoveFromAlbumAsync(AlbumId, FileId, new User { Id = 20 }, UserRole.User));
 
         _files.Verify(repository => repository.GetByIdAsync(It.IsAny<long>()), Times.Never);
+        _files.Verify(repository => repository.UpdateAsync(It.IsAny<FileMetadata>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAndRemoveFromAlbum_RejectMissingOrForeignFiles()
+    {
+        _albums.Setup(service => service.GetForUploadAsync(AlbumId, It.IsAny<User>(), UserRole.User))
+            .ReturnsAsync(new Album { Id = AlbumId, CreatedBy = OwnerId });
+        _files.Setup(repository => repository.GetByIdAsync(FileId)).ReturnsAsync((FileMetadata?)null);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.DeleteAsync(
+            AlbumId, FileId, new User { Id = OwnerId }, UserRole.User));
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.RemoveFromAlbumAsync(
+            AlbumId, FileId, new User { Id = OwnerId }, UserRole.User));
+
+        _files.Setup(repository => repository.GetByIdAsync(FileId))
+            .ReturnsAsync(new FileMetadata { Id = FileId, AlbumId = AlbumId + 1 });
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.DeleteAsync(
+            AlbumId, FileId, new User { Id = OwnerId }, UserRole.User));
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.RemoveFromAlbumAsync(
+            AlbumId, FileId, new User { Id = OwnerId }, UserRole.User));
+
+        _files.Verify(repository => repository.DeleteAsync(It.IsAny<FileMetadata>()), Times.Never);
         _files.Verify(repository => repository.UpdateAsync(It.IsAny<FileMetadata>()), Times.Never);
     }
 

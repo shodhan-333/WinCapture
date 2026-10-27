@@ -55,6 +55,35 @@ public sealed class RepositoryTests
     }
 
     [Fact]
+    public async Task FileRepository_AdminSearchRanksEveryMatchingMetadataField()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>().UseSqlite(connection).Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+        var owner = AddUser(database, "rank-owner");
+        var album = AddAlbum(database, owner, "Coastal trips");
+        var file = AddFile(database, owner, "coastal.jpg", DateTime.UtcNow);
+        file.ContentType = "image/plain";
+        file.AlbumId = album.Id;
+        file.Album = album;
+        await database.SaveChangesAsync();
+        var repository = new FileRepository(database);
+
+        async Task<FileMetadata> Search(string search) => Assert.Single((await repository.GetPagedAllAsync(
+            new PaginationQuery { Search = search, PageSize = 10 })).Items);
+
+        Assert.Equal(file.Id, (await Search("coastal.jpg")).Id); // exact file name
+        Assert.Equal(file.Id, (await Search("coastal")).Id); // file-name prefix
+        Assert.Equal(file.Id, (await Search("astal")).Id); // file-name substring
+        Assert.Equal(file.Id, (await Search("image/plain")).Id); // content type
+        Assert.Equal(file.Id, (await Search(file.Id.ToString())).Id); // file ID
+        Assert.Equal(file.Id, (await Search(owner.Id.ToString())).Id); // uploader ID fallback rank
+        Assert.Equal(file.Id, (await Search(owner.Name)).Id); // uploader name
+        Assert.Equal(file.Id, (await Search(album.AlbumName)).Id); // album name
+    }
+
+    [Fact]
     public async Task FileRepository_PagedFavoritesEnforcesVisibilitySearchCategoriesAndBounds()
     {
         await using var connection = await OpenDatabaseAsync();
@@ -507,6 +536,84 @@ public sealed class RepositoryTests
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => database.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task FileRepository_ListsSearchesAndMutatesFilesAndFavorites()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>().UseSqlite(connection).Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+
+        var owner = AddUser(database, "repository-operations-owner");
+        var other = AddUser(database, "repository-operations-other");
+        var album = AddAlbum(database, owner, "Repository operations album");
+        var personal = AddFile(database, owner, "personal.txt", DateTime.UtcNow);
+        var albumFile = AddFile(database, other, "album-photo.jpg", DateTime.UtcNow.AddMinutes(-1));
+        albumFile.AlbumId = album.Id;
+        albumFile.Album = album;
+        await database.SaveChangesAsync();
+
+        var repository = new FileRepository(database);
+        var added = new FileMetadata
+        {
+            OriginalFileName = "added.txt", StoredFileName = "added.txt", ContentType = "text/plain",
+            FileSize = 5, UploadedBy = owner.Id, User = owner, UploadedAt = DateTime.UtcNow
+        };
+        await repository.AddAsync(added);
+        Assert.NotNull(await repository.GetByIdAsync(added.Id));
+        Assert.Null(await repository.GetByIdAsync(-1));
+        Assert.Equal(2, (await repository.GetByUserIdAsync(owner.Id)).Count);
+        Assert.Contains(personal.Id, (await repository.GetByUserIdAsync(owner.Id)).Select(file => file.Id));
+        Assert.Single((await repository.GetPagedByAlbumIdAsync(album.Id, new PaginationQuery
+        {
+            Search = "photo", Category = "Images"
+        })).Items);
+        Assert.Equal(3, (await repository.GetAllAsync()).Count);
+        Assert.Single((await repository.GetPagedAllAsync(new PaginationQuery { Category = "Images" })).Items);
+        Assert.Equal(3, (await repository.GetPagedAllAsync(new PaginationQuery { Category = "Unknown" })).TotalItems);
+        Assert.Single((await repository.GetAdminFilesByUploaderIdAsync(other.Id)));
+        Assert.Single((await repository.GetPagedByAlbumIdAsync(album.Id, new PaginationQuery())).Items);
+        Assert.Single((await repository.GetPagedAdminFilesByUploaderIdAsync(other.Id, new PaginationQuery())).Items);
+        Assert.Single((await repository.GetPagedAdminFilesByUploaderIdAsync(
+            other.Id, new PaginationQuery { Search = "Repository operations album" })).Items);
+
+        var favorite = new Favorite { UserId = owner.Id, FileId = personal.Id, FavoritedAt = DateTime.UtcNow };
+        await repository.AddFavoriteAsync(favorite);
+        Assert.Single(await repository.GetFavoriteFileIdsByUserIdAsync(owner.Id));
+        Assert.Single(await repository.GetFavoriteFileIdsByUserIdAsync(owner.Id, [personal.Id]));
+        Assert.Equal(personal.Id, Assert.Single(await repository.GetFavoriteFilesByUserIdAsync(owner.Id)).Id);
+        Assert.NotNull(await repository.GetFavoriteAsync(owner.Id, personal.Id));
+        Assert.Null(await repository.GetFavoriteAsync(other.Id, personal.Id));
+        await repository.DeleteFavoriteAsync(favorite);
+        Assert.Empty(await repository.GetFavoriteFileIdsByUserIdAsync(owner.Id));
+
+        added.OriginalFileName = "updated.txt";
+        await repository.UpdateAsync(added);
+        Assert.Equal("updated.txt", (await repository.GetByIdAsync(added.Id))!.OriginalFileName);
+        await repository.DeleteAsync(added);
+        Assert.Null(await repository.GetByIdAsync(added.Id));
+    }
+
+    [Fact]
+    public async Task AlbumRepository_AddAsyncPersistsAlbums()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = new DbContextOptionsBuilder<WinCaptureDbContext>().UseSqlite(connection).Options;
+        await using var database = new WinCaptureDbContext(options);
+        await database.Database.EnsureCreatedAsync();
+        var owner = AddUser(database, "album-repository-add-owner");
+        var album = new Album
+        {
+            AlbumName = "Created through repository", CreatedBy = owner.Id, Owner = owner,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await new AlbumRepository(database).AddAsync(album);
+
+        Assert.True(album.Id > 0);
+        Assert.Equal("Created through repository", (await database.Albums.SingleAsync()).AlbumName);
     }
 
     private static async Task<SqliteConnection> OpenDatabaseAsync()

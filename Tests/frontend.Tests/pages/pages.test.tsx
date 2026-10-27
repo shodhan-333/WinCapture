@@ -12,6 +12,7 @@ import { AlbumDetailPage } from "../../../frontend/src/features/albums/pages/Alb
 import { Layout } from "../../../frontend/src/app/components/Layout";
 import type { AlbumResponse } from "../../../frontend/src/features/albums/types/album";
 import { ApiError } from "../../../frontend/src/shared/types/api";
+import { formatDate } from "../../../frontend/src/shared/utils/formatters";
 import type { FileResponse, AdminFileResponse } from "../../../frontend/src/features/files/types/file";
 import { renderWithQueryClient as render } from "../utils/queryTestUtils";
 
@@ -34,6 +35,8 @@ const state = vi.hoisted(() => ({
   previewLoading: false,
   trackPreviewEffects: false,
   previewEffectCalls: 0,
+  coverUrls: {} as Record<number, string>,
+  previewUrls: {} as Record<number, string>,
 }));
 
 vi.mock("@azure/msal-react", () => ({
@@ -82,10 +85,10 @@ vi.mock("../../../frontend/src/features/files/hooks/useFilePreviews", () => ({
         state.previewEffectCalls += 1;
       }
     }, [files]);
-    return { previewUrls: {}, loading: state.previewLoading };
+    return { previewUrls: state.previewUrls, loading: state.previewLoading };
   },
 }));
-vi.mock("../../../frontend/src/features/albums/hooks/useAlbumCoverPreviews", () => ({ useAlbumCoverPreviews: () => ({}) }));
+vi.mock("../../../frontend/src/features/albums/hooks/useAlbumCoverPreviews", () => ({ useAlbumCoverPreviews: () => state.coverUrls }));
 
 const album: AlbumResponse = {
   id: 7,
@@ -147,6 +150,8 @@ describe("page workflows", () => {
     state.previewLoading = false;
     state.trackPreviewEffects = false;
     state.previewEffectCalls = 0;
+    state.coverUrls = {};
+    state.previewUrls = {};
     state.user = { userId: 7, name: "Maya Chen", email: "maya@example.test", role: "User", authenticationType: "Microsoft Entra ID" };
     state.account = account;
     state.logout.mockReset().mockResolvedValue(undefined);
@@ -190,6 +195,34 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "New album" }));
     await waitFor(() => expect(state.api.createAlbum).toHaveBeenCalledWith(expect.anything(), account, { albumName: "Coastal trip" }));
     await waitFor(() => expect(screen.getByTestId("current-path")).toHaveTextContent("/albums/7"));
+  });
+
+  it("focuses album creation from the empty state and displays load and create errors", async () => {
+    state.api.getMyAlbums.mockResolvedValue(paged());
+    state.api.createAlbum.mockRejectedValue(new Error("Album service unavailable"));
+    renderPage(<AlbumsPage />);
+    await screen.findByRole("heading", { name: "No albums available" });
+    fireEvent.click(screen.getByRole("button", { name: "Create album" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("New album name"));
+
+    fireEvent.change(screen.getByLabelText("New album name"), { target: { value: "Summer" } });
+    fireEvent.click(screen.getByRole("button", { name: "New album" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Album service unavailable");
+    expect(state.api.createAlbum).toHaveBeenCalledWith(expect.anything(), account, { albumName: "Summer" });
+  });
+
+  it("renders album cards with update dates and navigates through paginated results", async () => {
+    const page = {
+      ...paged([ { ...album, updatedAt: "2025-02-01T00:00:00Z" } ]),
+      pageCount: 2,
+      totalItems: 11,
+    };
+    state.api.getMyAlbums.mockResolvedValue(page);
+    state.api.getAlbums.mockResolvedValue(page);
+    renderPage(<AlbumsPage />);
+    expect(await screen.findByText(`Updated ${formatDate("2025-02-01T00:00:00Z")}`)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Coastal trip/ }));
+    expect(screen.getByTestId("current-path")).toHaveTextContent("/albums/7");
   });
 
   it("filters albums by ownership and searches the selected result set", async () => {
@@ -589,6 +622,48 @@ describe("page workflows", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete album" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied");
     expect(screen.getByTestId("current-path")).toHaveTextContent("/albums/7");
+  });
+
+  it("cancels album edits and deletion, and closes file detail and preview dialogs", async () => {
+    state.api.getAlbumFiles.mockResolvedValue(paged([file]));
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage(<AlbumDetailPage />, "/albums/7");
+
+    await screen.findByRole("heading", { name: "Coastal trip" });
+    fireEvent.click(screen.getByRole("button", { name: "Edit album name" }));
+    fireEvent.change(screen.getByLabelText("Album name"), { target: { value: "Unsaved name" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("heading", { name: "Coastal trip" })).toBeInTheDocument();
+    expect(state.api.updateAlbum).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete album" }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(state.api.deleteAlbum).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for coast.pdf" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Details" }));
+    expect(await screen.findByRole("dialog", { name: "coast.pdf" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close file details" }));
+    expect(screen.queryByRole("dialog", { name: "coast.pdf" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open preview of coast.pdf" }));
+    expect(await screen.findByRole("dialog", { name: "Preview coast.pdf" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close file preview" }));
+    expect(screen.queryByRole("dialog", { name: "Preview coast.pdf" })).not.toBeInTheDocument();
+  });
+
+  it("shows the cached image as the album cover", async () => {
+    const image: FileResponse = { ...file, id: 22, originalFileName: "cover.png", contentType: "image/png" };
+    state.previewUrls[image.id] = "blob:album-cover";
+    state.api.getAlbumFiles.mockResolvedValue(paged([image, file]));
+    renderPage(<AlbumDetailPage />, "/albums/7");
+
+    await screen.findByRole("heading", { name: "Coastal trip" });
+    expect(document.querySelector('img[src="blob:album-cover"]')).toBeInTheDocument();
+    expect(state.api.getAlbumFiles).toHaveBeenCalledWith(expect.anything(), account, 7, 1, 12, "All");
+    fireEvent.click(screen.getByRole("button", { name: "Open preview of coast.pdf" }));
+    await waitFor(() => expect(state.api.getFilePreviewUrl).toHaveBeenCalledWith(expect.anything(), account, file.id, 7, true));
+    expect(await screen.findByRole("dialog", { name: "Preview coast.pdf" })).toBeInTheDocument();
   });
 
   it("shares an album and updates or revokes member permissions", async () => {

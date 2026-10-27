@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,5 +62,27 @@ describe("Layout navigation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Profile menu for Test User" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     expect(auth.logout).toHaveBeenCalledOnce();
+  });
+
+  it("uses fallback profile details when signed out and closes mobile links after selection", () => {
+    auth.user = null as never;
+    renderLayout("/dashboard");
+    const profile = screen.getByRole("button", { name: "Profile menu for WinCapture User" });
+    expect(profile).toBeInTheDocument();
+    expect(profile).toHaveTextContent("WinCapture User");
+    expect(profile).toHaveTextContent("User");
+    expect(screen.getByRole("link", { name: "Albums" })).toHaveAttribute("href", "https://localhost:5173/angular/albums");
+
+    fireEvent.click(profile);
+    fireEvent.keyDown(document, { key: "Enter" });
+    expect(screen.getByRole("menu", { name: "Profile options" })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("menu", { name: "Profile options" }));
+    expect(screen.getByRole("menu", { name: "Profile options" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    const albumLink = within(screen.getByRole("navigation", { name: "Mobile navigation" })).getByRole("link", { name: "Albums" });
+    albumLink.addEventListener("click", (event) => event.preventDefault(), { once: true });
+    fireEvent.click(albumLink);
+    expect(screen.queryByRole("navigation", { name: "Mobile navigation" })).not.toBeInTheDocument();
   });
 });

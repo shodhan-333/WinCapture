@@ -3,6 +3,10 @@ import {
   FILE_EXTENSIONS,
   MAX_FILE_SIZE_BYTES,
   getFileCategory,
+  getFileExtension,
+  isImagePreviewableFile,
+  isPreviewableFile,
+  UploadFileSchema,
   validateUploadFile,
 } from "../../../frontend/src/features/files/constants/fileSupport";
 
@@ -18,7 +22,15 @@ describe("supported file rules", () => {
     expect(getFileCategory("PHOTO.JPEG")).toBe("Images");
     expect(getFileCategory("notes.csv")).toBe("Documents");
     expect(getFileCategory("bundle.zip")).toBe("Archives");
+    expect(getFileCategory("clip.webm")).toBe("Videos");
+    expect(getFileCategory("voice.m4a")).toBe("Audio");
     expect(getFileCategory("script.html")).toBeUndefined();
+    expect(getFileExtension("README")).toBe("");
+    expect(getFileExtension("IMAGE.PNG")).toBe(".png");
+    expect(isPreviewableFile("voice.wav")).toBe(true);
+    expect(isPreviewableFile("script.html")).toBe(false);
+    expect(isImagePreviewableFile("IMAGE.JPEG")).toBe(true);
+    expect(isImagePreviewableFile("poster.gif")).toBe(false);
   });
 
   it("enforces nonempty files and the exact 10 MiB limit", () => {
@@ -27,5 +39,6 @@ describe("supported file rules", () => {
     expect(validateUploadFile(file("oversize.pdf", MAX_FILE_SIZE_BYTES + 1))).toMatch(/10 MB/i);
     expect(validateUploadFile(file("limit.pdf", MAX_FILE_SIZE_BYTES))).toBeUndefined();
     expect(validateUploadFile(file("no.exe", 1))).toMatch(/Unsupported/i);
+    expect(UploadFileSchema.safeParse({}).success).toBe(false);
   });
 });

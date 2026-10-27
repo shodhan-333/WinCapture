@@ -183,14 +183,10 @@ public sealed class FileValidator
                 return false;
             }
 
-            while (offset < content.Length && content[offset] == 0xFF)
+            // A valid file ends with FF D9, so the marker walk always sees the EOI byte before EOF.
+            while (content[offset] == 0xFF)
             {
                 offset++;
-            }
-
-            if (offset >= content.Length)
-            {
-                return false;
             }
 
             var marker = content[offset++];
@@ -212,11 +208,6 @@ public sealed class FileValidator
             }
 
             if (marker is >= 0xD0 and <= 0xD7)
-            {
-                return false;
-            }
-
-            if (offset > content.Length - 2)
             {
                 return false;
             }
@@ -286,14 +277,9 @@ public sealed class FileValidator
 
                 var markerStart = offset++;
 
-                while (offset < content.Length && content[offset] == 0xFF)
+                while (content[offset] == 0xFF)
                 {
                     offset++;
-                }
-
-                if (offset >= content.Length)
-                {
-                    return false;
                 }
 
                 var scanMarker = content[offset];
@@ -342,7 +328,7 @@ public sealed class FileValidator
         {
             var length = BinaryPrimitives.ReadUInt32BigEndian(content[offset..]);
 
-            if (length > int.MaxValue || length > content.Length - offset - 12)
+            if (length > content.Length - offset - 12)
             {
                 return false;
             }
@@ -437,11 +423,6 @@ public sealed class FileValidator
     // Rejects chunk names that do not follow the PNG chunk-type format.
     private static bool IsValidPngChunkType(ReadOnlySpan<byte> type)
     {
-        if (type.Length != 4)
-        {
-            return false;
-        }
-
         foreach (var value in type)
         {
             var isUppercase = value >= (byte)'A' && value <= (byte)'Z';
@@ -453,7 +434,9 @@ public sealed class FileValidator
             }
         }
 
-        return type[2] >= (byte)'A' && type[2] <= (byte)'Z';
+        // The loop above establishes that type[2] is an ASCII letter, so this upper bound
+        // distinguishes uppercase from lowercase without checking the lower bound again.
+        return type[2] <= (byte)'Z';
     }
 
     // Recognizes PNG chunk types handled by this validator or defined as common ancillary chunks.
@@ -545,7 +528,7 @@ public sealed class FileValidator
         {
             var chunkLength = BinaryPrimitives.ReadUInt32LittleEndian(content[(offset + 4)..]);
 
-            if (chunkLength > int.MaxValue || chunkLength > content.Length - offset - 8)
+            if (chunkLength > content.Length - offset - 8)
             {
                 return false;
             }
@@ -771,7 +754,6 @@ public sealed class FileValidator
             foreach (var entry in archive.Entries)
             {
                 if (!IsSafeArchiveEntryName(entry.FullName) ||
-                    entry.Length < 0 ||
                     entry.Length > MaximumExpandedArchiveSize - expandedLength ||
                     !parts.Add(entry.FullName))
                 {
@@ -835,7 +817,7 @@ public sealed class FileValidator
             return hasExpectedContentType && hasOfficeDocumentRelationship;
         }
         catch (Exception exception) when (
-            exception is IOException or XmlException or ArgumentException or InvalidOperationException)
+            exception is IOException or InvalidDataException or XmlException or ArgumentException or InvalidOperationException)
         {
             return false;
         }
@@ -853,8 +835,8 @@ public sealed class FileValidator
     // Reads an Office XML entry without allowing DTD processing or excessive document sizes.
     private static XDocument ReadXmlEntry(ZipArchive archive, string name)
     {
-        var entry = archive.GetEntry(name)
-            ?? throw new InvalidDataException();
+        // The package validator verifies required entry names before reading XML parts.
+        var entry = archive.GetEntry(name)!;
 
         if (entry.Length > MaximumXmlCharacters)
         {
@@ -925,7 +907,6 @@ public sealed class FileValidator
             foreach (var entry in archive.Entries)
             {
                 if (!IsSafeArchiveEntryName(entry.FullName) ||
-                    entry.Length < 0 ||
                     entry.Length > MaximumExpandedArchiveSize - expandedLength)
                 {
                     return false;
@@ -944,7 +925,7 @@ public sealed class FileValidator
             return true;
         }
         catch (Exception exception) when (
-            exception is IOException or ArgumentException or InvalidOperationException)
+            exception is IOException or InvalidDataException or ArgumentException or InvalidOperationException)
         {
             return false;
         }
@@ -1153,7 +1134,7 @@ public sealed class FileValidator
         value = 0;
         unknownSize = false;
 
-        if (offset >= content.Length || content[offset] == 0)
+        if (content[offset] == 0)
         {
             return false;
         }
@@ -1254,7 +1235,9 @@ public sealed class FileValidator
                                       sampleRates[sampleIndex] +
                                       (int)((header >> 9) & 1);
 
-                    return frameLength >= 24 && frameLength <= content.Length - offset;
+                    // The supported version, layer, bitrate, and sample-rate ranges yield
+                    // minimum frame sizes above 24 bytes.
+                    return frameLength <= content.Length - offset;
                 }
             }
 
@@ -1283,7 +1266,7 @@ public sealed class FileValidator
         {
             var chunkSize = BinaryPrimitives.ReadUInt32LittleEndian(content[(offset + 4)..]);
 
-            if (chunkSize > int.MaxValue || chunkSize > content.Length - offset - 8)
+            if (chunkSize > content.Length - offset - 8)
             {
                 return false;
             }

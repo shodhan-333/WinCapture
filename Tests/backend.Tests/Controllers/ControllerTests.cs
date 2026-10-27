@@ -101,6 +101,89 @@ public sealed class ControllerTests
     }
 
     [Fact]
+    public void Auth_me_uses_preferred_username_and_user_role()
+    {
+        var identity = new ClaimsIdentity(
+        [
+            new Claim("wincapture_user_id", "8"),
+            new Claim(ClaimTypes.Role, "WinCapture.User"),
+            new Claim("preferred_username", "preferred@example.test"),
+            new Claim("upn", "fallback@example.test")
+        ], "test");
+        var controller = new AuthController
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+            }
+        };
+
+        var result = Assert.IsType<OkObjectResult>(controller.Me().Result);
+        var user = Assert.IsType<CurrentUserResponse>(result.Value);
+
+        Assert.Equal("User", user.Role);
+        Assert.Equal("preferred@example.test", user.Email);
+    }
+
+    [Theory]
+    [InlineData("email", "email@example.test")]
+    [InlineData("upn", "upn@example.test")]
+    public void Auth_me_uses_email_claim_fallbacks(string claimType, string email)
+    {
+        var identity = new ClaimsIdentity(
+        [
+            new Claim("wincapture_user_id", "9"),
+            new Claim(ClaimTypes.Role, "WinCapture.User"),
+            new Claim(claimType, email)
+        ], "test");
+        var controller = new AuthController
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+            }
+        };
+
+        var result = Assert.IsType<OkObjectResult>(controller.Me().Result);
+        var user = Assert.IsType<CurrentUserResponse>(result.Value);
+
+        Assert.Equal(email, user.Email);
+    }
+
+    [Fact]
+    public void Auth_me_uses_name_and_empty_email_fallbacks()
+    {
+        var named = WithUser(new AuthController(), 10, "WinCapture.User", name: "Named user");
+        var result = Assert.IsType<OkObjectResult>(named.Me().Result);
+        var currentUser = Assert.IsType<CurrentUserResponse>(result.Value);
+        Assert.Equal("Named user", currentUser.Name);
+        Assert.Equal(string.Empty, currentUser.Email);
+    }
+
+    [Fact]
+    public void Auth_me_usesUpnWhenEmailClaimsAreAbsent()
+    {
+        var identity = new ClaimsIdentity(
+        [
+            new Claim("wincapture_user_id", "8"),
+            new Claim(ClaimTypes.Role, "WinCapture.User"),
+            new Claim("upn", "upn@example.test")
+        ], "test");
+        var controller = new AuthController
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+            }
+        };
+
+        var result = Assert.IsType<OkObjectResult>(controller.Me().Result);
+        var user = Assert.IsType<CurrentUserResponse>(result.Value);
+        Assert.Equal("upn@example.test", user.Email);
+        Assert.Equal("User", user.Role);
+    }
+
+    [Fact]
     public async Task Admin_actions_keep_global_and_personal_queries_separate()
     {
         var files = new Mock<IFileService>();
@@ -131,10 +214,18 @@ public sealed class ControllerTests
     {
         var files = new Mock<IFileService>();
         var albums = new Mock<IAlbumService>();
-        var controller = WithUser(new AdminController(files.Object, albums.Object), 0, "WinCapture.Admin");
+        var invalidControllers = new[]
+        {
+            WithUser(new AdminController(files.Object, albums.Object), 0, "WinCapture.Admin"),
+            WithUser(new AdminController(files.Object, albums.Object), null, "WinCapture.Admin"),
+            WithClaims(new AdminController(files.Object, albums.Object), "abc", "WinCapture.Admin")
+        };
 
-        await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyFiles(new PaginationQuery()));
-        await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyAlbums(new PaginationQuery()));
+        foreach (var controller in invalidControllers)
+        {
+            await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyFiles(new PaginationQuery()));
+            await Assert.ThrowsAsync<UnauthorizedException>(() => controller.GetMyAlbums(new PaginationQuery()));
+        }
 
         files.VerifyNoOtherCalls();
         albums.VerifyNoOtherCalls();
@@ -244,6 +335,33 @@ public sealed class ControllerTests
             user.Id == 3 && user.Role == UserRole.Admin), It.IsAny<PaginationQuery>()), Times.Once);
     }
 
+    [Fact]
+    public async Task Album_controller_uses_preferred_username_when_email_claim_is_missing()
+    {
+        var albums = new Mock<IAlbumService>();
+        albums.Setup(service => service.GetAccessiblePageAsync(It.Is<User>(user =>
+                user.Email == "preferred@example.test"), It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(Page(Array.Empty<AlbumResponse>()));
+        var identity = new ClaimsIdentity(
+        [
+            new Claim("wincapture_user_id", "4"),
+            new Claim(ClaimTypes.Role, "WinCapture.User"),
+            new Claim("preferred_username", "preferred@example.test")
+        ], "test");
+        var controller = new AlbumsController(albums.Object, Mock.Of<IAlbumFileService>())
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+            }
+        };
+
+        await controller.GetAll(new PaginationQuery());
+
+        albums.Verify(service => service.GetAccessiblePageAsync(It.Is<User>(user =>
+            user.Email == "preferred@example.test"), It.IsAny<PaginationQuery>()), Times.Once);
+    }
+
     private static PagedResponse<T> Page<T>(IReadOnlyList<T> items)
     {
         return new PagedResponse<T>(items, items.Count, 1, 10, Math.Max(1, items.Count));
@@ -278,6 +396,20 @@ public sealed class ControllerTests
             HttpContext = new DefaultHttpContext
             {
                 User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"))
+            }
+        };
+        return controller;
+    }
+
+    private static T WithClaims<T>(T controller, string userId, string role)
+        where T : ControllerBase
+    {
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim("wincapture_user_id", userId), new Claim(ClaimTypes.Role, role)], "test"))
             }
         };
         return controller;

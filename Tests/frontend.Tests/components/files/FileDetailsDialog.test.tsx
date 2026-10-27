@@ -26,6 +26,8 @@ describe("FileDetailsDialog", () => {
     expect(screen.getByText("2 KB")).toBeInTheDocument();
     expect(screen.getByText("image/png", { exact: false })).toBeInTheDocument();
 
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+    expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     fireEvent.click(screen.getByRole("button", { name: "Close file details backdrop" }));
     fireEvent.click(screen.getByRole("button", { name: "Close file details" }));

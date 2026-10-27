@@ -65,6 +65,14 @@ describe("FilePreviewModal", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Audio could not be played");
   });
 
+  it("uses the audio duration placeholder for non-finite metadata", () => {
+    render(<FilePreviewModal file={makeFile("unknown-duration.mp3")} src="blob:audio" onClose={vi.fn()} />);
+    const audio = screen.getByLabelText("Audio preview: unknown-duration.mp3");
+    Object.defineProperty(audio, "duration", { configurable: true, value: Number.POSITIVE_INFINITY });
+    fireEvent.loadedMetadata(audio);
+    expect(screen.getByText("Duration loads when playback is ready")).toBeInTheDocument();
+  });
+
   it("renders text, tables, slides, and archives and handles parser errors", async () => {
     readPreview.mockResolvedValueOnce({
       kind: "text",
@@ -82,12 +90,11 @@ describe("FilePreviewModal", () => {
 
     readPreview.mockResolvedValueOnce({
       kind: "table",
-      sheetName: "Sales",
-      rows: [],
+      rows: [["value"]],
     });
     rerender(<FilePreviewModal file={makeFile("sales.csv")} src="blob:table" onClose={vi.fn()} />);
-    expect(await screen.findByText("Sales")).toBeInTheDocument();
-    expect(screen.getByText("No tabular content found.")).toBeInTheDocument();
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("value")).toBeInTheDocument();
 
     readPreview.mockResolvedValueOnce({
       kind: "slide",
@@ -116,8 +123,16 @@ describe("FilePreviewModal", () => {
     expect(screen.getByText("1.0 KB")).toBeInTheDocument();
     expect(screen.getByText("Size unavailable")).toBeInTheDocument();
 
-    readPreview.mockRejectedValueOnce("unsupported");
+    readPreview.mockResolvedValueOnce({
+      kind: "archive",
+      entries: Array.from({ length: 2000 }, (_, index) => ({ name: index === 0 ? "" : `file-${index}`, size: 0, directory: index === 0 })),
+    });
+    rerender(<FilePreviewModal file={makeFile("many.zip")} src="blob:many" onClose={vi.fn()} />);
+    expect(await screen.findByText("(2000+ entries)")).toBeInTheDocument();
+    expect(screen.getByText("FOLDER")).toBeInTheDocument();
+
+    readPreview.mockRejectedValueOnce(new Error("corrupt archive"));
     rerender(<FilePreviewModal file={makeFile("bad.docx")} src="blob:bad" onClose={vi.fn()} />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("This file could not be previewed");
+    expect(await screen.findByRole("alert")).toHaveTextContent("corrupt archive");
   }, 30000);
 });

@@ -1,5 +1,6 @@
 using Moq;
 using WinCapture.DTOs.Albums;
+using WinCapture.DTOs.Common;
 using WinCapture.Exceptions;
 using WinCapture.Models;
 using WinCapture.Repositories;
@@ -413,6 +414,106 @@ public sealed class AlbumServiceTests
         _storage.Verify(storage => storage.DeleteAsync("first"), Times.Once);
         _storage.Verify(storage => storage.DeleteAsync("second"), Times.Once);
         _albums.Verify(repository => repository.DeleteAsync(album), Times.Once);
+    }
+
+    [Fact]
+    public async Task Album_list_methods_MapRepositoryResultsAndPreservePaging()
+    {
+        var album = OwnedAlbum();
+        var page = new PagedResponse<Album>([album], 3, 2, 1, 3);
+        _albums.Setup(repository => repository.GetAccessibleByUserIdAsync(OwnerId)).ReturnsAsync([album]);
+        _albums.Setup(repository => repository.GetPagedAccessibleByUserIdAsync(OwnerId, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(page);
+        _albums.Setup(repository => repository.GetOwnedByUserIdAsync(OwnerId)).ReturnsAsync([album]);
+        _albums.Setup(repository => repository.GetPagedOwnedByUserIdAsync(OwnerId, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(page);
+        _albums.Setup(repository => repository.GetPagedSharedWithUserIdAsync(OwnerId, It.IsAny<PaginationQuery>()))
+            .ReturnsAsync(page);
+        _albums.Setup(repository => repository.GetAllAsync()).ReturnsAsync([album]);
+        _albums.Setup(repository => repository.GetPagedAllAsync(It.IsAny<PaginationQuery>())).ReturnsAsync(page);
+
+        var accessible = await _service.GetAccessibleAsync(Owner());
+        var accessiblePage = await _service.GetAccessiblePageAsync(Owner(), new PaginationQuery());
+        var owned = await _service.GetOwnedByUserAsync(OwnerId);
+        var ownedPage = await _service.GetOwnedByUserPageAsync(OwnerId, new PaginationQuery());
+        var sharedPage = await _service.GetSharedWithUserPageAsync(OwnerId, new PaginationQuery());
+        var all = await _service.GetAllForAdminAsync();
+        var allPage = await _service.GetAllForAdminPageAsync(new PaginationQuery());
+
+        Assert.Equal("Owned", Assert.Single(accessible).AlbumName);
+        Assert.Equal("Owner", Assert.Single(accessiblePage.Items).OwnerName);
+        Assert.Equal("Owned", Assert.Single(owned).AlbumName);
+        Assert.Equal(page.TotalItems, ownedPage.TotalItems);
+        Assert.Equal(page.Page, sharedPage.Page);
+        Assert.Equal("Owner", Assert.Single(all).OwnerName);
+        Assert.Equal(page.PageSize, allPage.PageSize);
+    }
+
+    [Fact]
+    public async Task GetForUploadAsync_AllowsAdminAndRejectsSharedViewerWithoutManagementAccess()
+    {
+        var album = SharedAlbum();
+        _albums.Setup(repository => repository.GetByIdAsync(album.Id)).ReturnsAsync(album);
+        _albums.Setup(repository => repository.GetAccessAsync(album.Id, 15))
+            .ReturnsAsync(new AlbumAccess { CanView = true });
+
+        Assert.Same(album, await _service.GetForUploadAsync(album.Id, new User { Id = 99 }, UserRole.Admin));
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.GetForUploadAsync(
+            album.Id, new User { Id = 15 }, UserRole.User));
+    }
+
+    [Fact]
+    public async Task GetAsync_RejectsMemberWithoutAnAccessEntry()
+    {
+        var album = SharedAlbum();
+        _albums.Setup(repository => repository.GetByIdAsync(album.Id)).ReturnsAsync(album);
+        _albums.Setup(repository => repository.GetAccessAsync(album.Id, 15)).ReturnsAsync((AlbumAccess?)null);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.GetAsync(
+            album.Id, new User { Id = 15 }, UserRole.User));
+    }
+
+    [Fact]
+    public async Task AddMemberAsync_AllowsSharingWithoutPermissions()
+    {
+        var album = OwnedAlbum();
+        var member = new User { Id = 25, Email = "member@example.com" };
+        _albums.Setup(repository => repository.GetByIdAsync(album.Id)).ReturnsAsync(album);
+        _albums.Setup(repository => repository.GetAccessAsync(album.Id, member.Id)).ReturnsAsync((AlbumAccess?)null);
+        _albums.Setup(repository => repository.AddAccessAsync(It.IsAny<AlbumAccess>())).Returns(Task.CompletedTask);
+        _users.Setup(repository => repository.GetByEmailAsync(member.Email)).ReturnsAsync(member);
+
+        await _service.AddMemberAsync(album.Id,
+            new AddAlbumMemberRequest(member.Email, false, false), Owner(), UserRole.User);
+
+        _albums.Verify(repository => repository.AddAccessAsync(It.Is<AlbumAccess>(access =>
+            !access.CanView && !access.CanDownload)), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsync_CanKeepViewAccessWithoutDownloadPermission()
+    {
+        var album = OwnedAlbum();
+        var access = new AlbumAccess { AlbumId = album.Id, UserId = 25, CanView = false, CanDownload = true };
+        _albums.Setup(repository => repository.GetByIdAsync(album.Id)).ReturnsAsync(album);
+        _albums.Setup(repository => repository.GetAccessAsync(album.Id, access.UserId)).ReturnsAsync(access);
+        _albums.Setup(repository => repository.UpdateAccessAsync(access)).Returns(Task.CompletedTask);
+
+        await _service.UpdateMemberAsync(album.Id, access.UserId,
+            new UpdateAlbumMemberRequest(true, false), Owner(), UserRole.User);
+
+        Assert.True(access.CanView);
+        Assert.False(access.CanDownload);
+    }
+
+    [Fact]
+    public async Task CanDownloadAsync_ReturnsFalseWhenMemberHasNoAccessEntry()
+    {
+        var album = SharedAlbum();
+        _albums.Setup(repository => repository.GetByIdAsync(album.Id)).ReturnsAsync(album);
+        _albums.Setup(repository => repository.GetAccessAsync(album.Id, 15)).ReturnsAsync((AlbumAccess?)null);
+
+        Assert.False(await _service.CanDownloadAsync(album.Id, new User { Id = 15 }, UserRole.User));
     }
 
     private static User Owner() => new()

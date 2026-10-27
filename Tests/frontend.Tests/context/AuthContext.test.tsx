@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import type { AccountInfo } from "@azure/msal-browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,6 +51,10 @@ function AuthStatus() {
 
 describe("AuthContext", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it("requires consumers to be rendered inside the auth provider", () => {
+    expect(() => renderHook(() => useAuth())).toThrow("useAuth must be used inside AuthProvider.");
+  });
 
   beforeEach(() => {
     sessionStorage.clear();

@@ -59,6 +59,15 @@ public sealed class MicrosoftIdentityTests
     }
 
     [Fact]
+    public async Task GetOrCreateAsync_RejectsUnsupportedRole()
+    {
+        await Assert.ThrowsAsync<UnauthorizedException>(() => _userService.GetOrCreateAsync(
+            "Person", "person@example.com", "entra-1", (UserRole)99));
+
+        _users.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task GetOrCreateAsync_UsesOidAndDoesNotLookUpEmailMatches()
     {
         var existing = new User
@@ -150,6 +159,30 @@ public sealed class MicrosoftIdentityTests
     }
 
     [Fact]
+    public async Task GetOrCreateAsync_UpdatesExistingEmailNameAndRoleWhenEntraValuesChange()
+    {
+        var existing = new User
+        {
+            Id = 5,
+            Name = "Old name",
+            Email = "old@example.com",
+            EntraObjectId = "entra-1",
+            Role = UserRole.User
+        };
+        _users.Setup(repository => repository.GetByEntraObjectIdAsync("entra-1")).ReturnsAsync(existing);
+        _users.Setup(repository => repository.UpdateAsync(existing)).Returns(Task.CompletedTask);
+
+        var result = await _userService.GetOrCreateAsync(
+            "New name", "NEW@example.com", "entra-1", UserRole.Admin);
+
+        Assert.Same(existing, result);
+        Assert.Equal("New name", result.Name);
+        Assert.Equal("new@example.com", result.Email);
+        Assert.Equal(UserRole.Admin, result.Role);
+        _users.Verify(repository => repository.UpdateAsync(existing), Times.Once);
+    }
+
+    [Fact]
     public async Task GetOrCreateAsync_UsesEmailPrefixForBlankNameAndTruncatesLongNames()
     {
         User? created = null;
@@ -210,6 +243,54 @@ public sealed class MicrosoftIdentityTests
         Assert.Equal("Microsoft Entra ID", transformed.FindFirst("authentication_type")?.Value);
         Assert.Contains(transformed.FindAll("roles"), claim => claim.Value == "WinCapture.Admin");
         _users.Verify(repository => repository.AddAsync(It.Is<User>(user => user.Role == UserRole.Admin)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ClaimsTransformation_UsesUpnAndGivenNameFallbacksAndReplacesStaleClaims()
+    {
+        _users.Setup(repository => repository.GetByEntraObjectIdAsync("entra-fallback"))
+            .ReturnsAsync((User?)null);
+        _users.Setup(repository => repository.AddAsync(It.IsAny<User>()))
+            .Callback<User>(user => user.Id = 25)
+            .Returns(Task.CompletedTask);
+        var identity = new ClaimsIdentity(
+        [
+            new Claim("wincapture_user_id", " "),
+            new Claim("wincapture_user_id", "stale"),
+            new Claim("authentication_type", "old"),
+            new Claim("authentication_type", "stale"),
+            new Claim("oid", "entra-fallback"),
+            new Claim("upn", "person@example.com"),
+            new Claim("given_name", "Fallback Person"),
+            new Claim("roles", "wincapture.user")
+        ], "Bearer");
+
+        var result = await new MicrosoftIdentityClaimsTransformation(_userService)
+            .TransformAsync(new ClaimsPrincipal(identity));
+
+        Assert.Equal("25", result.FindFirst("wincapture_user_id")?.Value);
+        Assert.Equal("Microsoft Entra ID", result.FindFirst("authentication_type")?.Value);
+        Assert.Single(result.FindAll("wincapture_user_id"));
+        Assert.Single(result.FindAll("authentication_type"));
+        _users.Verify(repository => repository.AddAsync(It.Is<User>(user =>
+            user.Name == "Fallback Person" && user.Email == "person@example.com" && user.Role == UserRole.User)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ClaimsTransformation_LeavesPrincipalUnchangedWhenIdentityClaimsAreIncomplete()
+    {
+        var transformation = new MicrosoftIdentityClaimsTransformation(_userService);
+        var noObjectId = new ClaimsPrincipal(new ClaimsIdentity(
+        [new Claim("preferred_username", "person@example.com"), new Claim("roles", "WinCapture.User")], "Bearer"));
+        var noEmail = new ClaimsPrincipal(new ClaimsIdentity(
+        [new Claim("oid", "entra-1"), new Claim("roles", "WinCapture.User")], "Bearer"));
+        var noName = new ClaimsPrincipal(new ClaimsIdentity(
+        [new Claim("oid", "entra-1"), new Claim("preferred_username", "person@example.com")], "Bearer"));
+
+        Assert.Same(noObjectId, await transformation.TransformAsync(noObjectId));
+        Assert.Same(noEmail, await transformation.TransformAsync(noEmail));
+        Assert.Same(noName, await transformation.TransformAsync(noName));
+        _users.VerifyNoOtherCalls();
     }
 
     [Fact]

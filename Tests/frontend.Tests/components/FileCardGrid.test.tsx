@@ -67,4 +67,36 @@ describe("FileCardGrid", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(onDelete).toHaveBeenCalledWith(files[1]!);
   });
+
+  it("applies selectable and ineligible file rules and the focused file id", () => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+    const files = [file(3), file(4)];
+    const onSelectionToggle = vi.fn();
+    render(
+      <FileCardGrid
+        files={files}
+        previewUrls={{}}
+        favoritePendingIds={new Set()}
+        onFavoriteToggle={vi.fn()}
+        onReplace={vi.fn()}
+        onDetails={vi.fn()}
+        onPreview={vi.fn()}
+        onDownload={vi.fn()}
+        onDelete={vi.fn()}
+        selectionMode
+        selectedIds={new Set([3])}
+        onSelectionToggle={onSelectionToggle}
+        selectionEligible={(item) => item.id === 3}
+        selectionDisabled={false}
+        focusedFileId={4}
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: "Select file-3.pdf" })).toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "Select file-4.pdf" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select file-3.pdf" }));
+    expect(onSelectionToggle).toHaveBeenCalledWith(files[0]);
+    expect(screen.getAllByRole("article")[1]).toHaveClass("!border-[#3787d4]");
+    delete (HTMLElement.prototype as HTMLElement & { scrollIntoView?: () => void }).scrollIntoView;
+  });
 });

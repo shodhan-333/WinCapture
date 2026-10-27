@@ -123,4 +123,19 @@ describe("useAlbumCoverPreviews", () => {
     await act(async () => resolveUrl("blob:stale"));
     expect(result.current).toEqual({});
   });
+
+  it("ignores cover lookup and preview failures so albums remain usable", async () => {
+    vi.mocked(getAlbumFiles).mockRejectedValueOnce(new Error("cover request failed"));
+    const first = renderHook(() => useAlbumCoverPreviews(albums, instance, account));
+    await waitFor(() => expect(getAlbumFiles).toHaveBeenCalled());
+    await waitFor(() => expect(first.result.current).toEqual({}));
+
+    vi.mocked(getAlbumFiles).mockResolvedValueOnce({
+      items: [image], totalItems: 1, page: 1, pageSize: 100, pageCount: 1,
+    });
+    vi.mocked(getFilePreviewUrl).mockRejectedValueOnce(new Error("preview failed"));
+    const second = renderHook(() => useAlbumCoverPreviews([{ ...album, id: 6 }], instance, account));
+    await waitFor(() => expect(getFilePreviewUrl).toHaveBeenCalled());
+    await waitFor(() => expect(second.result.current).toEqual({}));
+  });
 });
