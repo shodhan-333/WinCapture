@@ -1,9 +1,9 @@
 export const environment = {
   production: true,
-  apiBaseUrl: "https://localhost:7106",
+  apiBaseUrl: "",
   msalClientId: "fb87005a-2ae7-4cb9-84d5-5f9d3ca2556a",
   msalTenantId: "bdcfaa46-3f69-4dfd-b3f7-c582bdfbb820",
   msalApiScope: "api://fb87005a-2ae7-4cb9-84d5-5f9d3ca2556a/access_as_user",
-  redirectUri: "https://localhost:5173/redirect.html",
-  reactBaseUrl: "https://localhost:5173",
+  redirectUri: `${window.location.origin}/redirect.html`,
+  reactBaseUrl: window.location.origin,
 };

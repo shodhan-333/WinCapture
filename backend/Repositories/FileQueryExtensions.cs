@@ -6,17 +6,15 @@ namespace WinCapture.Repositories;
 
 internal static class FileQueryExtensions
 {
-    private static readonly string[][] CategoryExtensions =
-    [
-        [".jpg", ".jpeg", ".png", ".webp"],
-        [".pdf", ".txt", ".csv", ".docx", ".xlsx", ".pptx"],
-        [".mp4", ".mov", ".webm"],
-        [".mp3", ".wav", ".m4a"],
-        [".zip"]
-    ];
-
-    private static readonly string[] CategoryNames =
-        ["Images", "Documents", "Videos", "Audio", "Archives"];
+    private static readonly IReadOnlyDictionary<string, string[]> CategoryExtensions =
+        new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["Images"] = [".jpg", ".jpeg", ".png", ".webp"],
+            ["Documents"] = [".pdf", ".txt", ".csv", ".docx", ".xlsx", ".pptx"],
+            ["Videos"] = [".mp4", ".mov", ".webm"],
+            ["Audio"] = [".mp3", ".wav", ".m4a"],
+            ["Archives"] = [".zip"]
+        };
 
     public static IQueryable<FileMetadata> ApplyFileFilters(
         this IQueryable<FileMetadata> query,
@@ -31,29 +29,18 @@ internal static class FileQueryExtensions
                 file.Id.ToString().Contains(search));
         }
 
-        if (!string.IsNullOrEmpty(pagination.Category) && pagination.Category != "All")
-        {
-            var categoryIndex = Array.IndexOf(CategoryNames, pagination.Category);
-            if (categoryIndex >= 0)
-            {
-                query = ApplyCategory(query, CategoryExtensions[categoryIndex]);
-            }
-        }
-
-        return query;
+        return ApplyFileCategory(query, pagination);
     }
 
     public static IQueryable<FileMetadata> ApplyFileCategory(
         this IQueryable<FileMetadata> query,
         PaginationQuery pagination)
     {
-        if (!string.IsNullOrEmpty(pagination.Category) && pagination.Category != "All")
+        if (!string.IsNullOrEmpty(pagination.Category)
+            && pagination.Category != "All"
+            && CategoryExtensions.TryGetValue(pagination.Category, out var extensions))
         {
-            var categoryIndex = Array.IndexOf(CategoryNames, pagination.Category);
-            if (categoryIndex >= 0)
-            {
-                query = ApplyCategory(query, CategoryExtensions[categoryIndex]);
-            }
+            query = ApplyCategory(query, extensions);
         }
 
         return query;

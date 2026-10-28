@@ -15,5 +15,5 @@
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src/**/*.ts", "../Tests/angular.Tests/**/*.ts"]
+  "include": ["src/**/*.ts", "angular-frontend.Tests/**/*.ts"]
 }

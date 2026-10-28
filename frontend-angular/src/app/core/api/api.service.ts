@@ -120,7 +120,7 @@ export class ApiService {
         const body = this.getErrorBody(error.error);
         if (error.status === 0) {
           throw new Error(
-            "The WinCapture API is unreachable. Check that https://localhost:7106 is running and its certificate is trusted. Browser API calls use the React origin https://localhost:5173.",
+            "API is unreachable. Check the API connection and try again.",
           );
         }
         if (error.status === 401) {

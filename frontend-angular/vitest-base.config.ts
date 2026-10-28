@@ -35,7 +35,7 @@ export default defineConfig({
     isolate: false,
     coverage: {
       provider: "v8",
-      reportsDirectory: path.resolve(projectRoot, "../Tests/angular.Tests/TestResults"),
+      reportsDirectory: path.resolve(projectRoot, "angular-frontend.Tests/TestResults"),
     },
   },
 });
