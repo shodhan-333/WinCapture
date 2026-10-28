@@ -21,17 +21,17 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["../Tests/frontend.Tests/**/*.test.{ts,tsx}"],
-    setupFiles: "../Tests/frontend.Tests/setup.ts",
+    include: ["frontend.Tests/**/*.test.{ts,tsx}"],
+    setupFiles: "frontend.Tests/setup.ts",
     clearMocks: true,
     restoreMocks: true,
     pool: "threads",
     maxWorkers: 1,
     coverage: {
       provider: "v8",
-      reporter: ["text", "html"],
-      reportsDirectory: path.resolve(frontendRoot, "../Tests/frontend.Tests/TestResults"),
-      // Backend coverage XML can coexist in this shared TestResults directory.
+      reporter: ["text", "html", "lcov"],
+      reportsDirectory: path.resolve(frontendRoot, "frontend.Tests/TestResults"),
+      // Keep frontend coverage reports beside this test project.
       clean: false,
       // Count files exercised by unit/component tests; do not add untouched app files to the denominator.
       exclude: ["src/**/*.d.ts", "src/types/**", "src/index.css"],

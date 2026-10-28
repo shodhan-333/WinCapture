@@ -48,12 +48,12 @@ npm test
 npm run test:coverage
 ```
 
-Angular tests live in `../Tests/angular.Tests`, organized to match the `src/app` feature and shared-code layout. Coverage output is written to `../Tests/angular.Tests/TestResults`.
+Angular tests live in the root-level `angular-frontend.Tests` folder, organized to match the `src/app` feature and shared-code layout. Coverage output is written to `angular-frontend.Tests/TestResults`.
 
 After `npm run test:coverage`, open the HTML report from this directory with:
 
 ```powershell
-Start-Process ..\Tests\angular.Tests\TestResults\index.html
+Start-Process ..\angular-frontend.Tests\TestResults\index.html
 ```
 
 ## Frontend conventions

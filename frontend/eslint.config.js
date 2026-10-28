@@ -5,16 +5,15 @@ import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**", "coverage/**"] },
+  { ignores: ["dist/**", "node_modules/**", "coverage/**", "**/TestResults/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   jsxA11y.flatConfigs.recommended,
   {
     files: [
       "src/**/*.{ts,tsx}",
-      "frontend/src/**/*.{ts,tsx}",
-      "../Tests/frontend.Tests/**/*.{ts,tsx}",
-      "Tests/frontend.Tests/**/*.{ts,tsx}",
+      "src/**/*.{ts,tsx}",
+      "frontend.Tests/**/*.{ts,tsx}",
     ],
     plugins: { "react-hooks": reactHooks, boundaries },
     settings: {

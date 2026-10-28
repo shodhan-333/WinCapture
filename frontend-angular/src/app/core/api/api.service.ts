@@ -120,7 +120,7 @@ export class ApiService {
         const body = this.getErrorBody(error.error);
         if (error.status === 0) {
           throw new Error(
-            "The WinCapture API could not be reached. Check the API connection and try again.",
+            "API is unreachable. Check the API connection and try again.",
           );
         }
         if (error.status === 401) {

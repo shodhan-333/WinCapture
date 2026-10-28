@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../src/*"],
+      "@testing-library/*": ["../node_modules/@testing-library/*"],
+      "vitest": ["../node_modules/vitest"],
+      "vite/client": ["../node_modules/vite/client.d.ts"]
+    },
+    "typeRoots": ["../node_modules/@types", "../node_modules"]
+  },
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "../src/**/*.d.ts"
+  ]
+}

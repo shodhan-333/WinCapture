@@ -87,7 +87,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "include": ["../../Tests/angular.Tests/**/*.spec.ts"],
+            "include": ["../angular-frontend.Tests/**/*.spec.ts"],
             "runnerConfig": "vitest-base.config.ts",
             "coverageInclude": ["src/**/*.ts"],
             "coverageExclude": [
@@ -96,7 +96,7 @@
               "src/app/app.config.ts"
             ],
             "coverageThresholds": { "branches": 98, "lines": 98 },
-            "coverageReporters": ["text", "html"],
+            "coverageReporters": ["text", "html", "lcov"],
             "buildTarget": "wincapture-angular:build:testing"
           }
         }
@@ -107,5 +107,3 @@
     "analytics": false
   }
 }
-
-
