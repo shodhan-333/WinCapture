@@ -266,18 +266,6 @@ export function FileCard({
               >
                 {file.originalFileName}
               </h3>
-
-              {/*
-              <p className="mt-[5px] flex items-center gap-[5px] text-[8px] text-[#8295a5]">
-                {formatFileType(file.contentType)}
-
-                <span aria-hidden="true">
-                  {"\u00B7"}
-                </span>
-
-                {formatFileSize(file.fileSize)}
-              </p>
-              */}
             </div>
 
             <FileActionMenu
@@ -290,12 +278,6 @@ export function FileCard({
               onDelete={onDelete}
             />
           </div>
-
-          {/*
-          <p className="mt-[10px] mb-0 border-t border-[#ebf1f5] pt-[9px] text-[8px] text-[#9aaab7]">
-            Added {formatDate(file.uploadedAt)}
-          </p>
-          */}
         </div>
       </div>
     </article>
