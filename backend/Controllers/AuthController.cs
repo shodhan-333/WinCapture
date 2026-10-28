@@ -17,18 +17,18 @@ public sealed class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public ActionResult<CurrentUserResponse> Me()
     {
-        var userId = User.FindFirst("wincapture_user_id")?.Value;
-
-        if (!int.TryParse(userId, out var parsedUserId) || parsedUserId <= 0)
-        {
-            throw new UnauthorizedException("The authenticated WinCapture user ID is missing or invalid.");
-        }
-
         var role = GetWinCaptureRole();
 
         if (role is null)
         {
             throw new ForbiddenException("The Microsoft account is authenticated but is not assigned to a WinCapture role.");
+        }
+
+        var userId = User.FindFirst("wincapture_user_id")?.Value;
+
+        if (!int.TryParse(userId, out var parsedUserId) || parsedUserId <= 0)
+        {
+            throw new UnauthorizedException("The authenticated WinCapture user ID is missing or invalid.");
         }
 
         var name = User.FindFirst("name")?.Value ?? string.Empty;

@@ -1,3 +1,5 @@
+-- LEGACY DEVELOPMENT SCRIPT: this schema predates Microsoft Entra identity and does not match the current EF Core model.
+-- Do not use this file to initialize or upgrade a production database. Generate a reviewed script from backend/Migrations instead.
 IF DB_ID(N'WinCaptureDevDB') IS NULL
     CREATE DATABASE WinCaptureDevDB;
 GO

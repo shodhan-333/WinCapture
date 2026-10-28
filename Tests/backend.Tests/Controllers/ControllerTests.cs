@@ -98,6 +98,9 @@ public sealed class ControllerTests
 
         var missingRole = WithUser(new AuthController(), 7, null);
         Assert.Throws<ForbiddenException>(() => missingRole.Me());
+
+        var missingIdentityAndRole = WithUser(new AuthController(), null, null);
+        Assert.Throws<ForbiddenException>(() => missingIdentityAndRole.Me());
     }
 
     [Fact]

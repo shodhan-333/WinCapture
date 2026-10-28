@@ -71,7 +71,10 @@ describe("Layout navigation", () => {
     expect(profile).toBeInTheDocument();
     expect(profile).toHaveTextContent("WinCapture User");
     expect(profile).toHaveTextContent("User");
-    expect(screen.getByRole("link", { name: "Albums" })).toHaveAttribute("href", "https://localhost:5173/angular/albums");
+    expect(screen.getByRole("link", { name: "Albums" })).toHaveAttribute(
+      "href",
+      `${window.location.origin}/angular/albums`,
+    );
 
     fireEvent.click(profile);
     fireEvent.keyDown(document, { key: "Enter" });

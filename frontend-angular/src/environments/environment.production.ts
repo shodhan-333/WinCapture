@@ -1,9 +1,21 @@
+type WinCaptureRuntimeConfig = {
+  apiBaseUrl?: string;
+  msalClientId?: string;
+  msalTenantId?: string;
+  msalApiScope?: string;
+  redirectUri?: string;
+  reactBaseUrl?: string;
+};
+
+const runtime = (window as Window & { __WINCAPTURE_CONFIG__?: WinCaptureRuntimeConfig })
+  .__WINCAPTURE_CONFIG__;
+
 export const environment = {
   production: true,
-  apiBaseUrl: "https://localhost:7106",
-  msalClientId: "fb87005a-2ae7-4cb9-84d5-5f9d3ca2556a",
-  msalTenantId: "bdcfaa46-3f69-4dfd-b3f7-c582bdfbb820",
-  msalApiScope: "api://fb87005a-2ae7-4cb9-84d5-5f9d3ca2556a/access_as_user",
-  redirectUri: "https://localhost:5173/redirect.html",
-  reactBaseUrl: "https://localhost:5173",
+  apiBaseUrl: runtime?.apiBaseUrl ?? "",
+  msalClientId: runtime?.msalClientId ?? "",
+  msalTenantId: runtime?.msalTenantId ?? "",
+  msalApiScope: runtime?.msalApiScope ?? "",
+  redirectUri: runtime?.redirectUri ?? `${window.location.origin}/redirect.html`,
+  reactBaseUrl: runtime?.reactBaseUrl ?? window.location.origin,
 };

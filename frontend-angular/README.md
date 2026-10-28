@@ -4,9 +4,9 @@ This Angular app recreates the React Albums page and uses the existing ASP.NET C
 
 ## Shared local origin and sign-in
 
-Run Angular behind the React Vite server at `https://localhost:5173/angular`. Vite proxies `/angular` to Angular on `http://localhost:4200`, while the React pages remain at the root paths such as `/dashboard`, `/files`, and `/albums/{id}`. The browser therefore uses the same origin and session storage for both apps. Angular reads the account already cached by React and obtains API access tokens with `acquireTokenSilent`; it does not start a second sign-in flow. Opening Angular without a React session shows a sign-in-first message.
+Run Angular behind the React Vite server at `https://localhost:5173/angular`. Vite proxies `/angular` to Angular on `http://localhost:4200` and `/api` to the local API, while React pages remain at root paths such as `/dashboard`, `/files`, and `/albums/{id}`. The browser therefore uses the same origin and session storage for both apps. Angular reads the account already cached by React and obtains API access tokens with `acquireTokenSilent`; it does not start a second sign-in flow. Opening Angular without a React session shows a sign-in-first message.
 
-The Angular MSAL redirect URI is the already registered `https://localhost:5173/redirect.html`. React's Vite server serves `frontend/public/redirect.html` and the pinned MSAL Browser 5.25.1 redirect bridge. The page only starts the bridge when an OAuth response is present, so a normal visit does not process an empty response. No Entra redirect URI change is required.
+The Angular MSAL redirect URI is the already registered `https://localhost:5173/redirect.html`. React's Vite server serves `frontend/public/redirect.html` and the pinned MSAL Browser 5.25.1 redirect bridge. The page only starts the bridge when an OAuth response is present, so a normal visit does not process an empty response. Production uses the deployed origin's `/redirect.html`; register that exact URI in Entra.
 
 ## Album API operations
 
@@ -36,7 +36,7 @@ npm run dev
 
 Open `https://localhost:5173`. Sign in through React, then choose Albums. To test the Angular page directly, use `https://localhost:5173/angular/albums`. `ANGULAR_DEV_SERVER_URL` can override the proxy target if Angular runs on a different local address.
 
-The backend's development CORS policy allows the React origin `https://localhost:5173`; Angular API calls use that same browser origin. Production hosting needs equivalent same-origin routing for `/angular` and an already registered callback on that origin. Configure the backend's explicit `Cors:AllowedOrigins` for any different production origin.
+The backend's development CORS policy allows the React origin `https://localhost:5173`; Angular API calls use that same browser origin. For Azure, `scripts/build-azure.mjs` compiles this app with base path `/angular/`, writes its public Entra settings to `/angular/runtime-config.js`, and combines it with React and the API for same-origin App Service hosting. Set the public `VITE_MSAL_CLIENT_ID`, `VITE_MSAL_TENANT_ID`, and `VITE_MSAL_API_SCOPE` values as documented in `../docs/AZURE_DEPLOYMENT.md`. Configure the backend's explicit `Cors:AllowedOrigins` if the API uses a different origin.
 
 ## Checks
 

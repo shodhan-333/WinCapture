@@ -32,12 +32,12 @@ describe("MSAL configuration", () => {
     expect(missing).not.toContain("VITE_MSAL_REDIRECT_URI");
     expect(missing).toEqual(
       expect.arrayContaining([
-        "VITE_API_BASE_URL",
         "VITE_MSAL_CLIENT_ID",
         "VITE_MSAL_TENANT_ID",
         "VITE_MSAL_API_SCOPE",
       ]),
     );
+    expect(missing).not.toContain("VITE_API_BASE_URL");
   });
 
   it("trims configured values, applies redirect defaults, and validates complete configuration", async () => {
@@ -55,9 +55,9 @@ describe("MSAL configuration", () => {
     expect(config.msalConfig.auth.clientId).toBe("client-id");
     expect(config.msalConfig.auth.authority).toBe("https://login.microsoftonline.com/tenant-id");
     expect(config.validateEnvironment()).toEqual([]);
-    expect(config.msalRedirectUri).toBe("https://localhost:5173/");
-    expect(config.msalPostLogoutRedirectUri).toBe("https://localhost:5173/");
-    expect(config.getAngularAlbumsUrl()).toBe("https://localhost:5173/angular/albums");
+    expect(config.msalRedirectUri).toBe(`${window.location.origin}/`);
+    expect(config.msalPostLogoutRedirectUri).toBe(`${window.location.origin}/`);
+    expect(config.getAngularAlbumsUrl()).toBe(`${window.location.origin}/angular/albums`);
   });
 
   it("resolves an explicitly configured absolute Angular Albums URL", async () => {

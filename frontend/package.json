@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:azure": "node ../scripts/build-azure.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "cd .. && eslint --config frontend/eslint.config.js frontend/src Tests/frontend.Tests --max-warnings=0",
     "format:check": "cd .. && prettier --config frontend/.prettierrc.json --check \"frontend/src/**/*.{ts,tsx,css}\" \"Tests/frontend.Tests/**/*.{ts,tsx}\" frontend/eslint.config.js frontend/.prettierrc.json frontend/package.json frontend/tsconfig.json frontend/vite.config.ts frontend/vitest.config.ts frontend/index.html",

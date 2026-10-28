@@ -18,14 +18,14 @@ describe("environment configuration", () => {
     const { environment, validateEnvironment } = await import("../../../frontend/src/config/env");
 
     expect(validateEnvironment()).toEqual([
-      "VITE_API_BASE_URL",
       "VITE_MSAL_CLIENT_ID",
       "VITE_MSAL_TENANT_ID",
       "VITE_MSAL_API_SCOPE",
     ]);
-    expect(environment.msalRedirectUri).toBe("https://localhost:5173/");
-    expect(environment.msalPostLogoutRedirectUri).toBe("https://localhost:5173/");
-    expect(environment.angularAlbumsBaseUrl).toBe("https://localhost:5173/angular/albums");
+    expect(environment.apiBaseUrl).toBe("");
+    expect(environment.msalRedirectUri).toBe(`${window.location.origin}/`);
+    expect(environment.msalPostLogoutRedirectUri).toBe(`${window.location.origin}/`);
+    expect(environment.angularAlbumsBaseUrl).toBe("/angular/albums");
   });
 
   it("trims configured values and reports no missing settings", async () => {

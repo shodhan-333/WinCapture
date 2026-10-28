@@ -49,6 +49,8 @@ node_modules/
 
 **/dist/
 dist/
+backend/wwwroot/
+backend/publish/
 
 **/build/
 build/

@@ -1,0 +1,70 @@
+name: Deploy Azure App Service
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: dotnet restore Tests/backend.Tests/WinCapture.Tests.csproj
+      - run: dotnet build backend/WinCapture.csproj -c Release --no-restore
+      - run: dotnet test Tests/backend.Tests/WinCapture.Tests.csproj -c Release
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm run lint
+      - working-directory: frontend
+        run: npm test
+      - working-directory: frontend-angular
+        run: npm ci
+      - working-directory: frontend-angular
+        run: npm run typecheck
+      - working-directory: frontend-angular
+        run: npm test
+      - name: Build combined site assets
+        working-directory: frontend
+        env:
+          VITE_MSAL_CLIENT_ID: ${{ vars.VITE_MSAL_CLIENT_ID }}
+          VITE_MSAL_TENANT_ID: ${{ vars.VITE_MSAL_TENANT_ID }}
+          VITE_MSAL_API_SCOPE: ${{ vars.VITE_MSAL_API_SCOPE }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: npm run build:azure
+      - name: Publish API and static site
+        run: dotnet publish backend/WinCapture.csproj --configuration Release --output backend/publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wincapture-appservice
+          path: backend/publish
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: validate-package
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wincapture-appservice
+          path: package
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: package

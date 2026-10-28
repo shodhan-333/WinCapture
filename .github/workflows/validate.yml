@@ -1,0 +1,63 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore backend
+        run: dotnet restore Tests/backend.Tests/WinCapture.Tests.csproj
+      - name: Build backend Release
+        run: dotnet build backend/WinCapture.csproj --configuration Release --no-restore
+      - name: Run backend tests
+        run: dotnet test Tests/backend.Tests/WinCapture.Tests.csproj --configuration Release
+
+      - name: Install React dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint React and frontend tests
+        working-directory: frontend
+        run: npm run lint
+      - name: Test React
+        working-directory: frontend
+        run: npm test
+      - name: Build React
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install Angular dependencies
+        working-directory: frontend-angular
+        run: npm ci
+      - name: Typecheck Angular
+        working-directory: frontend-angular
+        run: npm run typecheck
+      - name: Test Angular
+        working-directory: frontend-angular
+        run: npm test
+      - name: Build Angular production
+        working-directory: frontend-angular
+        run: npm run build:production
+
+      - name: Check backend dependency advisories
+        run: dotnet list Tests/backend.Tests/WinCapture.Tests.csproj package --vulnerable --include-transitive
+      - name: Check React dependency advisories
+        working-directory: frontend
+        run: npm audit --audit-level=high
+      - name: Check Angular dependency advisories
+        working-directory: frontend-angular
+        run: npm audit --audit-level=high

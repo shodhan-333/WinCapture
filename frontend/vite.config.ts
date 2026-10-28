@@ -20,6 +20,11 @@ export default defineConfig({
     strictPort: true,
 
     proxy: {
+      "/api": {
+        target: process.env.API_DEV_SERVER_URL || "https://localhost:7106",
+        changeOrigin: true,
+        secure: false,
+      },
       // Route the Angular app's /angular path to its separate local dev server.
       "/angular": {
         target: process.env.ANGULAR_DEV_SERVER_URL || "http://localhost:4200",
