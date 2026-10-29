@@ -4,7 +4,7 @@ import { environment } from "../../../environments/environment";
 export const msalConfig: Configuration = {
   auth: {
     clientId: environment.msalClientId,
-    authority: `https://login.microsoftonline.com/${environment.msalTenantId}`,
+    authority: `${environment.msalAuthority.replace(/\/$/, "")}/${environment.msalTenantId}`,
     redirectUri: environment.redirectUri,
     postLogoutRedirectUri: environment.redirectUri,
   },

@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "ng serve --host localhost --port 4200 --serve-path /angular",
-    "build": "ng build",
-    "build:production": "ng build --configuration production",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test": "ng test --watch=false",
-    "test:watch": "ng test",
-    "test:coverage": "ng test --watch=false --coverage"
+    "start": "node scripts/angular.mjs serve",
+    "build": "node scripts/angular.mjs build",
+    "build:production": "node scripts/angular.mjs build --configuration production",
+    "typecheck": "node scripts/angular.mjs typecheck",
+    "test": "node scripts/angular.mjs test --watch=false",
+    "test:watch": "node scripts/angular.mjs test",
+    "test:coverage": "node scripts/angular.mjs test --watch=false --coverage"
   },
   "dependencies": {
     "@angular/common": "^21.2.25",

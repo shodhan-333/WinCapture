@@ -33,6 +33,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     isolate: false,
+    setupFiles: [path.resolve(projectRoot, "vitest.setup.ts")],
     coverage: {
       provider: "v8",
       reportsDirectory: path.resolve(projectRoot, "angular-frontend.Tests/TestResults"),

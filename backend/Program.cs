@@ -11,6 +11,12 @@ using WinCapture.Services;
 using WinCapture.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
+var azureAdInstance = builder.Configuration["AzureAd:Instance"]?.TrimEnd('/')
+    ?? throw new InvalidOperationException("AzureAd:Instance is missing.");
+var azureAdTenantId = builder.Configuration["AzureAd:TenantId"]
+    ?? throw new InvalidOperationException("AzureAd:TenantId is missing.");
+var azureAdClientId = builder.Configuration["AzureAd:ClientId"]
+    ?? throw new InvalidOperationException("AzureAd:ClientId is missing.");
 
 var configuredCorsOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -33,14 +39,10 @@ foreach (var configuredOrigin in configuredCorsOrigins)
     corsOrigins.Add(origin.GetLeftPart(UriPartial.Authority));
 }
 
-if (builder.Environment.IsDevelopment())
-{
-    corsOrigins.Add("https://localhost:5173");
-}
-else if (builder.Environment.IsProduction() && corsOrigins.Count == 0)
+if (corsOrigins.Count == 0)
 {
     throw new InvalidOperationException(
-        "Configure at least one trusted frontend origin in Cors:AllowedOrigins for non-development environments.");
+        "Configure at least one trusted frontend origin in Cors:AllowedOrigins.");
 }
 
 builder.Services.AddDbContext<WinCaptureDbContext>(options =>
@@ -137,12 +139,12 @@ builder.Services.AddOpenApi(options =>
             {
                 AuthorizationCode = new OpenApiOAuthFlow
                 {
-                    AuthorizationUrl = new Uri($"https://login.microsoftonline.com/{builder.Configuration["AzureAd:TenantId"]}/oauth2/v2.0/authorize"),
-                    TokenUrl = new Uri($"https://login.microsoftonline.com/{builder.Configuration["AzureAd:TenantId"]}/oauth2/v2.0/token"),
+                    AuthorizationUrl = new Uri($"{azureAdInstance}/{azureAdTenantId}/oauth2/v2.0/authorize"),
+                    TokenUrl = new Uri($"{azureAdInstance}/{azureAdTenantId}/oauth2/v2.0/token"),
                     Scopes = new Dictionary<string, string>
                     {
                         {
-                            $"api://{builder.Configuration["AzureAd:ClientId"]}/access_as_user",
+                            $"api://{azureAdClientId}/access_as_user",
                             "Access WinCapture API"
                         }
                     }
@@ -174,10 +176,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/openapi/v1.json", "WinCapture API v1");
-        options.OAuthClientId(builder.Configuration["AzureAd:ClientId"]);
+        options.OAuthClientId(azureAdClientId);
         options.OAuthUsePkce();
-        options.OAuthScopes($"api://{builder.Configuration["AzureAd:ClientId"]}/access_as_user");
-        options.OAuth2RedirectUrl("https://localhost:7106/swagger/oauth2-redirect.html");
+        options.OAuthScopes($"api://{azureAdClientId}/access_as_user");
+        options.OAuth2RedirectUrl(
+            builder.Configuration["Swagger:OAuth2RedirectUrl"]
+            ?? throw new InvalidOperationException("Swagger:OAuth2RedirectUrl is missing."));
     });
 }
 

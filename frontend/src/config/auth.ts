@@ -19,7 +19,7 @@ export function getAngularAlbumsUrl(): string {
 export const msalConfig: Configuration = {
   auth: {
     clientId: msalClientId,
-    authority: `https://login.microsoftonline.com/${msalTenantId}`,
+    authority: `${environment.msalAuthority.replace(/\/$/, "")}/${msalTenantId}`,
     redirectUri: msalRedirectUri,
     postLogoutRedirectUri: msalPostLogoutRedirectUri,
   },

@@ -37,8 +37,8 @@ export class AlbumsPageComponent implements OnInit {
     Array.from({ length: this.pageCount() }, (_, index) => index + 1),
   );
   readonly formatDate = formatDate;
-  readonly reactAlbumsUrl =new URL("/albums", environment.reactBaseUrl).toString();
-readonly reactDashboardUrl =new URL("/dashboard", environment.reactBaseUrl).toString();
+  readonly reactAlbumsUrl = new URL("/albums", environment.reactBaseUrl).toString();
+  readonly reactDashboardUrl = new URL("/dashboard", environment.reactBaseUrl).toString();
   private debounceId: number | undefined;
   private requestVersion = 0;
   private readonly objectUrls = new Set<string>();

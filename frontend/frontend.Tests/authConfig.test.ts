@@ -26,6 +26,7 @@ describe("MSAL configuration", () => {
     vi.stubEnv("VITE_API_BASE_URL", "");
     vi.stubEnv("VITE_MSAL_CLIENT_ID", "");
     vi.stubEnv("VITE_MSAL_TENANT_ID", "");
+    vi.stubEnv("VITE_MSAL_AUTHORITY", "");
     vi.stubEnv("VITE_MSAL_API_SCOPE", "");
     vi.resetModules();
     const { validateEnvironment: validate } =
@@ -38,6 +39,7 @@ describe("MSAL configuration", () => {
         "VITE_API_BASE_URL",
         "VITE_MSAL_CLIENT_ID",
         "VITE_MSAL_TENANT_ID",
+        "VITE_MSAL_AUTHORITY",
         "VITE_MSAL_API_SCOPE",
       ]),
     );
@@ -47,6 +49,7 @@ describe("MSAL configuration", () => {
     vi.stubEnv("VITE_API_BASE_URL", " https://api.example.test ");
     vi.stubEnv("VITE_MSAL_CLIENT_ID", " client-id ");
     vi.stubEnv("VITE_MSAL_TENANT_ID", " tenant-id ");
+    vi.stubEnv("VITE_MSAL_AUTHORITY", " https://login.microsoftonline.com/ ");
     vi.stubEnv("VITE_MSAL_REDIRECT_URI", " ");
     vi.stubEnv("VITE_MSAL_POST_LOGOUT_REDIRECT_URI", " ");
     vi.stubEnv("VITE_MSAL_API_SCOPE", " api://client/access ");

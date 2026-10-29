@@ -17,6 +17,7 @@ backend/publish/
 **/dist/
 **/build/
 **/.vite/
+frontend-angular/public/runtime-config.js
 
 # Local environment and credentials
 .env

@@ -10,6 +10,7 @@ describe("environment configuration", () => {
     vi.stubEnv("VITE_API_BASE_URL", undefined);
     vi.stubEnv("VITE_MSAL_CLIENT_ID", undefined);
     vi.stubEnv("VITE_MSAL_TENANT_ID", undefined);
+    vi.stubEnv("VITE_MSAL_AUTHORITY", undefined);
     vi.stubEnv("VITE_MSAL_API_SCOPE", undefined);
     vi.stubEnv("VITE_MSAL_REDIRECT_URI", " ");
     vi.stubEnv("VITE_MSAL_POST_LOGOUT_REDIRECT_URI", "");
@@ -22,6 +23,7 @@ describe("environment configuration", () => {
       "VITE_API_BASE_URL",
       "VITE_MSAL_CLIENT_ID",
       "VITE_MSAL_TENANT_ID",
+      "VITE_MSAL_AUTHORITY",
       "VITE_MSAL_API_SCOPE",
     ]);
     expect(environment.msalRedirectUri).toBe(`${window.location.origin}/`);
@@ -35,6 +37,7 @@ describe("environment configuration", () => {
     vi.stubEnv("VITE_API_BASE_URL", " https://api.example.test ");
     vi.stubEnv("VITE_MSAL_CLIENT_ID", " client-id ");
     vi.stubEnv("VITE_MSAL_TENANT_ID", " tenant-id ");
+    vi.stubEnv("VITE_MSAL_AUTHORITY", " https://identity.example.test/ ");
     vi.stubEnv("VITE_MSAL_API_SCOPE", " api://scope ");
     vi.stubEnv("VITE_MSAL_REDIRECT_URI", " https://app.example.test/login ");
     vi.stubEnv(
@@ -51,6 +54,7 @@ describe("environment configuration", () => {
       apiBaseUrl: "https://api.example.test",
       msalClientId: "client-id",
       msalTenantId: "tenant-id",
+      msalAuthority: "https://identity.example.test/",
       apiScope: "api://scope",
       msalRedirectUri: "https://app.example.test/login",
       msalPostLogoutRedirectUri: "https://app.example.test/logout",
